@@ -1,0 +1,204 @@
+/**
+ * FavoritesService — Firestore operations for the favorites system.
+ *
+ * Unified on a single structure: `favorites/{userId}.articleIds` (string[]).
+ * The old `products` array with metadata has been removed — article details
+ * are fetched on-demand via paginated queries.
+ *
+ * Changes from previous version:
+ * - Removed getFavoriteCount() (use denormalised `favoritesCount` on articles)
+ * - Added getUserFavoriteArticlesPaginated() for the favorites screen
+ * - addToFavorites / removeFromFavorites simplified (single write)
+ */
+
+import {
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  QueryDocumentSnapshot,
+  setDoc,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
+import { firestore } from '@/config/firebaseConfig';
+import { Article } from '@/types';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface PaginatedFavorites {
+  articles: Article[];
+  /** Cursor for the next page (index into the articleIds array) */
+  nextCursor: number | null;
+  /** Number of orphaned IDs cleaned up in this page (articles that no longer exist) */
+  orphanedCount: number;
+}
+
+// ---------------------------------------------------------------------------
+// Core CRUD
+// ---------------------------------------------------------------------------
+
+export class FavoritesService {
+  /**
+   * Add an article to the user's favorites.
+   * Uses arrayUnion for atomic, idempotent add.
+   */
+  static async addToFavorites(userId: string, articleId: string): Promise<void> {
+    const ref = doc(firestore, 'favorites', userId);
+    await setDoc(
+      ref,
+      {
+        userId,
+        articleIds: arrayUnion(articleId),
+        updatedAt: new Date(),
+      },
+      { merge: true }
+    );
+  }
+
+  /**
+   * Remove an article from the user's favorites.
+   * Uses arrayRemove for atomic removal.
+   */
+  static async removeFromFavorites(userId: string, articleId: string): Promise<void> {
+    const ref = doc(firestore, 'favorites', userId);
+    await updateDoc(ref, {
+      articleIds: arrayRemove(articleId),
+      updatedAt: new Date(),
+    });
+  }
+
+  /**
+   * Get the raw list of favorite article IDs for a user.
+   */
+  static async getUserFavorites(userId: string): Promise<string[]> {
+    const ref = doc(firestore, 'favorites', userId);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) return [];
+    const data = (snap.data() as Record<string, unknown>) || {};
+    return Array.isArray(data.articleIds) ? (data.articleIds as string[]) : [];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Paginated article fetching (for the Favorites screen)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch a page of favorite articles with full Article data.
+   *
+   * Instead of loading ALL favorites at once, this slices the `articleIds`
+   * array and fetches only the articles for that page.
+   *
+   * @param userId  - Authenticated user ID
+   * @param cursor  - Start index in the articleIds array (0 for first page)
+   * @param pageSize - Number of articles per page (default 20)
+   */
+  static async getUserFavoriteArticlesPaginated(
+    userId: string,
+    cursor: number = 0,
+    pageSize: number = 20
+  ): Promise<PaginatedFavorites> {
+    // 1. Get all favorite IDs (single doc read, very cheap)
+    const allIds = await this.getUserFavorites(userId);
+
+    if (allIds.length === 0 || cursor >= allIds.length) {
+      return { articles: [], nextCursor: null, orphanedCount: 0 };
+    }
+
+    // 2. Slice the page from the IDs array (most recent first)
+    const reversedIds = [...allIds].reverse();
+    const pageIds = reversedIds.slice(cursor, cursor + pageSize);
+
+    // 3. Fetch articles in batches of 10 (Firestore `in` limit)
+    const articles: Article[] = [];
+    const batchSize = 10;
+
+    for (let i = 0; i < pageIds.length; i += batchSize) {
+      const batch = pageIds.slice(i, i + batchSize);
+      const articlesRef = collection(firestore, 'articles');
+      const qRef = query(articlesRef, where('__name__', 'in', batch));
+      const snapshot = await getDocs(qRef);
+
+      snapshot.forEach((d: QueryDocumentSnapshot) => {
+        if (!d.exists()) return;
+        const data = d.data();
+        // isSold is also a temporary reservation lock. Final-sale cleanup is
+        // owned by the server; a read must not delete a reserved membership.
+        if (data.isActive === false) return;
+        articles.push({
+          id: d.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() ?? new Date(),
+        } as Article);
+      });
+    }
+
+    // 4. Detect orphaned IDs: an ID is orphaned when its article was hard-deleted
+    // (doc missing) OR soft-deleted (filtered out above). Both are removed
+    // from the user's favorites so they stop counting against the cap.
+    const returnedIds = new Set(articles.map((a) => a.id));
+    const orphanedIds = pageIds.filter((id) => !returnedIds.has(id));
+
+    // 5. Silently clean up orphaned IDs in the background
+    if (orphanedIds.length > 0) {
+      this.removeOrphanedFavorites(userId, orphanedIds).catch((err) => {
+        if (__DEV__) console.log('[FavoritesService] Failed to clean orphaned favorites:', err);
+      });
+    }
+
+    // 6. Preserve the order from pageIds (Firestore `in` doesn't guarantee order)
+    const orderMap = new Map(pageIds.map((id, idx) => [id, idx]));
+    articles.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
+
+    // 7. Determine next cursor
+    const nextCursor = cursor + pageSize < reversedIds.length ? cursor + pageSize : null;
+
+    return { articles, nextCursor, orphanedCount: orphanedIds.length };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Orphan cleanup
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Remove orphaned article IDs from a user's favorites document.
+   * Called silently when deleted articles are detected during pagination.
+   */
+  private static async removeOrphanedFavorites(
+    userId: string,
+    orphanedIds: string[]
+  ): Promise<void> {
+    const ref = doc(firestore, 'favorites', userId);
+    // arrayRemove supports up to ~500 values per call, well within limits here
+    await updateDoc(ref, {
+      articleIds: arrayRemove(...orphanedIds),
+      updatedAt: new Date(),
+    });
+
+    if (__DEV__) console.log(`[FavoritesService] Cleaned ${orphanedIds.length} orphaned favorite(s) for user ${userId}`);
+  }
+
+  /**
+   * Legacy method — fetch ALL favorite articles at once.
+   * Kept for backward compatibility but prefer the paginated version.
+   */
+  static async getUserFavoriteArticles(userId: string): Promise<Article[]> {
+    const result = await this.getUserFavoriteArticlesPaginated(userId, 0, 1000);
+    return result.articles;
+  }
+
+  /**
+   * Check if an article is in the user's favorites.
+   * Prefer using the Zustand store's `isFavorite()` for O(1) checks.
+   */
+  static async isFavorite(userId: string, articleId: string): Promise<boolean> {
+    const ids = await this.getUserFavorites(userId);
+    return ids.includes(articleId);
+  }
+}

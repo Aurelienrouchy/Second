@@ -26,7 +26,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors, spacing, typography, radius, animations, sizing } from '@/constants/theme';
-import { SectionHeader } from '@/components/home/SectionHeader';
+import { SectionHeader } from '@/features/home/components/SectionHeader';
 import { useFeaturedSellers, FeaturedSeller } from './useFeaturedSellers';
 import { useSellerLike } from './useSellerLike';
 import { formatDisplayName } from '@/utils/formatName';

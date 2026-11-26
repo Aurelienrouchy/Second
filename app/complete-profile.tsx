@@ -10,7 +10,7 @@
  * Collects, in this strict vertical order:
  *  1. Title + message
  *  2. @pseudo (live availability check, debounced)
- *  3. ConsentFields (DOB JJ/MM/AAAA + 3 checkboxes) — reused as-is
+ *  3. ConsentFields (DOB JJ/MM/AAAA + explicit signup consents)
  *  4. CONTINUER
  *
  * Submit order (audit A6): completeConsent → recordSignupConsent (reserve
@@ -21,7 +21,9 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useShallow } from 'zustand/react/shallow';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -33,8 +35,9 @@ import {
   Text,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
-import { ConsentFields } from '@/components/auth-bottom-sheet/ConsentFields';
+import { ConsentFields } from '@/features/auth/components/ConsentFields';
 import { Input } from '@/components/ui';
 import {
   COPY_USERNAME,
@@ -44,8 +47,13 @@ import {
 import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 import { AuthService } from '@/services/authService';
-import { useAuthStore } from '@/store/authStore';
+import { EligibilityService, newEligibilityRequestId } from '@/services/eligibilityService';
+import { sellerActivityPolicy, signupConsentPolicy, isDefinitiveSignupRefusal, type SignupConsent } from '@/services/signupConsentJournal';
+import { getAuthSessionGeneration, useAuthStore } from '@/store/authStore';
+import { useLabelLifecycleContext } from '@/hooks/useLabelLifecycleContext';
+import type { OwnerEligibility } from '@/types/eligibility';
 import { computeAgeFromIso, MIN_AGE_REGISTER, toIsoDate } from '@/utils/age';
+import { auth } from '@/config/firebaseConfig';
 
 // Derives a coarse age band for analytics — the DOB itself is never sent (PII).
 function ageToBand(age: number): '16-17' | '18-24' | '25-34' | '35-44' | '45+' {
@@ -59,6 +67,11 @@ function ageToBand(age: number): '16-17' | '18-24' | '25-34' | '35-44' | '45+' {
 // Debounce before hitting the live availability callable. Only fires once the
 // local format is valid (no network call on a malformed handle).
 const AVAILABILITY_DEBOUNCE_MS = 350;
+
+function matchesSignupStatement(dto: OwnerEligibility): boolean {
+  return /^[a-f0-9]{64}$/.test(dto.version) && dto.statementVersion === sellerActivityPolicy.version &&
+    dto.statements?.personal === sellerActivityPolicy.statements.personal;
+}
 
 // Username field state machine. Drives the right icon (spinner/checkmark/none),
 // the inline error, and whether CONTINUER is enabled.
@@ -84,6 +97,30 @@ function reasonToError(reason: UsernameRejectionReason): string {
 
 export default function CompleteProfileScreen() {
   const insets = useSafeAreaInsets();
+  const { uid, pendingConsent, generation } = useAuthStore(useShallow(state => ({uid: state.authenticatedUid, pendingConsent: state.pendingConsent, generation: getAuthSessionGeneration()})));
+  const lifecycle = useLabelLifecycleContext('new-account-signup', uid);
+  const busyRef = useRef(false);
+  const [pendingSignup, setPendingSignup] = useState<SignupConsent | null>(null);
+  const [sellerAcceptance, setSellerAcceptance] = useState<string | null>(null);
+  const signupContext = useQuery({
+    queryKey: ['signup-consent-context', uid, generation, lifecycle.focusRevision],
+    enabled: !!uid && pendingConsent && lifecycle.focused,
+    staleTime: 0, gcTime: 0, retry: false,
+    queryFn: async () => {
+      if (!uid) throw new Error('Reconnectez-vous pour poursuivre votre inscription.');
+      const scope = lifecycle, operation = scope.capture();
+      const [pending, eligibility] = await Promise.all([
+        AuthService.getPendingSignupConsent(uid, {assertCurrent: () => scope.assertCurrent(operation)}),
+        EligibilityService.getMine(uid),
+      ]);
+      scope.assertCurrent(operation);
+      if (!matchesSignupStatement(eligibility)) throw new Error('Les conditions de votre inscription doivent être actualisées. Réessayez.');
+      return {pending, eligibility};
+    },
+  });
+  const statementBinding = signupContext.data ? JSON.stringify([uid, generation, signupContext.data.eligibility.version,
+    signupConsentPolicy.version, sellerActivityPolicy.version, sellerActivityPolicy.statements.personal]) : null;
+  const acceptedSellerActivity = pendingSignup !== null || sellerAcceptance !== null && sellerAcceptance === statementBinding;
 
   // ── @pseudo ──
   const [username, setUsername] = useState('');
@@ -108,12 +145,38 @@ export default function CompleteProfileScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
 
+  // Reset the form during rendering when its identity changes; no prior member's
+  // values are committed to a frame belonging to the next member.
+  const formKey = JSON.stringify([uid, generation]);
+  const [formOwner, setFormOwner] = useState(formKey);
+  if (formOwner !== formKey) {
+    setFormOwner(formKey);
+    setUsername(''); setUsernameStatus('idle'); setUsernameError(undefined);
+    setDobDay(''); setDobMonth(''); setDobYear(''); setDobTouched(false);
+    setAcceptedTerms(false); setAcceptedPrivacy(false); setMarketingOptIn(false);
+    setSellerAcceptance(null); setPendingSignup(null); setSubmitError(undefined); setIsSubmitting(false);
+  }
+  const [restoredContext, setRestoredContext] = useState<typeof signupContext.data>();
+  if (restoredContext !== signupContext.data) {
+    setRestoredContext(signupContext.data);
+    const pending = signupContext.data?.pending;
+    if (pending) {
+      // These are the member's own submitted choices, never new consent.
+      setPendingSignup(pending);
+      const [year, month, day] = pending.dateOfBirth.split('-');
+      setDobYear(year); setDobMonth(month); setDobDay(day);
+      setUsername(pending.desiredUsername ?? ''); setUsernameStatus('available'); setUsernameError(undefined);
+      setAcceptedTerms(pending.acceptedTerms); setAcceptedPrivacy(pending.acceptedPrivacy);
+      setMarketingOptIn(pending.marketingOptIn);
+    }
+  }
+
   // ── Username live availability ──
-  const runAvailabilityCheck = useCallback((value: string, reqId: number) => {
+  const runAvailabilityCheck = (value: string, reqId: number) => {
     AuthService.checkUsernameAvailability(value)
       .then((res) => {
         // Ignore if a newer keystroke superseded this request.
-        if (reqId !== requestIdRef.current) return;
+        if (reqId !== requestIdRef.current || useAuthStore.getState().authenticatedUid !== uid || getAuthSessionGeneration() !== generation) return;
         usernameCheckCountRef.current += 1;
         if (res.available) {
           setUsernameStatus('available');
@@ -151,7 +214,7 @@ export default function CompleteProfileScreen() {
         }
       })
       .catch((error) => {
-        if (reqId !== requestIdRef.current) return;
+        if (reqId !== requestIdRef.current || useAuthStore.getState().authenticatedUid !== uid || getAuthSessionGeneration() !== generation) return;
         if (__DEV__) console.log('[complete-profile] availability check failed:', error);
         setUsernameStatus('network-error');
         setUsernameError(COPY_USERNAME.errNetwork);
@@ -162,10 +225,9 @@ export default function CompleteProfileScreen() {
           attempt_index: usernameCheckCountRef.current,
         });
       });
-  }, []);
+  };
 
-  const handleChangeUsername = useCallback(
-    (raw: string) => {
+  const handleChangeUsername = (raw: string) => {
       // Normalise to lowercase for display + the call, but DO NOT silently strip
       // illegal chars — show what the user typed + the error if invalid.
       const next = raw.toLowerCase();
@@ -206,9 +268,7 @@ export default function CompleteProfileScreen() {
       debounceRef.current = setTimeout(() => {
         runAvailabilityCheck(local.username, reqId);
       }, AVAILABILITY_DEBOUNCE_MS);
-    },
-    [runAvailabilityCheck],
-  );
+  };
 
   // Cleanup the pending debounce on unmount.
   useEffect(() => {
@@ -258,92 +318,116 @@ export default function CompleteProfileScreen() {
     !ageValid ||
     !acceptedTerms ||
     !acceptedPrivacy ||
+    !acceptedSellerActivity ||
+    !lifecycle.focused || !pendingConsent || !signupContext.data || signupContext.isFetching || signupContext.isError ||
     isSubmitting;
 
-  const handleToggleTerms = useCallback(() => {
+  const handleToggleTerms = () => {
     const next = !acceptedTerms;
     track('consent_toggled', { consent_type: 'terms', checked: next });
     setAcceptedTerms(next);
-  }, [acceptedTerms]);
-  const handleTogglePrivacy = useCallback(() => {
+  };
+  const handleTogglePrivacy = () => {
     const next = !acceptedPrivacy;
     track('consent_toggled', { consent_type: 'privacy', checked: next });
     setAcceptedPrivacy(next);
-  }, [acceptedPrivacy]);
-  const handleToggleMarketing = useCallback(() => {
+  };
+  const handleToggleMarketing = () => {
     const next = !marketingOptIn;
     track('consent_toggled', { consent_type: 'marketing', checked: next });
     setMarketingOptIn(next);
-  }, [marketingOptIn]);
-  const handleBlurDob = useCallback(() => setDobTouched(true), []);
+  };
+  const handleBlurDob = () => setDobTouched(true);
 
-  const handleSubmit = useCallback(async () => {
-    if (submitDisabled || !isoDob) return;
-    const signupMethod =
-      useAuthStore.getState().pendingConsentUser?.authProvider ?? 'email';
-    const usernameLength = username.trim().length;
-    track('signup_profile_submitted', {
-      signup_method: signupMethod,
-      marketing_opt_in: marketingOptIn,
-      username_length: usernameLength,
-    });
+  const handleLeaveSignup = async () => {
+    if (!uid || busyRef.current || !lifecycle.focused) return;
+    const expectedGeneration = generation;
+    busyRef.current = true;
     setIsSubmitting(true);
-    setSubmitError(undefined);
     try {
-      await useAuthStore.getState().completeConsent({
-        dateOfBirth: isoDob,
-        acceptedTerms,
-        acceptedPrivacy,
-        marketingOptIn,
-        desiredUsername: username.trim().toLowerCase(),
-      });
-      // On success the store flips authenticated + clears pendingConsent; the
-      // guard stops re-routing. Navigation to the app resumes via the normal
-      // flow (index → tabs / preferences onboarding).
-    } catch (error) {
-      // Map the structured callable error (FirebaseError-like) to inline UX.
-      const code = (error as { code?: string } | null)?.code;
-      const details = (error as { details?: { field?: string; reason?: string } } | null)?.details;
-      const isUsernameField = details?.field === 'username';
+      await useAuthStore.getState().signOut({expectedUid: uid, expectedGeneration});
+      if (auth.currentUser === null && useAuthStore.getState().authenticatedUid === null) router.replace('/(tabs)');
+    } catch {
+      if (useAuthStore.getState().authenticatedUid === uid) setSubmitError('Impossible de quitter l’inscription. Réessayez.');
+    } finally {
+      busyRef.current = false;
+      if (useAuthStore.getState().authenticatedUid === uid && getAuthSessionGeneration() === expectedGeneration) setIsSubmitting(false);
+    }
+  };
 
-      let errorCode: 'username_taken' | 'username_invalid' | 'age_invalid' | 'consent_required' | 'network';
-      if (code === 'functions/already-exists' && isUsernameField) {
-        // Pseudo taken by someone else (race vs the live check). Inline error
-        // under the field; NO account rollback — user re-submits another handle.
-        setUsernameStatus('taken');
-        setUsernameError(COPY_USERNAME.errTaken);
-        errorCode = 'username_taken';
-      } else if (code === 'functions/invalid-argument' && isUsernameField && details?.reason) {
-        setUsernameStatus('invalid');
-        setUsernameError(reasonToError(details.reason as UsernameRejectionReason));
-        errorCode = 'username_invalid';
-      } else if (code === 'functions/invalid-argument') {
-        // DOB invalid / age < 16 (no field). Surface near the consent block.
-        setSubmitError(COPY_CONSENT_AGE_ERROR);
-        errorCode = 'age_invalid';
-      } else if (code === 'functions/failed-precondition') {
-        setSubmitError(COPY_CONSENT_REQUIRED_ERROR);
-        errorCode = 'consent_required';
+  const handleSubmit = async () => {
+    if (submitDisabled || !isoDob || !uid || busyRef.current) return;
+    const scope = lifecycle;
+    let operation: ReturnType<typeof scope.start>;
+    try { operation = scope.start(); } catch { return; }
+    if (!operation) return;
+    busyRef.current = true;
+    const signupMethod = useAuthStore.getState().pendingConsentUser?.authProvider ?? 'email';
+    track('signup_profile_submitted', {signup_method: signupMethod, marketing_opt_in: marketingOptIn,
+      username_length: username.trim().length});
+    setIsSubmitting(true); setSubmitError(undefined);
+    try {
+      let payload = pendingSignup;
+      if (!payload) {
+        const fresh = await EligibilityService.getMine(uid);
+        scope.assertCurrent(operation);
+        if (!matchesSignupStatement(fresh) || fresh.version !== signupContext.data?.eligibility.version ||
+            sellerAcceptance !== statementBinding) {
+          setSellerAcceptance(null);
+          void signupContext.refetch();
+          throw Object.assign(new Error('Vos renseignements ont changé. Relisez votre déclaration avant de continuer.'), {code: 'client/signup-version-changed'});
+        }
+        payload = {
+          dateOfBirth: isoDob, acceptedTerms, acceptedPrivacy, marketingOptIn,
+          desiredUsername: username.trim().toLowerCase(), policyVersion: signupConsentPolicy.version,
+          sellerActivityDeclaration: {kind: 'personal', statementVersion: fresh.statementVersion,
+            personalDeclarationAccepted: true, expectedVersion: fresh.version, requestId: newEligibilityRequestId(), expectedUid: uid},
+        };
+      }
+      scope.assertCurrent(operation);
+      await useAuthStore.getState().completeConsent(payload, {assertCurrent: () => scope.assertCurrent(operation)});
+      // completeConsent intentionally changes the session generation when signing in.
+      // No operation guarded by the old generation may run after that transition.
+    } catch (error) {
+      if (!scope.isCurrent(operation)) return;
+      const code = (error as {code?: string} | null)?.code;
+      const details = (error as {details?: {field?: string; reason?: string}} | null)?.details;
+      if (isDefinitiveSignupRefusal(error)) {
+        setPendingSignup(null);
+        setSellerAcceptance(null);
+        void signupContext.refetch();
+      } else if (code !== 'client/signup-version-changed') {
+        // A transport error never turns an uncertain first submit into a new one.
+        try {
+          const pending = await AuthService.getPendingSignupConsent(uid, {assertCurrent: () => scope.assertCurrent(operation)});
+          scope.assertCurrent(operation);
+          setPendingSignup(pending);
+        } catch {
+          if (!scope.isCurrent(operation)) return;
+        }
+      }
+      let errorCode: 'username_taken' | 'username_invalid' | 'age_invalid' | 'consent_required' | 'network' = 'network';
+      if ((code === 'functions/already-exists' || code === 'already-exists') && details?.field === 'username') {
+        setUsernameStatus('taken'); setUsernameError(COPY_USERNAME.errTaken); errorCode = 'username_taken';
+      } else if ((code === 'functions/invalid-argument' || code === 'invalid-argument') && details?.field === 'username' && details.reason) {
+        setUsernameStatus('invalid'); setUsernameError(reasonToError(details.reason as UsernameRejectionReason)); errorCode = 'username_invalid';
+      } else if (code === 'client/signup-version-changed' || details?.reason === 'eligibility_version_changed') {
+        setSubmitError('Vos renseignements ont changé. Relisez votre déclaration avant de continuer.');
+      } else if (code === 'functions/invalid-argument' || code === 'invalid-argument') {
+        setSubmitError(COPY_CONSENT_AGE_ERROR); errorCode = 'age_invalid';
+      } else if (code === 'functions/failed-precondition' || code === 'failed-precondition') {
+        setSubmitError('Vérifiez les conditions et votre déclaration avant de continuer.'); errorCode = 'consent_required';
       } else {
         if (__DEV__) console.log('[complete-profile] completeConsent failed:', error);
-        setSubmitError(COPY_USERNAME.errNetwork);
-        errorCode = 'network';
+        setSubmitError('Votre inscription reste à confirmer. Réessayez pour reprendre vos choix.');
       }
-      track('signup_profile_failed', {
-        error_code: errorCode,
-        username_length: username.trim().length,
-      });
+      track('signup_profile_failed', {error_code: errorCode, username_length: username.trim().length});
     } finally {
-      setIsSubmitting(false);
+      busyRef.current = false;
+      scope.finish(operation);
+      if (useAuthStore.getState().authenticatedUid === uid && getAuthSessionGeneration() === generation) setIsSubmitting(false);
     }
-  }, [
-    submitDisabled,
-    isoDob,
-    acceptedTerms,
-    acceptedPrivacy,
-    marketingOptIn,
-    username,
-  ]);
+  };
 
   // Progress proxy for signup_back_blocked, mirrored to a ref so the one-shot
   // BackHandler effect reads the latest value without re-subscribing.
@@ -354,6 +438,7 @@ export default function CompleteProfileScreen() {
     dobYear !== '',
     acceptedTerms,
     acceptedPrivacy,
+    acceptedSellerActivity,
   ].filter(Boolean).length;
   const fieldsFilledRef = useRef(fieldsFilledCount);
   useEffect(() => {
@@ -403,6 +488,7 @@ export default function CompleteProfileScreen() {
             label={COPY_USERNAME.label}
             placeholder={COPY_USERNAME.placeholder}
             value={username}
+            editable={!isSubmitting && !pendingSignup}
             onChangeText={handleChangeUsername}
             hint={COPY_USERNAME.helper}
             error={usernameError}
@@ -425,6 +511,10 @@ export default function CompleteProfileScreen() {
             dobYear={dobYear}
             acceptedTerms={acceptedTerms}
             acceptedPrivacy={acceptedPrivacy}
+            acceptedSellerActivity={acceptedSellerActivity}
+            sellerActivityStatement={sellerActivityPolicy.statements.personal}
+            disabled={isSubmitting || pendingSignup !== null}
+            sellerActivityDisabled={!signupContext.data || signupContext.isFetching || signupContext.isError}
             marketingOptIn={marketingOptIn}
             showAgeError={showAgeError}
             onChangeDobDay={setDobDay}
@@ -433,8 +523,16 @@ export default function CompleteProfileScreen() {
             onBlurDob={handleBlurDob}
             onToggleTerms={handleToggleTerms}
             onTogglePrivacy={handleTogglePrivacy}
+            onToggleSellerActivity={() => setSellerAcceptance(acceptedSellerActivity ? null : statementBinding)}
             onToggleMarketing={handleToggleMarketing}
           />
+
+          {pendingSignup ? <Text style={styles.immutability}>Votre inscription précédente reste à confirmer. Continuer reprend vos choix.</Text> : null}
+          {signupContext.isError ? (
+            <Pressable onPress={() => { void signupContext.refetch(); }} accessibilityRole="button" accessibilityLabel="Réessayer la vérification">
+              <Text style={styles.submitError}>Vérification impossible. Touchez pour réessayer.</Text>
+            </Pressable>
+          ) : null}
 
           {submitError ? (
             <Text style={styles.submitError}>{submitError}</Text>
@@ -455,6 +553,15 @@ export default function CompleteProfileScreen() {
               <Text style={styles.ctaText}>{COPY_USERNAME.cta}</Text>
             )}
           </Pressable>
+          <Pressable
+            testID="complete-profile-leave"
+            accessibilityRole="button"
+            disabled={isSubmitting || !lifecycle.focused}
+            onPress={() => { void handleLeaveSignup(); }}
+            style={styles.leaveButton}
+          >
+            <Text style={styles.leaveText}>Quitter l’inscription</Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -465,8 +572,6 @@ export default function CompleteProfileScreen() {
 // consent copy semantics without re-deriving them locally.
 const COPY_CONSENT_AGE_ERROR =
   'Vous devez avoir au moins 16 ans pour utiliser Second.';
-const COPY_CONSENT_REQUIRED_ERROR =
-  "Vous devez accepter les Conditions d'utilisation et la Politique de confidentialité.";
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -536,5 +641,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.white,
     letterSpacing: 1.2,
+  },
+  leaveButton: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+  },
+  leaveText: {
+    ...typography.bodySmall,
+    color: colors.muted,
   },
 });

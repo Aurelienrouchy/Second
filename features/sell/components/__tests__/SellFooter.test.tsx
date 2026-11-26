@@ -43,3 +43,25 @@ describe('<SellFooter />', () => {
     expect(onPress).not.toHaveBeenCalled();
   });
 });
+
+describe('<SellFooter /> — une étape invalide dit pourquoi', () => {
+  it('au tap, une étape invalide appelle onInvalidPress, pas onPress', () => {
+    // Le bouton désactivé ne déclenchait RIEN : les écrans Prix et Détails
+    // n'affichaient jamais leurs messages d'erreur, puisqu'ils ne naissent
+    // qu'au tap.
+    const onPress = jest.fn();
+    const onInvalidPress = jest.fn();
+    render(
+      <SellFooter
+        label="APERÇU"
+        onPress={onPress}
+        onInvalidPress={onInvalidPress}
+        isValid={false}
+        bottomInset={0}
+      />,
+    );
+    fireEvent.press(screen.getByText('APERÇU'));
+    expect(onInvalidPress).toHaveBeenCalledTimes(1);
+    expect(onPress).not.toHaveBeenCalled();
+  });
+});

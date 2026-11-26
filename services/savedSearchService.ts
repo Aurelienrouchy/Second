@@ -11,8 +11,8 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore';
-import { firestore } from '../config/firebaseConfig';
-import { SearchFilters } from '../types';
+import { firestore } from '@/config/firebaseConfig';
+import { SearchFilters } from '@/types';
 
 export interface SavedSearch {
   id: string;

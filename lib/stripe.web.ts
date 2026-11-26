@@ -1,6 +1,6 @@
 import React from 'react';
 import type { StripeProviderProps } from '@stripe/stripe-react-native';
-import type { PaymentSheetAdapter, UnsupportedPaymentPlatformError } from './stripe.types';
+import type { PaymentSheetAdapter, UnsupportedPaymentPlatformError, StripeCardFieldProps } from './stripe.types';
 
 export function StripeProvider({ children }: StripeProviderProps) {
   return React.createElement(React.Fragment, null, children);
@@ -16,9 +16,12 @@ function unavailable(): { error: UnsupportedPaymentPlatformError } {
 }
 
 const webPaymentSheet: PaymentSheetAdapter = {
+  createPaymentMethod: async () => unavailable(),
+  handleNextAction: async () => unavailable(),
   initPaymentSheet: async () => unavailable(),
   presentPaymentSheet: async () => unavailable(),
 };
+export function CardField(_props: StripeCardFieldProps): null { return null; }
 
 /** Fail explicitly if a payment surface is reached; never simulate success. */
 export function useStripe(): PaymentSheetAdapter {

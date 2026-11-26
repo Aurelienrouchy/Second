@@ -11,7 +11,7 @@ const mockDraft = {
   aiResult: { title: 'Titre IA' },
   pricing: { price: 20, isHandDelivery: true, isShipping: false, neighborhoods: [{ id: 'n1', name: 'Quartier', borough: 'Borough' }], packageSize: null },
 };
-jest.mock('@/services/draftService', () => ({
+jest.mock('@/features/sell/services/draftService', () => ({
   __esModule: true,
   default: {
     assertCurrentOwner: jest.fn(),
@@ -23,7 +23,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ resumeDraft: 'true' }),
   useRouter: () => require('expo-router').router,
   useFocusEffect: jest.fn(),
-  useNavigation: () => ({ addListener: jest.fn(() => jest.fn()) }),
+  useNavigation: () => ({ isFocused: () => true, addListener: jest.fn(() => jest.fn()) }),
   router: { push: jest.fn(), back: jest.fn() },
 }));
 jest.mock('@/features/sell', () => ({
@@ -33,9 +33,11 @@ jest.mock('@/features/sell', () => ({
     return <Pressable testID="next" onPress={onPress} />;
   },
 }));
-jest.mock('@/components/NeighborhoodBottomSheet', () => () => null);
-jest.mock('@/components/sell/FormSectionTitle', () => () => null);
-jest.mock('@/components/ui', () => ({ ScreenHeader: () => null }));
+jest.mock('@/features/sell/components/pricing/NeighborhoodBottomSheet', () => () => null);
+jest.mock('@/features/sell/components/shared/FormSectionTitle', () => () => null);
+jest.mock('@/components/ui', () => ({
+  Button: jest.requireActual('@/components/ui/Button').Button,
+ ScreenHeader: () => null }));
 import PricingScreen from '@/app/sell/pricing';
 
 describe('resume sell pricing', () => {
@@ -46,9 +48,9 @@ describe('resume sell pricing', () => {
     fireEvent.press(screen.getByTestId('next'));
     await waitFor(() => expect(router.push).toHaveBeenCalledTimes(1));
     const { params } = (router.push as jest.Mock).mock.calls[0][0];
-    expect(JSON.parse(params.photos)).toEqual(mockDraft.photos);
-    expect(JSON.parse(params.storageUrls)).toEqual(mockDraft.storageUrls);
-    expect(JSON.parse(params.fields)).toEqual(mockDraft.fields);
-    expect(JSON.parse(params.aiResult)).toEqual(mockDraft.aiResult);
+    expect(JSON.parse(decodeURIComponent(params.photos))).toEqual(mockDraft.photos);
+    expect(JSON.parse(decodeURIComponent(params.storageUrls))).toEqual(mockDraft.storageUrls);
+    expect(JSON.parse(decodeURIComponent(params.fields))).toEqual(mockDraft.fields);
+    expect(JSON.parse(decodeURIComponent(params.aiResult))).toEqual(mockDraft.aiResult);
   });
 });

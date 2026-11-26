@@ -3,10 +3,9 @@
  * Vue détaillée d'une boutique pour validation/rejet/suspension
  */
 
-import RejectionModal, { RejectionModalRef } from '@/components/admin/RejectionModal';
+import RejectionModal, { RejectionModalRef } from '@/features/admin/components/RejectionModal';
 import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 import { useUser } from '@/hooks/useAuth';
-import { NotificationService } from '@/services/notificationService';
 import { ShopService } from '@/services/shopService';
 import { UserService } from '@/services/userService';
 import { Shop, ShopTypeLabels } from '@/types';
@@ -26,56 +25,51 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, radius } from '@/constants/theme';
+import { CancelledError, useQuery } from '@tanstack/react-query';
+import { useShippingPurchaseContext } from '@/hooks/useShippingPurchaseContext';
+import { getAuthSessionGeneration } from '@/store/authStore';
 
 export default function AdminShopDetailScreen() {
   const router = useRouter();
   const user = useUser();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [shop, setShop] = useState<Shop | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const context = useShippingPurchaseContext(`admin-shop-detail:${id}`, user?.id ?? null);
+  const [busy, setBusy] = useState<{frame: symbol; focus: number; value: boolean} | null>(null);
+  const isSubmitting = busy?.frame === context.frame && busy.focus === context.focusRevision && busy.value;
+  const [imageSelection, setImageSelection] = useState({id, index: 0});
+  const selectedImageIndex = imageSelection.id === id ? imageSelection.index : 0;
+  const setSelectedImageIndex = (index: number) => setImageSelection({id, index});
   const rejectionModalRef = useRef<RejectionModalRef>(null);
-
-  const loadShopDetails = async () => {
-    try {
-      setIsLoading(true);
-
-      // Défense en profondeur : on vérifie le statut admin avant d'exposer les
-      // détails de modération (la vraie barrière reste les rules + callables).
-      if (!user) {
-        router.replace('/(tabs)');
-        return;
+  const rejectSelection = useRef<ReturnType<typeof context.capture> | null>(null);
+  const shopQuery = useQuery({queryKey: ['admin-shop-detail', user?.id, getAuthSessionGeneration(), id, context.focusRevision],
+    enabled: !!user && typeof id === 'string' && !!id && context.focused, staleTime: 0, gcTime: 0, retry: false,
+    queryFn: async ({signal}) => {
+      try {
+      const operation = context.capture();
+      const allowed = await UserService.isUserAdmin(operation.session.uid); context.assertCurrent(operation);
+      if (!allowed) throw new Error('Votre accès administratif doit être confirmé.');
+      const result = await ShopService.getShopById(id, {scope: 'owner_or_admin', expectedUid: operation.session.uid});
+      context.assertCurrent(operation); return result;
+      } catch (error) {
+        if (signal.aborted || error && typeof error === 'object' && 'code' in error && error.code === 'client/stale-operation') throw new CancelledError({revert: true});
+        throw error;
       }
-      const adminStatus = await UserService.isUserAdmin(user.id);
-      if (!adminStatus) {
-        Alert.alert('Accès refusé', 'Vous n\'avez pas les droits d\'administrateur', [
-          { text: 'OK', onPress: () => router.replace('/(tabs)') },
-        ]);
-        return;
-      }
-
-      const shopData = await ShopService.getShopById(id!);
-      setShop(shopData);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading shop details:', error);
-      Alert.alert('Erreur', 'Impossible de charger les détails de la boutique');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    }});
+  const shop = context.focused && !shopQuery.isError ? shopQuery.data ?? null : null;
+  const isLoading = shopQuery.isPending || shopQuery.isFetching;
+  const mapCoordinates = typeof shop?.location.latitude === 'number' && Number.isFinite(shop.location.latitude) && Math.abs(shop.location.latitude) <= 90 &&
+    typeof shop.location.longitude === 'number' && Number.isFinite(shop.location.longitude) && Math.abs(shop.location.longitude) <= 180
+    ? {latitude: shop.location.latitude, longitude: shop.location.longitude} : null;
 
   useEffect(() => {
-    if (id) {
-      (async () => {
-        await loadShopDetails();
-      })();
-    }
-  }, [id, user]);
+    rejectSelection.current = null; rejectionModalRef.current?.hide();
+  }, [context.frame, context.focusRevision]);
 
   const handleApprove = () => {
     if (!user || !shop) return;
+    let opened: ReturnType<typeof context.capture>;
+    try {opened = context.capture();} catch {return;}
 
     Alert.alert(
       'Approuver la boutique',
@@ -86,19 +80,22 @@ export default function AdminShopDetailScreen() {
           text: 'Approuver',
           style: 'default',
           onPress: async () => {
-            if (isSubmitting) return;
+            if (!context.isCurrent(opened)) return;
+            const operation = context.start(); if (!operation) return;
             try {
-              setIsSubmitting(true);
-              await ShopService.approveShop(shop.id);
-              await NotificationService.notifyShopApproved(shop.id, shop.ownerId);
+              setBusy({frame: context.frame, focus: context.focusRevision, value: true});
+              await ShopService.approveShop(shop.id, {expectedUid: operation.session.uid, assertCurrent: () => context.assertCurrent(operation)});
+              context.assertCurrent(operation);
               Alert.alert('Succès', 'La boutique a été approuvée', [
-                { text: 'OK', onPress: () => router.back() },
+                { text: 'OK', onPress: () => {if (context.isCurrent(operation)) router.back();} },
               ]);
             } catch (error) {
+              if (!context.isCurrent(operation)) return;
               if (__DEV__) console.error('Error approving shop:', error);
               Alert.alert('Erreur', 'Impossible d\'approuver la boutique');
             } finally {
-              setIsSubmitting(false);
+              if (context.isCurrent(operation)) setBusy({frame: context.frame, focus: context.focusRevision, value: false});
+              context.finish(operation);
             }
           },
         },
@@ -107,24 +104,28 @@ export default function AdminShopDetailScreen() {
   };
 
   const handleReject = () => {
+    try {rejectSelection.current = context.capture();} catch {return;}
     rejectionModalRef.current?.show();
   };
 
   const handleConfirmReject = async (reason: string) => {
-    if (!user || !shop || isSubmitting) return;
-
+    if (!user || !shop || !rejectSelection.current || !context.isCurrent(rejectSelection.current)) return;
+    const operation = context.start(); if (!operation) return;
     try {
-      setIsSubmitting(true);
-      await ShopService.rejectShop(shop.id, reason);
-      await NotificationService.notifyShopRejected(shop.id, shop.ownerId, reason);
+      setBusy({frame: context.frame, focus: context.focusRevision, value: true});
+      await ShopService.rejectShop(shop.id, reason, {expectedUid: operation.session.uid, assertCurrent: () => context.assertCurrent(operation)});
+      context.assertCurrent(operation);
       Alert.alert('Succès', 'La boutique a été rejetée', [
-        { text: 'OK', onPress: () => router.back() },
+        { text: 'OK', onPress: () => {if (context.isCurrent(operation)) router.back();} },
       ]);
     } catch (error) {
+      if (!context.isCurrent(operation)) return;
       if (__DEV__) console.error('Error rejecting shop:', error);
       Alert.alert('Erreur', 'Impossible de rejeter la boutique');
+      throw error;
     } finally {
-      setIsSubmitting(false);
+      if (context.isCurrent(operation)) setBusy({frame: context.frame, focus: context.focusRevision, value: false});
+      context.finish(operation);
     }
   };
 
@@ -206,7 +207,8 @@ export default function AdminShopDetailScreen() {
       <SafeAreaView testID="admin-shop-detail-screen" style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={colors.danger} />
-          <Text style={styles.errorText}>Boutique introuvable</Text>
+          <Text style={styles.errorText}>{shopQuery.isError ? 'Impossible de charger la boutique ou de confirmer vos droits.' : 'Boutique introuvable'}</Text>
+          {shopQuery.isError ? <Pressable onPress={() => {try {context.capture(); void shopQuery.refetch();} catch {/* Inactive operator. */}}}><Text style={styles.errorText}>Réessayer</Text></Pressable> : null}
         </View>
       </SafeAreaView>
     );
@@ -234,7 +236,7 @@ export default function AdminShopDetailScreen() {
         {/* Gallery */}
         {shop.images && shop.images.length > 0 && (
           <View style={styles.galleryContainer}>
-            <Image source={{ uri: shop.images[selectedImageIndex] }} style={styles.mainImage} />
+            <Image source={{ uri: shop.images[selectedImageIndex] ?? shop.images[0] }} style={styles.mainImage} />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -292,23 +294,20 @@ export default function AdminShopDetailScreen() {
           </View>
 
           {/* Map */}
-          {shop.location && (
+          {mapCoordinates && (
             <View style={styles.mapContainer}>
               <MapView
                 style={styles.map}
                 provider={PROVIDER_DEFAULT}
                 initialRegion={{
-                  latitude: shop.location.latitude,
-                  longitude: shop.location.longitude,
+                  latitude: mapCoordinates.latitude,
+                  longitude: mapCoordinates.longitude,
                   latitudeDelta: 0.01,
                   longitudeDelta: 0.01,
                 }}
               >
                 <Marker
-                  coordinate={{
-                    latitude: shop.location.latitude,
-                    longitude: shop.location.longitude,
-                  }}
+                  coordinate={mapCoordinates}
                 />
               </MapView>
             </View>
@@ -340,7 +339,7 @@ export default function AdminShopDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Informations système</Text>
             <Text style={styles.metaText}>
-              Créée le {new Date(shop.createdAt).toLocaleDateString(APP_LOCALE)}
+              {shop.createdAt && Number.isFinite(shop.createdAt.getTime()) ? `Créée le ${shop.createdAt.toLocaleDateString(APP_LOCALE)}` : 'Date de création inconnue'}
             </Text>
             {shop.verificationDetails?.verifiedAt && (
               <Text style={styles.metaText}>

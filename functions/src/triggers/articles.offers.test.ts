@@ -37,9 +37,9 @@ describe('article offer expiration rechecks live state', () => {
     await (reason === 'sold' ? sold : inactive)(event(reason));
     expect(status('accepted')).toBe('accepted'); expect(notices()).toHaveLength(0);
   });
-  it('expires current pending proposals and emits one notice per chat despite replay', async () => {
-    fs.setDoc('articles/article', { isSold: true, isActive: true }); message('one'); message('two'); message('accepted', 'accepted');
-    await sold(event('sold')); await sold(event('sold'));
+  it('a current public withdrawal expires pending proposals once per chat', async () => {
+    fs.setDoc('articles/article', { isSold: false, isActive: false }); message('one'); message('two'); message('accepted', 'accepted');
+    await inactive(event('inactive')); await inactive(event('inactive'));
     expect(status('one')).toBe('expired'); expect(status('two')).toBe('expired'); expect(status('accepted')).toBe('accepted');
     expect(notices()).toHaveLength(1);
   });

@@ -22,6 +22,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export interface HeaderButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
+  accessibilityLabel: string;
+  testID?: string;
   onPress: () => void;
   isActive?: boolean;
   activeColor?: string;
@@ -31,6 +33,8 @@ export interface HeaderButtonProps {
 
 function HeaderButtonComponent({
   icon,
+  accessibilityLabel,
+  testID,
   onPress,
   isActive = false,
   activeColor = colors.primary,
@@ -58,6 +62,10 @@ function HeaderButtonComponent({
 
   return (
     <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      testID={testID}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={handlePress}
@@ -66,6 +74,7 @@ function HeaderButtonComponent({
     >
       <BlurView intensity={60} tint="dark" style={articleStyles.headerButton}>
         <Ionicons
+          accessible={false}
           name={icon}
           size={size}
           color={isActive ? activeColor : colors.white}

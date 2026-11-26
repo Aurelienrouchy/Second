@@ -1,189 +1,56 @@
 /**
- * User profile Firestore triggers
- * Firebase Functions v7 - using onDocumentUpdated
- *
- * Propagates displayName and profileImage changes to denormalized data:
- * - articles.sellerName / articles.sellerImage
- * - chats.participantsInfo[].userName / .userImage (array format)
+ * Fresh identity projections. Every public write reads the current owner in
+ * the same transaction, so a delayed event cannot restore a withdrawn avatar.
  */
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
-import { db, FieldValue } from '../config/firebase';
+import { db } from '../config/firebase';
+import { synchronizeProfileMediaVisibility } from '../utils/profileMediaPrivacy';
+import {withDocumentaryProjection,identityProjectionFields} from '../utils/documentaryProjection';
 
-/**
- * When a user updates their displayName or profileImage, propagate
- * the change to all articles they own and all chats they participate in.
- *
- * Uses batch writes for efficiency (max 500 ops per batch).
- */
 export const onUserProfileUpdated = onDocumentUpdated(
   { document: 'users/{uid}', region: 'northamerica-northeast1', memory: '512MiB', timeoutSeconds: 120 },
-  async (event) => {
-    const uid = event.params.uid;
-    const before = event.data?.before.data();
-    const after = event.data?.after.data();
-
+  async event => {
+    const uid = event.params.uid, before = event.data?.before.data(), after = event.data?.after.data();
     if (!before || !after) return;
-
     const nameChanged = before.displayName !== after.displayName;
     const imageChanged = before.profileImage !== after.profileImage;
+    const photoVisibilityChanged = before.preferences?.privacy?.showProfilePhoto
+      !== after.preferences?.privacy?.showProfilePhoto;
+    if (!nameChanged && !imageChanged && !photoVisibilityChanged) return;
+    await synchronizeProfileMediaVisibility(uid);
 
-    if (!nameChanged && !imageChanged) return;
-
-    const newName = after.displayName || 'Utilisateur';
-    const newImage = after.profileImage || null;
-
-    logger.info('[onUserProfileUpdated] Propagating profile changes', {
-      uid,
-      nameChanged,
-      imageChanged,
-      newName,
-    });
-
-    let articlesUpdated = 0;
-    let chatsUpdated = 0;
-
-    // 1. Update sellerName / sellerImage on all articles owned by this user
-    const articlesSnap = await db
-      .collection('articles')
-      .where('sellerId', '==', uid)
-      .get();
-
-    if (!articlesSnap.empty) {
-      const articleUpdates: Record<string, any> = {};
-      if (nameChanged) articleUpdates.sellerName = newName;
-      if (imageChanged) articleUpdates.sellerImage = newImage;
-
-      // Batch writes (max 500 per batch)
-      let batch = db.batch();
-      let batchCount = 0;
-
-      for (const doc of articlesSnap.docs) {
-        batch.update(doc.ref, articleUpdates);
-        batchCount++;
-        articlesUpdated++;
-
-        if (batchCount >= 499) {
-          await batch.commit();
-          batch = db.batch();
-          batchCount = 0;
-        }
+    const projections = [
+      { collection: 'articles', field: 'sellerId', name: 'sellerName', image: 'sellerImage' },
+      { collection: 'avis', field: 'reviewerId', name: 'reviewerName', image: 'reviewerImage' },
+      { collection: 'swapPartyItems', field: 'sellerId', name: 'sellerName', image: 'sellerImage' },
+    ];
+    let publicUpdated = 0;
+    for (const projection of projections) {
+      const rows = await db.collection(projection.collection).where(projection.field, '==', uid).get();
+      for (const row of rows.docs) {
+        await withDocumentaryProjection({kind:'identity',ownerId:uid,path:row.ref.path},()=>db.runTransaction(async tx => {
+          const [owner, target] = await Promise.all([tx.get(db.collection('users').doc(uid)), tx.get(row.ref)]);
+          const current = target.data(), user = owner.data();
+          if (!current || current[projection.field] !== uid) return;
+          tx.update(row.ref,identityProjectionFields(row.ref.path,uid,current,user));
+          publicUpdated++;
+        }));
       }
-
-      if (batchCount > 0) await batch.commit();
     }
-
-    // 2. Update participantsInfo[uid] in all chats where user participates.
-    //    participantsInfo is always an array of { userId, userName, userImage }
-    //    (chatService writes only this shape; the client reads it with .find).
-    const chatsSnap = await db
-      .collection('chats')
-      .where('participants', 'array-contains', uid)
-      .get();
-
-    if (!chatsSnap.empty) {
-      let batch = db.batch();
-      let batchCount = 0;
-
-      for (const doc of chatsSnap.docs) {
-        const chatData = doc.data();
-        const info = chatData.participantsInfo;
-
-        if (Array.isArray(info)) {
-          const idx = info.findIndex((p: any) => p.userId === uid);
-          if (idx >= 0) {
-            const updated = [...info];
-            if (nameChanged) updated[idx] = { ...updated[idx], userName: newName };
-            if (imageChanged) updated[idx] = { ...updated[idx], userImage: newImage };
-
-            batch.update(doc.ref, {
-              participantsInfo: updated,
-              updatedAt: FieldValue.serverTimestamp(),
-            });
-            batchCount++;
-            chatsUpdated++;
-          }
-        }
-
-        if (batchCount >= 499) {
-          await batch.commit();
-          batch = db.batch();
-          batchCount = 0;
-        }
-      }
-
-      if (batchCount > 0) await batch.commit();
+    // Private participant identities are a distinct purpose. Hiding a PUBLIC
+    // photo does not erase the parties' private conversation identity.
+    const chats = await db.collection('chats').where('participants', 'array-contains', uid).get();
+    let privateUpdated = 0;
+    for (const row of chats.docs) {
+      await withDocumentaryProjection({kind:'identity',ownerId:uid,path:row.ref.path},()=>db.runTransaction(async tx => {
+        const [owner, target] = await Promise.all([tx.get(db.collection('users').doc(uid)), tx.get(row.ref)]);
+        const chat = target.data(), user = owner.data();
+        if (!Array.isArray(chat?.participants) || !chat.participants.includes(uid) || !Array.isArray(chat.participantsInfo)) return;
+        tx.update(row.ref,identityProjectionFields(row.ref.path,uid,chat!,user));
+        privateUpdated++;
+      }));
     }
-
-    // 3. Update reviewerName / reviewerImage on all reviews written by this user
-    let avisUpdated = 0;
-    const avisSnap = await db
-      .collection('avis')
-      .where('reviewerId', '==', uid)
-      .get();
-
-    if (!avisSnap.empty) {
-      const avisUpdateData: Record<string, any> = {};
-      if (nameChanged) avisUpdateData.reviewerName = newName;
-      if (imageChanged) avisUpdateData.reviewerImage = newImage;
-
-      let batch = db.batch();
-      let batchCount = 0;
-
-      for (const doc of avisSnap.docs) {
-        batch.update(doc.ref, avisUpdateData);
-        batchCount++;
-        avisUpdated++;
-
-        if (batchCount >= 499) {
-          await batch.commit();
-          batch = db.batch();
-          batchCount = 0;
-        }
-      }
-
-      if (batchCount > 0) await batch.commit();
-    }
-
-    // 4. (Removed) swapPartyParticipants propagation — the Swap Zone is open to
-    //    all with no participant docs anymore.
-
-    // 5. Update swapPartyItems where sellerId == uid
-    let swapItemsUpdated = 0;
-    const swapItemsSnap = await db
-      .collection('swapPartyItems')
-      .where('sellerId', '==', uid)
-      .get();
-
-    if (!swapItemsSnap.empty) {
-      const itemUpdates: Record<string, any> = {};
-      if (nameChanged) itemUpdates.sellerName = newName;
-      if (imageChanged) itemUpdates.sellerImage = newImage;
-
-      let batch = db.batch();
-      let batchCount = 0;
-
-      for (const doc of swapItemsSnap.docs) {
-        batch.update(doc.ref, itemUpdates);
-        batchCount++;
-        swapItemsUpdated++;
-
-        if (batchCount >= 499) {
-          await batch.commit();
-          batch = db.batch();
-          batchCount = 0;
-        }
-      }
-
-      if (batchCount > 0) await batch.commit();
-    }
-
-    logger.info('[onUserProfileUpdated] Propagation complete', {
-      uid,
-      articlesUpdated,
-      chatsUpdated,
-      avisUpdated,
-      swapItemsUpdated,
-    });
-  }
+    logger.info('user_identity_projections_updated', { uid, publicUpdated, privateUpdated });
+  },
 );

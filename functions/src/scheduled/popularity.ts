@@ -31,7 +31,7 @@ export const updatePopularityScores = onSchedule({ schedule: 'every 6 hours', re
       const newPopularityScore = calculatePopularityScore(
         data.views || 0,
         data.likes || 0,
-        data.createdAt?.toDate() || new Date()
+        data.createdAt?.toDate?.() ?? new Date()
       );
 
       // Only update if score changed significantly

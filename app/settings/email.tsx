@@ -21,12 +21,13 @@ import { useUser } from '@/hooks/useAuth';
 import { track } from '@/lib/analytics';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
-import { Button } from '@/components/ui';
+import { Text, Label, Caption, ScreenHeader, Button } from '@/components/ui';
+import { useTradeOperation } from '@/hooks/useTradeOperation';
 
 export default function EmailSettingsScreen() {
   const router = useRouter();
   const user = useUser();
+  const context = useTradeOperation('settings-email', user?.id ?? null);
 
   const [newEmail, setNewEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,6 +37,11 @@ export default function EmailSettingsScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [reauthDone, setReauthDone] = useState(false);
   const [reauthLoading, setReauthLoading] = useState(false);
+  const [formFrame, setFormFrame] = useState(context.frame);
+  if (formFrame !== context.frame) {
+    setFormFrame(context.frame); setNewEmail(''); setConfirmNewEmail(''); setPassword('');
+    setReauthDone(false); setIsSaving(false); setReauthLoading(false);
+  }
 
   const provider = AuthService.getAuthProvider();
   const isPasswordUser = provider === 'password';
@@ -47,14 +53,19 @@ export default function EmailSettingsScreen() {
     provider === 'google.com' ? 'google' : provider === 'apple.com' ? 'apple' : 'password';
 
   const handleReauthSocial = async () => {
+    let operation;
+    try {operation = context.start('credential');} catch {return;}
+    if (!operation) return;
+    const assertCurrent = () => context.assertCurrent(operation);
     setReauthLoading(true);
     const reauthProvider: 'google' | 'apple' = provider === 'google.com' ? 'google' : 'apple';
     try {
       if (provider === 'google.com') {
-        await AuthService.reauthenticateWithGoogle();
+        await AuthService.reauthenticateWithGoogle(assertCurrent);
       } else {
-        await AuthService.reauthenticateWithApple();
+        await AuthService.reauthenticateWithApple(assertCurrent);
       }
+      assertCurrent();
       setReauthDone(true);
       track('reauth_performed', {
         context: 'email_change',
@@ -62,6 +73,7 @@ export default function EmailSettingsScreen() {
         result: 'success',
       });
     } catch (error: unknown) {
+      if (!context.isCurrent(operation)) return;
       const code = error != null && typeof error === 'object' && 'code' in error
         ? (error as { code: string }).code
         : undefined;
@@ -75,11 +87,13 @@ export default function EmailSettingsScreen() {
         Alert.alert('Erreur', 'La vérification a échoué. Veuillez réessayer.');
       }
     } finally {
-      setReauthLoading(false);
+      context.finish(operation);
+      if (context.isCurrent(operation)) setReauthLoading(false);
     }
   };
 
   const handleSave = async () => {
+    if (!user || reauthLoading) return;
     if (!newEmail.trim() || !confirmNewEmail.trim()) {
       track('email_change_submitted', { auth_provider: emailAuthProvider, success: false, validation_error: 'empty_fields' });
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
@@ -122,17 +136,21 @@ export default function EmailSettingsScreen() {
       return;
     }
 
-    if (!user) return;
-
+    let operation;
+    try {operation = context.start('credential');} catch {return;}
+    if (!operation) return;
+    const assertCurrent = () => context.assertCurrent(operation);
     setIsSaving(true);
     try {
       // 1. Re-authentifier (social providers already re-authed via button)
       if (isPasswordUser || (isAppleOnAndroid && hasPasswordProvider)) {
-        await AuthService.reauthenticate(password);
+        await AuthService.reauthenticate(password, assertCurrent);
       }
+      assertCurrent();
 
       // 2. Envoyer un email de vérification pour le changement
       await AuthService.updateEmail(newEmail.trim());
+      assertCurrent();
 
       track('email_change_submitted', { auth_provider: emailAuthProvider, success: true });
 
@@ -143,12 +161,13 @@ export default function EmailSettingsScreen() {
           {
             text: 'OK',
             onPress: () => {
-              router.back();
+              try {assertCurrent(); router.back();} catch { /* A later account owns navigation. */ }
             }
           }
         ]
       );
     } catch (error: unknown) {
+      if (!context.isCurrent(operation)) return;
       if (__DEV__) console.error('Error updating email:', error);
       const code = error != null && typeof error === 'object' && 'code' in error
         ? (error as { code: string }).code
@@ -157,7 +176,8 @@ export default function EmailSettingsScreen() {
       const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la mise à jour de l\'email';
       Alert.alert('Erreur', message);
     } finally {
-      setIsSaving(false);
+      context.finish(operation);
+      if (context.isCurrent(operation)) setIsSaving(false);
     }
   };
 
@@ -167,7 +187,7 @@ export default function EmailSettingsScreen() {
         title="Adresse e-mail"
         onBack={() => router.back()}
         rightContent={
-          <Pressable onPress={handleSave} disabled={isSaving}>
+          <Pressable onPress={handleSave} disabled={!user || isSaving || reauthLoading}>
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (

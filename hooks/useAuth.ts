@@ -53,3 +53,11 @@ export const useAuthActions = () =>
       mergeGuestToUser: s.mergeGuestToUser,
     }))
   );
+
+/** Explicit owner-read identity, separate from normal authenticated capabilities. */
+export const useAuthenticatedIdentity = (): User | null => useAuthStore((s) => s.identityUser);
+export const useAuthenticatedUid = (): string | null => useAuthStore((s) => s.authenticatedUid);
+
+/** Multi-field session reads keep one shallow selector. */
+export const useAuthenticatedSession = () => useAuthStore(useShallow(s => ({ uid: s.authenticatedUid, identity: s.identityUser })));
+export const useAuthGuardSession = () => useAuthStore(useShallow(s => ({ normalUser: s.user, identity: s.identityUser, isAuthLoading: s.isLoading })));

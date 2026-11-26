@@ -4,8 +4,8 @@
  * Domaine : recherche-decouverte. Comportement MÉTIER couvert :
  *  - l'image est lue en base64 et envoyée à la callable `visualSearch` sous la
  *    clé `imageBase64` (contrat backend), avec filtres + limit.
- *  - une petite image (< cible) n'est PAS recompressée (pas d'appel manipulator).
- *  - une grosse image EST recompressée avant lecture base64.
+ *  - toute image, même petite ou HEIC, est préparée en JPEG avant lecture base64.
+ *  - une image trop grande est redimensionnée dans cette préparation.
  *  - les URLs d'images des résultats passent par fixStorageUrl (réparation des
  *    chemins non encodés).
  *  - le rafraîchissement du token auth qui échoue ne bloque pas la recherche
@@ -17,9 +17,14 @@
 // --- Modules natifs / firebase mockés -----------------------------------------
 const mockGetInfoAsync = jest.fn();
 const mockReadAsStringAsync = jest.fn((..._args: unknown[]) => Promise.resolve('QkFTRTY0'));
-const mockManipulateAsync = jest.fn((uri: string) =>
+const mockManipulateAsync = jest.fn((uri: string, ..._args: unknown[]) =>
   Promise.resolve({ uri: `${uri}#compressed` })
 );
+const mockGetImageSize = jest.fn();
+
+jest.mock('@/utils/imageSize', () => ({
+  getImageSize: (...args: unknown[]) => mockGetImageSize(...args),
+}));
 
 jest.mock('expo-file-system/legacy', () => ({
   getInfoAsync: (...args: unknown[]) => mockGetInfoAsync(...args),
@@ -28,7 +33,7 @@ jest.mock('expo-file-system/legacy', () => ({
 }));
 
 jest.mock('expo-image-manipulator', () => ({
-  manipulateAsync: (...args: unknown[]) => mockManipulateAsync(...(args as [string])),
+  manipulateAsync: (...args: unknown[]) => mockManipulateAsync(...(args as [string, ...unknown[]])),
   SaveFormat: { JPEG: 'jpeg' },
 }));
 
@@ -42,12 +47,16 @@ jest.mock('@/config/firebaseConfig', () => ({
   functions: {},
   auth: { get currentUser() { return mockCurrentUser.value; } },
 }));
-// Holder so individual tests can flip currentUser on/off.
-// On évite `jest.Mock` (non typé par le tsconfig principal, qui n'inclut pas
-// @types/jest) — un objet avec getIdToken suffit au comportement testé.
-const mockCurrentUser: { value: { getIdToken: typeof mockGetIdToken } | null } = {
-  value: { getIdToken: mockGetIdToken },
+const mockCurrentUser: { value: { uid: string; getIdToken: typeof mockGetIdToken } | null } = {
+  value: { uid: 'member', getIdToken: mockGetIdToken },
 };
+let mockAuthenticatedUid: string | null = 'member';
+let mockGeneration = 1;
+
+jest.mock('@/store/authStore', () => ({
+  getAuthSessionGeneration: () => mockGeneration,
+  useAuthStore: {getState: () => ({authenticatedUid: mockAuthenticatedUid})},
+}));
 
 jest.mock('@/services/articlesService', () => ({
   ArticlesService: {
@@ -56,19 +65,20 @@ jest.mock('@/services/articlesService', () => ({
   },
 }));
 
-import { searchByImage } from '@/services/visualSearchService';
-
-const TARGET = 1 * 1024 * 1024; // 1MB (TARGET_IMAGE_SIZE du service)
+import { searchByImage } from '@/features/search/services/visualSearchService';
 
 describe('visualSearchService.searchByImage', () => {
   beforeEach(() => {
-    mockGetInfoAsync.mockReset();
+    mockGetInfoAsync.mockReset().mockResolvedValue({exists: true, isDirectory: false, size: 500});
+    mockGetImageSize.mockReset().mockResolvedValue({width: 600, height: 800});
     mockReadAsStringAsync.mockClear();
-    mockManipulateAsync.mockClear();
+    mockManipulateAsync.mockReset().mockImplementation((uri: string) => Promise.resolve({uri: `${uri}#compressed`}));
     mockVisualSearchCallable.mockReset();
     mockGetIdToken.mockClear();
     mockGetIdToken.mockResolvedValue('token');
-    mockCurrentUser.value = { getIdToken: mockGetIdToken };
+    mockCurrentUser.value = { uid: 'member', getIdToken: mockGetIdToken };
+    mockAuthenticatedUid = 'member';
+    mockGeneration = 1;
     mockVisualSearchCallable.mockResolvedValue({
       data: {
         results: [
@@ -86,8 +96,6 @@ describe('visualSearchService.searchByImage', () => {
   });
 
   it('envoie le base64 sous la clé imageBase64 avec filtres + limit', async () => {
-    mockGetInfoAsync.mockResolvedValue({ exists: true, size: 500 }); // < cible
-
     await searchByImage('file:///photo.jpg', { categoryIds: ['femme'] }, 15);
 
     expect(mockVisualSearchCallable).toHaveBeenCalledTimes(1);
@@ -101,25 +109,20 @@ describe('visualSearchService.searchByImage', () => {
     expect(payload.limit).toBe(15);
   });
 
-  it('ne recompresse pas une image sous la taille cible', async () => {
-    mockGetInfoAsync.mockResolvedValue({ exists: true, size: TARGET - 1 });
+  it('prépare aussi une petite photo HEIC en JPEG sans agrandir ses dimensions', async () => {
+    await searchByImage('file:///small.heic');
 
-    await searchByImage('file:///small.jpg');
-
-    expect(mockManipulateAsync).not.toHaveBeenCalled();
-    expect(mockReadAsStringAsync).toHaveBeenCalled();
+    expect(mockManipulateAsync).toHaveBeenCalledWith('file:///small.heic', [], {compress: 0.75, format: 'jpeg'});
+    expect(mockGetInfoAsync).toHaveBeenCalledWith('file:///small.heic#compressed');
+    expect(mockReadAsStringAsync).toHaveBeenCalledWith('file:///small.heic#compressed', {encoding: 'base64'});
   });
 
-  it('recompresse une image au-dessus de la taille cible avant lecture base64', async () => {
-    // 1er getInfo : trop grosse → resize. 2e getInfo (post-resize) : OK.
-    mockGetInfoAsync
-      .mockResolvedValueOnce({ exists: true, size: TARGET * 3 })
-      .mockResolvedValueOnce({ exists: true, size: 500 });
+  it('borne le côté le plus grand à 1200 px avant lecture base64', async () => {
+    mockGetImageSize.mockResolvedValue({width: 3000, height: 4000});
 
     await searchByImage('file:///big.jpg');
 
-    expect(mockManipulateAsync).toHaveBeenCalledTimes(1);
-    // La lecture base64 se fait sur l'URI compressé.
+    expect(mockManipulateAsync).toHaveBeenCalledWith('file:///big.jpg', [{resize: {height: 1200}}], {compress: 0.75, format: 'jpeg'});
     expect(mockReadAsStringAsync.mock.calls[0][0]).toBe('file:///big.jpg#compressed');
   });
 
@@ -139,7 +142,7 @@ describe('visualSearchService.searchByImage', () => {
 
     const results = await searchByImage('file:///photo.jpg');
 
-    // La callable est tout de même appelée (mode anonyme toléré côté backend).
+    // L'échec du rafraîchissement n'a changé ni propriétaire ni génération.
     expect(mockVisualSearchCallable).toHaveBeenCalledTimes(1);
     expect(results).toHaveLength(1);
   });
@@ -147,10 +150,37 @@ describe('visualSearchService.searchByImage', () => {
   it('n’essaie pas de rafraîchir le token quand l’utilisateur est anonyme', async () => {
     mockGetInfoAsync.mockResolvedValue({ exists: true, size: 500 });
     mockCurrentUser.value = null;
+    mockAuthenticatedUid = null;
 
     await searchByImage('file:///photo.jpg');
 
     expect(mockGetIdToken).not.toHaveBeenCalled();
+    expect(mockVisualSearchCallable).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['owner', 'generation'])('ne transmet pas la photo si %s change pendant sa préparation', async (change) => {
+    mockManipulateAsync.mockImplementationOnce(async (uri: string) => {
+      if (change === 'owner') {
+        mockCurrentUser.value = {uid: 'another-member', getIdToken: mockGetIdToken};
+        mockAuthenticatedUid = 'another-member';
+      } else {
+        mockGeneration++;
+      }
+      return {uri: `${uri}#compressed`};
+    });
+
+    await expect(searchByImage('file:///photo.jpg')).rejects.toMatchObject({code: 'client/stale-operation'});
+    expect(mockReadAsStringAsync).not.toHaveBeenCalled();
+    expect(mockVisualSearchCallable).not.toHaveBeenCalled();
+  });
+
+  it('rejette une réponse reçue après changement de génération de session', async () => {
+    mockVisualSearchCallable.mockImplementationOnce(async () => {
+      mockGeneration++;
+      return {data: {results: []}};
+    });
+
+    await expect(searchByImage('file:///photo.jpg')).rejects.toMatchObject({code: 'client/stale-operation'});
     expect(mockVisualSearchCallable).toHaveBeenCalledTimes(1);
   });
 });

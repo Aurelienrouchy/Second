@@ -1,115 +1,22 @@
-/**
- * PriceBreakdown — récapitulatif de prix du checkout livraison.
- *
- * Couvre le comportement MÉTIER du récap (article → checkout, frais) :
- * - ventile article + livraison + frais de protection, et affiche le total
- *   fourni avec la devise CA explicite (formatPriceWithCurrency) ;
- * - la ligne livraison n'apparaît QUE lorsqu'un tarif est sélectionné
- *   (sans estimation choisie, pas de ligne livraison) ;
- * - le libellé livraison reflète le transporteur + le service du tarif ;
- * - la mention de protection acheteur (séquestre 7 jours) est toujours présente.
- *
- * NB : le composant AFFICHE un total déjà calculé par l'écran. On vérifie ici
- * qu'il restitue fidèlement les montants métier (article + livraison + frais),
- * pas qu'il recalcule (la somme est testée côté écran/service).
- */
-
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-
 import { PriceBreakdown } from '@/features/checkout-shipping/components/PriceBreakdown';
-// Import direct depuis le module types (et non le barrel) : le barrel tire
-// ShippingCheckoutSkeleton → Skeleton → expo-linear-gradient (ESM non
-// transformé sous Jest). Le composant testé n'a besoin que de la copy + du type.
-import { CHECKOUT_COPY } from '@/features/checkout-shipping/types';
-import type { ShippingEstimate } from '@/features/checkout-shipping/types';
-
-const ESTIMATE: ShippingEstimate = {
-  rateId: 'se_rate_123',
-  carrier: 'Postes Canada',
-  carrierCode: 'canada_post',
-  serviceName: 'Standard',
-  amount: 8.5,
-  deliveryDays: '3-5 jours ouvrables',
-  deliveryType: 'home',
-};
-
-describe('<PriceBreakdown />', () => {
-  it('ventile article + livraison + frais et affiche le total en devise CA', () => {
-    // article 45 + livraison 8,50 + frais 4,50 = 58,00
-    render(
-      <PriceBreakdown
-        articlePrice={45}
-        selectedEstimate={ESTIMATE}
-        serviceFee={4.5}
-        totalAmount={58}
-      />,
-    );
-
-    expect(screen.getByText('Article')).toBeOnTheScreen();
-    expect(screen.getByText('45 $')).toBeOnTheScreen();
-
-    // Ligne livraison libellée transporteur + service.
-    expect(
-      screen.getByText('Livraison (Postes Canada Standard)'),
-    ).toBeOnTheScreen();
-    expect(screen.getByText('8,50 $')).toBeOnTheScreen();
-
-    expect(screen.getByText('Frais de protection Seconde')).toBeOnTheScreen();
-    expect(screen.getByText('4,50 $')).toBeOnTheScreen();
-
-    // Total : devise CA explicite, toujours 2 décimales.
-    expect(screen.getByText('Total')).toBeOnTheScreen();
-    expect(screen.getByText('58,00 $ CA')).toBeOnTheScreen();
-  });
-
-  it('masque la ligne livraison tant qu\'aucun tarif n\'est sélectionné', () => {
-    render(
-      <PriceBreakdown
-        articlePrice={45}
-        selectedEstimate={null}
-        serviceFee={4.5}
-        totalAmount={49.5}
-      />,
-    );
-
-    expect(screen.getByText('Article')).toBeOnTheScreen();
-    expect(screen.getByText('Frais de protection Seconde')).toBeOnTheScreen();
-    // Pas de ligne livraison sans estimation.
-    expect(screen.queryByText(/^Livraison \(/)).not.toBeOnTheScreen();
-  });
-
-  it('affiche un frais de protection à zéro sans masquer la ligne', () => {
-    render(
-      <PriceBreakdown
-        articlePrice={20}
-        selectedEstimate={ESTIMATE}
-        serviceFee={0}
-        totalAmount={28.5}
-      />,
-    );
-
-    expect(screen.getByText('Frais de protection Seconde')).toBeOnTheScreen();
-    // formatPrice(0) → "0 $" (entier).
-    expect(screen.getByText('0 $')).toBeOnTheScreen();
-    expect(screen.getByText('28,50 $ CA')).toBeOnTheScreen();
-  });
-
-  it('expose la promesse de protection acheteur (séquestre 7 jours)', () => {
-    render(
-      <PriceBreakdown
-        articlePrice={45}
-        selectedEstimate={ESTIMATE}
-        serviceFee={4.5}
-        totalAmount={58}
-      />,
-    );
-
-    expect(
-      screen.getByText(CHECKOUT_COPY.buyerProtectionTitle),
-    ).toBeOnTheScreen();
-    expect(
-      screen.getByText(CHECKOUT_COPY.buyerProtectionBody),
-    ).toBeOnTheScreen();
-  });
+import type { ShippingPurchaseRate, ServiceFeeTaxSnapshot } from '@/types/shippingPurchase';
+const rate: ShippingPurchaseRate = { rateId: 'rate', shipmentId: 'shipment', carrierId: 'carrier', carrierCode: 'canada_post', carrierFriendlyName: 'Postes Canada', serviceCode: 'standard', serviceType: 'Standard', componentsCents: { shipping: 850, insurance: 0, confirmation: 0, other: 0 }, shippingCents: 850, estimatedDeliveryDays: 3, currency: 'CAD', shippingCost: 8.5, amount: 45, serviceFee: 4.5, taxTotal: 0, totalAmount: 58 };
+const tax: ServiceFeeTaxSnapshot = { schemaVersion: 1, protocol: 'service_fee_tax_v1', currency: 'CAD', taxableServiceFee: 4.5, gst: 0, qst: 0, taxTotal: 0, technicalConfiguration: { enabled: false, gstRate: .05, qstRate: .09975 }, registrationStatusVerified: false };
+it('restitue les quatre montants du tarif natif en CAD, sans les recalculer', () => {
+ render(<PriceBreakdown rate={rate} taxSnapshot={tax} />);
+ for (const text of ['Article', 'Livraison', 'Frais de service', 'Total', '45,00 $ CA', '8,50 $ CA', '4,50 $ CA', '58,00 $ CA']) expect(screen.getByText(text)).toBeOnTheScreen();
+});
+it('ne présente aucune taxe lorsque la capture native est à zéro', () => {
+ render(<PriceBreakdown rate={rate} taxSnapshot={tax} />);
+ expect(screen.queryByText('TPS sur le service')).toBeNull(); expect(screen.queryByText('TVQ sur le service')).toBeNull();
+});
+it('conserve les frais de service à zéro dans la ventilation', () => {
+ render(<PriceBreakdown rate={{ ...rate, serviceFee: 0, totalAmount: 53.5 }} taxSnapshot={tax} />);
+ expect(screen.getByText('Frais de service')).toBeOnTheScreen(); expect(screen.getByText('0,00 $ CA')).toBeOnTheScreen(); expect(screen.getByText('53,50 $ CA')).toBeOnTheScreen();
+});
+it('affiche les taxes enregistrées sur le service et le total figé', () => {
+ render(<PriceBreakdown rate={{ ...rate, taxTotal: .67, totalAmount: 58.67 }} taxSnapshot={{ ...tax, gst: .22, qst: .45, taxTotal: .67 }} />);
+ for (const text of ['TPS sur le service', 'TVQ sur le service', '0,22 $ CA', '0,45 $ CA', '58,67 $ CA']) expect(screen.getByText(text)).toBeOnTheScreen();
 });

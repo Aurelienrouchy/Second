@@ -10,8 +10,14 @@ import {
   findCategoryByLabelFuzzy,
   findColorByNameOrAlias,
   findMaterialByNameOrAlias,
+  getLeafCategoriesForTopLevel,
+  type FlatCategory,
 } from '../productReference';
-import { matchBrand } from './brands';
+import { ensureBrandDocument, matchBrand } from './brands';
+
+// Gemini 2.5 access is restricted to projects with prior usage. Keep both
+// generation flows on the stable Flash model available to new projects.
+export const GEMINI_FLASH_MODEL = 'gemini-3.8-flash';
 
 // Gemini client is initialized per-request to use the secret
 // Using new @google/genai SDK (GA since May 2025)
@@ -57,11 +63,26 @@ export async function retryWithBackoff<T>(
   throw lastError;
 }
 
-// Helper to estimate tokens (rough: ~4 chars per token for text, base64 is ~0.75 bytes per char)
-export function estimateTokens(text: string, isBase64: boolean = false): number {
+// Gemini facture une image par tuiles de 768 px, 258 jetons la tuile, et non
+// au poids du base64 : l'estimation par longueur de chaîne annonçait environ
+// cinquante fois le coût réel dans les journaux d'analyse.
+const IMAGE_TILE_TOKENS = 258;
+const IMAGE_TILE_PX = 768;
+// Sans dimensions, le gabarit d'envoi de l'app : 1200 px au plus grand côté
+// (prepareImageForUpload), soit deux tuiles sur deux.
+const DEFAULT_IMAGE_TILES = 4;
+
+// Helper to estimate tokens (rough: ~4 chars per token for text)
+export function estimateTokens(
+  text: string,
+  isBase64: boolean = false,
+  dimensions?: { width: number; height: number }
+): number {
   if (isBase64) {
-    // Base64 images: ~0.75 bytes per char, ~4 bytes per token
-    return Math.ceil((text.length * 0.75) / 4);
+    if (!dimensions) return IMAGE_TILE_TOKENS * DEFAULT_IMAGE_TILES;
+    const tiles =
+      Math.ceil(dimensions.width / IMAGE_TILE_PX) * Math.ceil(dimensions.height / IMAGE_TILE_PX);
+    return IMAGE_TILE_TOKENS * Math.max(1, tiles);
   }
   return Math.ceil(text.length / 4);
 }
@@ -92,12 +113,14 @@ COULEURS: ${colors}
 MATIÈRES: ${materials}
 ÉTATS: Neuf avec étiquette, Très bon état, Bon état, Satisfaisant
 
+GENRE : Filles ou Garçons pour un vêtement ou des chaussures d'enfant quand c'est visible ; Enfants pour les jouets, la puériculture, ou dans le doute.
+
 RÈGLES IMPORTANTES pour title et description:
 - title: 3-6 mots max, factuel, pas de superlatifs. Ex: "Robe fleurie Zara taille M"
 - description: 2-3 phrases courtes (20-40 mots MAX), style naturel comme entre amis. Décris ce que tu vois: coupe, détails, état. Pas de langage marketing, pas de "sublime", "magnifique", "incontournable". Reste simple et honnête.
 
 {
-  "genre": "Femmes|Hommes|Enfants",
+  "genre": "Femmes|Hommes|Filles|Garçons|Enfants",
   "category": "Label exact de la liste",
   "title": "Titre court factuel",
   "description": "Description courte et naturelle, 20-40 mots max",
@@ -148,14 +171,41 @@ function getCategoryIcon(path: string[]): string {
  * Validate and normalize AI response
  * Converts label strings to structured objects for frontend
  */
+function normalizeLabel(label: string): string {
+  return label.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Enfants : filles et garçons portent les mêmes libellés (« T-shirts »,
+ * « Jeans »…) et l'arbre liste les filles d'abord. Un libellé partagé ne se
+ * pré-valide que dans la branche que le modèle a dite ; sans elle, il reste à
+ * choisir par le vendeur plutôt que d'arriver chez les filles.
+ */
+function resolveKidsTwin(
+  found: FlatCategory | undefined,
+  kidsBranch: string | undefined
+): FlatCategory | undefined {
+  if (!found || found.path[0] !== 'kids') return found;
+  const label = normalizeLabel(found.label);
+  const twins = getLeafCategoriesForTopLevel('kids').filter(
+    (cat) => normalizeLabel(cat.label) === label
+  );
+  const inBranch = kidsBranch ? twins.find((cat) => cat.path[1] === kidsBranch) : undefined;
+  if (inBranch) return inBranch;
+  const branches = new Set(twins.map((cat) => cat.path[1]));
+  return branches.has('kids_girls') && branches.has('kids_boys') ? undefined : found;
+}
+
 export async function validateAndNormalizeResponse(
-  response: Record<string, unknown>
+  response: Record<string, unknown>,
+  authorize?: (tx?: FirebaseFirestore.Transaction) => Promise<void>
 ): Promise<Record<string, unknown>> {
   console.log('   [normalize] Starting validation & normalization...');
 
   const globalConfidence = (response.confidence as number) || 0.7;
-  const topLevelCategory =
-    (response._analysisMetadata as Record<string, string>)?.topLevelCategory || 'women';
+  // No default: an unknown genre used to file the article under « Femmes ».
+  const topLevelCategory = (response._analysisMetadata as Record<string, string> | undefined)
+    ?.topLevelCategory;
 
   // ========================================
   // 1. CATEGORY: Label string → Structured object
@@ -170,7 +220,12 @@ export async function validateAndNormalizeResponse(
     validated: false,
   };
 
-  if (response.category && typeof response.category === 'string') {
+  if (response.category && typeof response.category === 'string' && !topLevelCategory) {
+    // Genre unknown: the same label exists for women, men and kids, and the
+    // catalogue lists women's first. Left unmatched, for the seller to pick.
+    console.warn(`   [normalize] Unknown genre, category left to the seller: "${response.category}"`);
+    categoryResult.displayName = response.category;
+  } else if (response.category && typeof response.category === 'string') {
     // New format: just a label string
     const categoryLabel = response.category;
     console.log(
@@ -178,7 +233,10 @@ export async function validateAndNormalizeResponse(
     );
 
     // Use improved fuzzy matching
-    const category = findCategoryByLabelFuzzy(categoryLabel, topLevelCategory);
+    const category = resolveKidsTwin(
+      findCategoryByLabelFuzzy(categoryLabel, topLevelCategory),
+      (response._analysisMetadata as Record<string, string> | undefined)?.kidsBranch
+    );
 
     if (category) {
       categoryResult = {
@@ -269,7 +327,26 @@ export async function validateAndNormalizeResponse(
   let brandResult: Record<string, unknown> | null = null;
   if (response.brand && typeof response.brand === 'string') {
     console.log(`   [normalize] Matching brand: "${response.brand}"`);
-    const brandMatch = await matchBrand(response.brand);
+    await authorize?.();
+    let brandMatch = await matchBrand(response.brand);
+    await authorize?.();
+
+    // Rien au catalogue et aucune suggestion proche : la marque y manque
+    // vraiment. On l'inscrit, sinon chaque vendeur la ressaisissait a la main.
+    if (brandMatch.matchType === 'none' && brandMatch.suggestions.length === 0) {
+      const created = await ensureBrandDocument(response.brand, authorize);
+      if (created) {
+        brandMatch = {
+          brandId: created.id,
+          brandName: created.name,
+          confidence: 1.0,
+          matchType: 'exact',
+          needsConfirmation: false,
+          suggestions: [],
+        };
+      }
+    }
+
     brandResult = {
       detectedName: response.brand,
       ...brandMatch,
@@ -355,7 +432,7 @@ export async function validateAndNormalizeResponse(
   // Build brand object for frontend
   const brandForFrontend = brandResult
     ? {
-        detected: brandResult.matchedName || brandResult.detectedName || response.brand,
+        detected: brandResult.brandName || brandResult.detectedName || response.brand,
         confidence: (brandResult.confidence as number) ?? globalConfidence,
         matchType: brandResult.matchType,
       }
@@ -364,6 +441,15 @@ export async function validateAndNormalizeResponse(
   // Build condition object for frontend
   const conditionForFrontend = {
     conditionId: condition as string,
+    confidence: globalConfidence,
+  };
+
+  // Le client lit `packageSize.suggested` : la chaîne brute du modèle
+  // ressortait « medium » quoi que l'IA ait suggéré.
+  const packageSizeForFrontend = {
+    suggested: ['small', 'medium', 'large'].includes(response.packageSize as string)
+      ? (response.packageSize as string)
+      : 'medium',
     confidence: globalConfidence,
   };
 
@@ -378,7 +464,7 @@ export async function validateAndNormalizeResponse(
     materials: materialsForFrontend,
     size: sizeForFrontend,
     brand: brandForFrontend,
-    packageSize: response.packageSize || 'medium',
+    packageSize: packageSizeForFrontend,
     labelFound: response.labelFound || false,
     confidence: globalConfidence,
     _raw: {

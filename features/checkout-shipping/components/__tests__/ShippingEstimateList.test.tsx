@@ -1,127 +1,26 @@
-/**
- * ShippingEstimateList — sélection du tarif de livraison au checkout.
- *
- * Couvre le comportement MÉTIER (article → checkout, frais) :
- * - liste les tarifs (transporteur + service + délai + prix formaté) ;
- * - sélectionner un tarif notifie onSelect avec l'estimation exacte ;
- * - état de calcul (loading) : indicateur "Calcul des frais...", aucune carte ;
- * - aucun tarif + code postal complet : invite à entrer le code postal ;
- * - aucun tarif tant que le code postal est incomplet (<6) : pas d'invite.
- */
-
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-
 import { ShippingEstimateList } from '@/features/checkout-shipping/components/ShippingEstimateList';
-import type { ShippingEstimate } from '@/features/checkout-shipping/types';
-
-const RATES: ShippingEstimate[] = [
-  {
-    rateId: 'se_standard',
-    carrier: 'Postes Canada',
-    carrierCode: 'canada_post',
-    serviceName: 'Standard',
-    amount: 8.5,
-    deliveryDays: '3-5 jours ouvrables',
-    deliveryType: 'home',
-  },
-  {
-    rateId: 'se_express',
-    carrier: 'Postes Canada',
-    carrierCode: 'canada_post',
-    serviceName: 'Express',
-    amount: 14.5,
-    deliveryDays: '1-2 jours ouvrables',
-    deliveryType: 'home',
-  },
-];
-
-describe('<ShippingEstimateList />', () => {
-  it('liste les tarifs avec transporteur, service, délai et prix', () => {
-    render(
-      <ShippingEstimateList
-        estimates={RATES}
-        selectedEstimate={RATES[0]}
-        onSelect={jest.fn()}
-        loading={false}
-        postalCodeLength={6}
-      />,
-    );
-
-    expect(screen.getByText('Postes Canada Standard')).toBeOnTheScreen();
-    expect(screen.getByText('3-5 jours ouvrables')).toBeOnTheScreen();
-    expect(screen.getByText('8,50 $')).toBeOnTheScreen();
-
-    expect(screen.getByText('Postes Canada Express')).toBeOnTheScreen();
-    expect(screen.getByText('14,50 $')).toBeOnTheScreen();
-  });
-
-  it('notifie onSelect avec l\'estimation choisie au tap', () => {
-    const onSelect = jest.fn();
-    render(
-      <ShippingEstimateList
-        estimates={RATES}
-        selectedEstimate={RATES[0]}
-        onSelect={onSelect}
-        loading={false}
-        postalCodeLength={6}
-      />,
-    );
-
-    fireEvent.press(screen.getByText('Postes Canada Express'));
-    expect(onSelect).toHaveBeenCalledTimes(1);
-    expect(onSelect).toHaveBeenCalledWith(RATES[1]);
-  });
-
-  it('affiche le calcul des frais et masque les cartes pendant le chargement', () => {
-    render(
-      <ShippingEstimateList
-        estimates={RATES}
-        selectedEstimate={null}
-        onSelect={jest.fn()}
-        loading
-        postalCodeLength={6}
-      />,
-    );
-
-    expect(screen.getByText('Calcul des frais...')).toBeOnTheScreen();
-    // Tant qu'on calcule, on ne montre pas de tarifs périmés.
-    expect(screen.queryByText('Postes Canada Standard')).not.toBeOnTheScreen();
-  });
-
-  it('invite à entrer le code postal quand aucun tarif et code postal complet', () => {
-    render(
-      <ShippingEstimateList
-        estimates={[]}
-        selectedEstimate={null}
-        onSelect={jest.fn()}
-        loading={false}
-        postalCodeLength={6}
-      />,
-    );
-
-    expect(
-      screen.getByText(
-        'Entrez votre code postal pour voir les options de livraison',
-      ),
-    ).toBeOnTheScreen();
-  });
-
-  it('n\'affiche pas l\'invite tant que le code postal est incomplet', () => {
-    render(
-      <ShippingEstimateList
-        estimates={[]}
-        selectedEstimate={null}
-        onSelect={jest.fn()}
-        loading={false}
-        postalCodeLength={3}
-      />,
-    );
-
-    expect(
-      screen.queryByText(
-        'Entrez votre code postal pour voir les options de livraison',
-      ),
-    ).not.toBeOnTheScreen();
-  });
+import type { ShippingPurchaseRate } from '@/types/shippingPurchase';
+const rates: ShippingPurchaseRate[] = ['Standard', 'Express'].map((serviceType, index) => ({ rateId: `rate-${index}`, shipmentId: 'shipment', carrierId: 'carrier', carrierCode: 'canada_post', carrierFriendlyName: 'Postes Canada', serviceCode: serviceType, serviceType, componentsCents: { shipping: index ? 1450 : 850, insurance: 0, confirmation: 0, other: 0 }, shippingCents: index ? 1450 : 850, estimatedDeliveryDays: index ? null : 3, currency: 'CAD', shippingCost: index ? 14.5 : 8.5, amount: 45, serviceFee: 4.5, taxTotal: 0, totalAmount: index ? 64 : 58 }));
+it('présente les tarifs natifs et leur sélection sans inventer de délai', () => {
+ render(<ShippingEstimateList rates={rates} selectedRateId={rates[0].rateId} onSelect={jest.fn()} loading={false} />);
+ for (const text of ['Postes Canada · Standard', 'Environ 3 jours', '8,50 $ CA', 'Postes Canada · Express', 'Délai à confirmer', '14,50 $ CA']) expect(screen.getByText(text)).toBeOnTheScreen();
+ expect(screen.getByRole('radio', { name: /Standard/ })).toHaveProp('accessibilityState', expect.objectContaining({ checked: true })); expect(screen.getByRole('radio', { name: /Express/ })).toHaveProp('accessibilityState', expect.objectContaining({ checked: false }));
+});
+it('transmet le tarif natif exact choisi', () => {
+ const onSelect = jest.fn(); render(<ShippingEstimateList rates={rates} selectedRateId={rates[0].rateId} onSelect={onSelect} loading={false} />);
+ fireEvent.press(screen.getByRole('radio', { name: /Express/ })); expect(onSelect).toHaveBeenCalledTimes(1); expect(onSelect).toHaveBeenCalledWith(rates[1]);
+});
+it('ne propose aucun ancien tarif pendant un nouveau calcul', () => {
+ render(<ShippingEstimateList rates={rates} selectedRateId={null} onSelect={jest.fn()} loading />);
+ expect(screen.queryAllByRole('radio')).toHaveLength(0); expect(screen.queryByText('Aucun service disponible pour cette adresse pour le moment.')).toBeNull();
+});
+it('explique une réponse vide sans créer de tarif de repli', () => {
+ render(<ShippingEstimateList rates={[]} selectedRateId={null} onSelect={jest.fn()} loading={false} />);
+ expect(screen.getByText('Aucun service disponible pour cette adresse pour le moment.')).toBeOnTheScreen(); expect(screen.queryAllByRole('radio')).toHaveLength(0);
+});
+it('refuse la sélection lorsque le dossier est désactivé', () => {
+ const onSelect = jest.fn(); render(<ShippingEstimateList rates={rates} selectedRateId={null} onSelect={onSelect} loading={false} disabled />);
+ fireEvent.press(screen.getByRole('radio', { name: /Standard/ })); expect(onSelect).not.toHaveBeenCalled();
 });

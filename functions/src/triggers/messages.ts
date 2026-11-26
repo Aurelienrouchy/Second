@@ -8,44 +8,152 @@ import {
 } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
 import { db } from '../config/firebase';
-import { sendPushNotification } from '../utils/notifications';
+import { prepareOperationalNotices, readOperationalNoticeReceipt, type OperationalNoticeInput } from '../utils/notifications';
+import { hasBlockedUser } from '../utils/meetupOffers';
+import { Timestamp } from 'firebase-admin/firestore';
 
-/**
- * Check if either user has blocked the other.
- *
- * Reads BOTH the canonical flat `blockedUserIds` list (plain UIDs, the source
- * of truth consumed by the Firestore rules) AND the legacy `blockedUsers`
- * array of objects `{ userId, userName, blockedAt }` (written by the client
- * moderationService for the UI). A flat-string shape on `blockedUsers` is
- * tolerated too so the check stays correct if the data model is ever migrated
- * to plain UIDs. The block is SYMMETRIC: if EITHER side blocks the other, the
- * pair is considered blocked (matches services/moderationService.ts +
- * firestore.rules chat-create semantics).
- */
-async function areUsersBlocked(
-  userId1: string,
-  userId2: string
-): Promise<boolean> {
-  const [user1Snap, user2Snap] = await Promise.all([
-    db.collection('users').doc(userId1).get(),
-    db.collection('users').doc(userId2).get(),
-  ]);
+/** The event is an invitation to inspect stored source, never payment proof.
+ * Read/dismissal and push delivery are separate from the native in-app commit. */
+async function commitMessageNotice(messageRef: FirebaseFirestore.DocumentReference,
+  source: FirebaseFirestore.DocumentData, input: OperationalNoticeInput, phase: 'created' | 'response',
+  sourceTime: Timestamp, legacyInput?: OperationalNoticeInput | null) {
+  return db.runTransaction(async tx => {
+    if (legacyInput && await readOperationalNoticeReceipt(tx, legacyInput)) return true;
+    if (await readOperationalNoticeReceipt(tx, input)) return true;
+    const currentSnap = await tx.get(messageRef), current = currentSnap.data();
+    if (!current || current.chatId !== source.chatId || current.senderId !== source.senderId || current.type !== source.type) return false;
+    if (phase === 'created' && !currentSnap.createTime?.isEqual(sourceTime)) return false;
+    const chat = (await tx.get(db.collection('chats').doc(source.chatId))).data();
+    const participants = chat?.participants;
+    if (!Array.isArray(participants) || participants.length !== 2 || new Set(participants).size !== 2 ||
+        participants.some(uid => typeof uid !== 'string' || !uid || uid.includes('/')) ||
+        !participants.includes(source.senderId) || (phase === 'created' && !participants.includes(input.userId))) return false;
+    const counterparty = participants.find(uid => uid !== source.senderId);
+    if (typeof counterparty !== 'string' || !counterparty ||
+        (phase === 'created' ? input.userId !== counterparty : input.userId !== source.senderId)) return false;
+    const [sender, receiver] = await Promise.all(participants.map(uid => tx.get(db.collection('users').doc(uid))));
+    if (hasBlockedUser(sender.data(), participants[1]) || hasBlockedUser(receiver.data(), participants[0])) return false;
+    if (source.type === 'offer') {
+      if (!current.offer || current.offer.amount !== source.offer?.amount ||
+          !(typeof current.offer.amount === 'number' && Number.isFinite(current.offer.amount) && current.offer.amount > 0)) return false;
+      if (phase === 'response') {
+        const status = source.offer?.status;
+        const stamp = status === 'accepted' ? current.offer.acceptedAt : current.offer.respondedAt;
+        // Statuses are server-owned; its native transition time must be the
+        // captured event's time. A later response cannot become this event.
+        if (!(stamp instanceof Timestamp) || !stamp.isEqual(sourceTime) ||
+            (status === 'accepted' ? !['accepted', 'completed'].includes(current.offer.status) : current.offer.status !== status)) return false;
+        if (status === 'accepted' && current.offer.meetup) {
+          const linkedId = current.offer.transactionId;
+          if (typeof linkedId !== 'string' || !linkedId || linkedId.includes('/')) return false;
+          const order = (await tx.get(db.collection('transactions').doc(linkedId))).data();
+          if (!order || order.deliveryType !== 'meetup' || order.chatId !== source.chatId ||
+              order.offerMessageId !== messageRef.id || order.amount !== current.offer.amount ||
+              !participants.includes(order.buyerId) || !participants.includes(order.sellerId) || order.buyerId === order.sellerId) return false;
+        }
+        if (status.startsWith('counter_')) {
+          const replacementId = current.offer.replacedByMessageId;
+          if (typeof replacementId !== 'string' || !replacementId || replacementId.includes('/')) return false;
+          const replacement = (await tx.get(db.collection('messages').doc(replacementId))).data();
+          if (!replacement || replacement.type !== 'offer' || replacement.chatId !== source.chatId ||
+              replacement.senderId !== counterparty || replacement.receiverId !== source.senderId ||
+              replacement.offer?.originalOfferId !== (current.offer.offerId ?? messageRef.id)) return false;
+        }
+      }
+    } else if (phase === 'created' && source.type === 'text' && current.content !== source.content) return false;
+    else if (phase === 'created' && source.type === 'image' && JSON.stringify(current.image ?? null) !== JSON.stringify(source.image ?? null)) return false;
+    const notices = await prepareOperationalNotices(tx, [input]);
+    if (source.type === 'offer') {
+      // The notice receipt and the counter increment commit together. Redelivery
+      // returns above before either; no client/producer updates the same count.
+      const unread = chat?.unreadCount && typeof chat.unreadCount === 'object' && !Array.isArray(chat.unreadCount) ? chat.unreadCount : {};
+      const count = Number.isSafeInteger(unread[input.userId]) && unread[input.userId] >= 0 ? unread[input.userId] : 0;
+      const previousTime = chat?.lastMessageTimestamp;
+      const latest = !(previousTime instanceof Timestamp) || previousTime.toMillis() <= sourceTime.toMillis();
+      tx.update(db.collection('chats').doc(source.chatId), { unreadCount: { ...unread, [input.userId]: count + 1 },
+        ...(latest ? { lastMessage: phase === 'created' ? `Proposition de ${current.offer.amount} $` :
+          source.offer?.status === 'accepted' ? 'Proposition acceptée' : source.offer?.status === 'rejected' ? 'Proposition refusée' : 'Nouvelle contre-offre',
+          lastMessageType: 'offer', lastMessageTimestamp: sourceTime, updatedAt: sourceTime } : {}) });
+    }
+    // A delayed client preview must not reintroduce content hidden by an
+    // operator. Guarded chats receive only a fixed server preview here.
+    if (phase === 'created' && chat?.contentPreviewRestricted === true && ['text','image'].includes(current.type) &&
+        current.contentModeration?.state !== 'hidden') tx.update(db.collection('chats').doc(source.chatId), {
+      lastMessage:'Nouveau message',lastMessageType:current.type,lastMessageTimestamp:sourceTime,
+    });
+    notices.commit();
+    return true;
+  });
+}
 
-  const matches = (data: FirebaseFirestore.DocumentData | undefined, target: string) => {
-    const flat = (data?.blockedUserIds || []) as string[];
-    if (Array.isArray(flat) && flat.includes(target)) return true;
-    const legacy = (data?.blockedUsers || []) as Array<
-      { userId?: string } | string
-    >;
-    return (
-      Array.isArray(legacy) &&
-      legacy.some((u) =>
-        typeof u === 'string' ? u === target : u.userId === target
-      )
-    );
-  };
+function nativeNoticeTime(value: unknown): value is Timestamp {
+  return value instanceof Timestamp && Number.isInteger(value.seconds) && Number.isInteger(value.nanoseconds);
+}
 
-  return matches(user1Snap.data(), userId2) || matches(user2Snap.data(), userId1);
+/** One frozen payload for first commit and redelivery qualification. Candidate
+ * recipient IDs only locate native receipts; they never authorize a new notice. */
+function creationNoticeInput(snapshot: FirebaseFirestore.QueryDocumentSnapshot, recipientId: string, legacy = false): OperationalNoticeInput | null {
+  const message = snapshot.data(), { chatId, senderId, type, content } = message;
+  const createdAt = snapshot.createTime;
+  if (!nativeNoticeTime(createdAt)) throw new Error('Message notice native creation time unavailable');
+  if (type === 'system' || (type === 'offer' && message.offer?.originalOfferId)) return null;
+  const senderName = 'Un participant';
+  const amount = type === 'offer' ? message.offer?.amount || 0 : 0;
+  const title = type === 'image' ? senderName : type === 'offer' ? 'Nouvelle proposition' : 'Nouveau message';
+  const body = !legacy && ['text', 'image'].includes(type) ? 'Un membre vous a envoyé un message.' : type === 'text'
+    ? typeof content === 'string' && content ? content.substring(0, 100) : 'Un participant vous a envoyé un message.'
+    : type === 'image' ? 'Un participant vous a envoyé une photo.'
+      : type === 'offer' ? `Une proposition de ${amount} $ est disponible dans votre conversation. Aucun paiement n’a été encaissé par cette proposition.`
+        : senderName;
+  return { eventKey: `${!legacy && ['text', 'image'].includes(type) ? 'message_notice_v2' : 'message'}:${snapshot.id}:created:${createdAt.seconds}:${createdAt.nanoseconds}`,
+    userId: recipientId, title, message: body, type: type === 'offer' ? 'offer_received' : 'new_message',
+    data: { ownerId: recipientId, chatId, senderId, senderName, ...(type === 'offer' ? { amount: String(amount) } : {}),
+      ...(!legacy && ['text', 'image'].includes(type) ? {noticeSource: 'chat_message_v2', messageId: snapshot.id} : {}) } };
+}
+
+/** Delayed redelivery must not delete a new document reusing this ID or a
+ * server-owned offer that may already form part of an agreement. */
+async function neutralizeClientMessage(snapshot: FirebaseFirestore.QueryDocumentSnapshot, resolvedInput?: OperationalNoticeInput) {
+  const original = snapshot.data();
+  if (!['text', 'image'].includes(original.type)) return;
+  await db.runTransaction(async tx => {
+    // Read the exact native creation receipt BEFORE any destructive write.
+    // Its event key contains message ID + server createTime; its payload binds
+    // the sender, conversation and actual recipient. No notification is read,
+    // re-created, or required: its owner may have dismissed it independently.
+    const candidateIds = new Set<string>();
+    if (resolvedInput) candidateIds.add(resolvedInput.userId);
+    if (Array.isArray(original.participants) && original.participants.length === 2 &&
+        new Set(original.participants).size === 2 && original.participants.includes(original.senderId)) {
+      const other = original.participants.find(uid => uid !== original.senderId);
+      if (typeof other === 'string') candidateIds.add(other);
+    }
+    if (typeof original.receiverId === 'string' && original.receiverId !== original.senderId) candidateIds.add(original.receiverId);
+    for (const candidateId of candidateIds) {
+      if (!/^[A-Za-z0-9_-]{1,200}$/.test(candidateId)) continue;
+      const legacy = creationNoticeInput(snapshot, candidateId, true);
+      if (legacy && await readOperationalNoticeReceipt(tx, legacy)) return;
+      const input = creationNoticeInput(snapshot, candidateId);
+      if (input && await readOperationalNoticeReceipt(tx, input)) return;
+    }
+    const current = await tx.get(snapshot.ref);
+    if (!current.exists || !current.createTime?.isEqual(snapshot.createTime) ||
+        current.data()?.chatId !== original.chatId || current.data()?.senderId !== original.senderId ||
+        current.data()?.type !== original.type) return;
+    const chat = (await tx.get(db.collection('chats').doc(original.chatId))).data();
+    const participants = chat?.participants;
+    let reject = !Array.isArray(participants) || participants.length !== 2 || !participants.includes(original.senderId);
+    if (!reject) {
+      const other = participants.find((uid: unknown) => uid !== original.senderId);
+      if (typeof other !== 'string' || !other || other.includes('/')) reject = true;
+      else {
+        const [sender, receiver] = await Promise.all([tx.get(db.collection('users').doc(original.senderId)),
+          tx.get(db.collection('users').doc(other))]);
+        reject = hasBlockedUser(sender.data(), other) || hasBlockedUser(receiver.data(), original.senderId);
+      }
+    }
+    if (reject) tx.delete(snapshot.ref);
+  });
 }
 
 /**
@@ -76,34 +184,28 @@ async function resolveChatCounterparty(
  * Send push notification when a message is created
  */
 export const sendMessageNotification = onDocumentCreated(
-  { document: 'messages/{messageId}', region: 'northamerica-northeast1', memory: '512MiB' },
+  { document: 'messages/{messageId}', region: 'northamerica-northeast1', memory: '512MiB', retry: true },
   async (event) => {
     try {
       const snapshot = event.data;
       if (!snapshot) return;
 
       const message = snapshot.data();
-      const { chatId, senderId, type, content } = message;
+      const { chatId, senderId } = message;
       // `receiverId` from the message is CLIENT-SUPPLIED and falsifiable; it is
       // used ONLY as a notification routing hint below and is RECONCILED against
       // the authoritative chat participant for any security decision.
       let receiverId: string = message.receiverId;
 
-      if (!senderId || !chatId) {
-        console.log('Missing required fields for notification');
+      if (typeof senderId !== 'string' || !senderId || senderId.includes('/') ||
+          typeof chatId !== 'string' || !chatId || chatId.includes('/')) {
+        logger.warn('Missing required fields for notification', { messageId: event.params.messageId });
         return;
       }
 
-      // SECURITY (M2): server-side enforcement of user blocking — authoritative.
-      // Messages are created client->Firestore directly (no send callable), so
-      // this trigger is the authoritative server-side guard. The previous
-      // implementation trusted the client-supplied `receiverId` to decide who
-      // could be blocked, letting a blocked sender forge a bogus receiverId
-      // (e.g. an unrelated user who has NOT blocked them) and slip a message to
-      // the real victim inside a PRE-EXISTING chat. We now derive the real
-      // counterparty from the SERVER chat doc and verify the sender is actually
-      // a participant. If the sender isn't a participant, or either side has
-      // blocked the other, the message is deleted before any notification.
+      // The chat determines the recipient; blocking is rechecked inside the
+      // native commit transaction AFTER its own prior receipt. Late redelivery
+      // must preserve an already received message even if this pair is now blocked.
       if (senderId !== 'system') {
         const counterparty = await resolveChatCounterparty(chatId, senderId);
 
@@ -114,127 +216,42 @@ export const sendMessageNotification = onDocumentCreated(
             senderId,
             claimedReceiverId: message.receiverId,
           });
-          await snapshot.ref.delete().catch((err) =>
-            logger.error('Failed to delete illegitimate message', {
-              messageId: event.params.messageId,
-              error: err,
-            })
-          );
+          await neutralizeClientMessage(snapshot);
           return;
         }
 
         // Always route the notification to the authoritative participant,
         // ignoring any spoofed receiverId.
         receiverId = counterparty;
-
-        const blocked = await areUsersBlocked(senderId, counterparty);
-        if (blocked) {
-          logger.warn('Blocked message rejected server-side', {
-            messageId: event.params.messageId,
-            chatId,
-            senderId,
-            counterparty,
-            claimedReceiverId: message.receiverId,
-          });
-          await snapshot.ref.delete().catch((err) =>
-            logger.error('Failed to delete blocked message', {
-              messageId: event.params.messageId,
-              error: err,
-            })
-          );
-          return;
-        }
       }
 
       if (!receiverId) {
-        console.log('No receiver resolved for notification');
+        logger.warn('No receiver resolved for notification', { messageId: event.params.messageId });
         return;
       }
 
-      // Get sender info
-      const senderDoc = await db.collection('users').doc(senderId).get();
-      const senderName = senderDoc.exists
-        ? senderDoc.data()!.displayName || 'Un utilisateur'
-        : 'Un utilisateur';
+      const input = creationNoticeInput(snapshot, receiverId);
+      // System messages have their producer's own notice; counter-offers have
+      // the response trigger's own event. Neither is duplicated here.
+      if (!input) return;
 
-      // Get chat info for article title
-      const chatDoc = await db.collection('chats').doc(chatId).get();
-      const chatData = chatDoc.exists ? chatDoc.data() : null;
-      const articleTitle = chatData?.articleTitle;
-
-      // Build notification based on message type.
-      // `notificationType` uses the CLIENT NotificationType contract (see
-      // types/index.ts + app/notifications.tsx) so the in-app notification
-      // renders with the correct icon and the bell badge increments.
-      let title = '';
-      let body = '';
-      let notificationType: string;
-      let amount = 0;
-
-      switch (type) {
-        case 'text':
-          title = senderName;
-          body = articleTitle
-            ? `À propos de "${articleTitle}"`
-            : content.substring(0, 100);
-          notificationType = 'new_message';
-          break;
-
-        case 'image':
-          title = senderName;
-          body = articleTitle
-            ? `Photo - "${articleTitle}"`
-            : 'Vous a envoyé une photo';
-          notificationType = 'new_message';
-          break;
-
-        case 'offer':
-          amount = message.offer?.amount || 0;
-          title = `Nouvelle offre de ${senderName}`;
-          body = articleTitle
-            ? `${amount} $ pour "${articleTitle}"`
-            : `Offre de ${amount} $`;
-          notificationType = 'offer_received';
-          break;
-
-        case 'system':
-          // Don't send notifications for system messages
-          return;
-
-        default:
-          title = 'Nouveau message';
-          body = senderName;
-          notificationType = 'new_message';
-      }
-
-      // Route through sendPushNotification so transactional message/offer
-      // notifications respect the user's notification preferences
-      // (preferences.notifications.push) AND create an in-app notification
-      // (required for the bell badge / unread count). It also handles raw
-      // APNs token skipping and invalid-token pruning internally.
-      const result = await sendPushNotification(
-        receiverId,
-        title,
-        body,
-        {
-          chatId,
-          senderId,
-          senderName,
-          articleTitle: articleTitle || '',
-          ...(type === 'offer' ? { amount: String(amount) } : {}),
-        },
-        notificationType
-      );
+      // Persist once; the existing worker applies optional push preferences
+      // and retries transport independently of the stored in-app history.
+      const createdAt = snapshot.createTime;
+      if (!nativeNoticeTime(createdAt)) throw new Error('Message notice native creation time unavailable');
+      const committed = await commitMessageNotice(snapshot.ref, message, input, 'created', createdAt,
+        creationNoticeInput(snapshot, receiverId, true));
+      if (!committed) await neutralizeClientMessage(snapshot, input);
 
       logger.info('Message notification processed', {
         messageId: event.params.messageId,
         recipientId: receiverId,
-        notificationType,
-        success: result.success,
-        sentCount: result.sentCount,
+        notificationType: input.type,
+        notificationCommitted: committed,
       });
     } catch (error) {
-      console.error('Error sending message notification:', error);
+      logger.error('Error committing message notification', { messageId: event.params.messageId, error });
+      throw error;
     }
   }
 );
@@ -253,7 +270,7 @@ export const sendMessageNotification = onDocumentCreated(
  * - counter_time: "Nouvel horaire propose"
  */
 export const sendOfferStatusNotification = onDocumentUpdated(
-  { document: 'messages/{messageId}', region: 'northamerica-northeast1', memory: '512MiB' },
+  { document: 'messages/{messageId}', region: 'northamerica-northeast1', memory: '512MiB', retry: true },
   async (event) => {
     try {
       const before = event.data?.before?.data();
@@ -270,7 +287,7 @@ export const sendOfferStatusNotification = onDocumentUpdated(
         return;
       }
 
-      const { chatId, senderId, receiverId } = after;
+      const { chatId, senderId } = after;
       const offerStatus = after.offer.status;
       const amount = after.offer.amount;
 
@@ -287,21 +304,38 @@ export const sendOfferStatusNotification = onDocumentUpdated(
         return;
       }
 
-      if (!senderId || !receiverId || !chatId) {
+      if (typeof senderId !== 'string' || !senderId || senderId.includes('/') ||
+          typeof chatId !== 'string' || !chatId || chatId.includes('/')) {
         logger.warn('Missing required fields for offer status notification', {
           senderId,
-          receiverId,
           chatId,
           offerStatus,
         });
         return;
       }
 
-      // Get seller info (the one who changed the status)
-      const sellerDoc = await db.collection('users').doc(receiverId).get();
-      const sellerName = sellerDoc.exists
-        ? sellerDoc.data()!.displayName || 'Le vendeur'
-        : 'Le vendeur';
+      // Ce chemin n'avait AUCUN contrôle de blocage. Le filet anti-blocage vit
+      // dans `sendMessageNotification`, qui ne se déclenche qu'à la CRÉATION
+      // d'un message ; répondre à une offre est une MISE À JOUR. Une personne
+      // bloquée pouvait donc faire sonner le téléphone de celle qui l'a
+      // bloquée, autant de fois qu'il y a d'offres en attente dans le fil.
+      //
+      // On revalide sur le document de CONVERSATION, seule source de vérité,
+      // et jamais sur les champs figés du message : `senderId` / `receiverId`
+      // datent de la création de l'offre et, dès que la vendeuse a émis une
+      // contre-offre, ne désignent plus les rôles qu'on croit. C'est
+      // exactement la divergence de dérivation acheteur/vendeur de ce dépôt.
+      const counterparty = await resolveChatCounterparty(chatId, senderId);
+      if (!counterparty) {
+        logger.warn('Offer status notification skipped: offer author is not a chat participant', {
+          messageId: event.params.messageId,
+          chatId,
+          senderId,
+        });
+        return;
+      }
+
+      const sellerName = 'L’autre participant';
 
       // Build notification based on status
       let title: string;
@@ -310,14 +344,14 @@ export const sendOfferStatusNotification = onDocumentUpdated(
 
       switch (offerStatus) {
         case 'accepted':
-          title = 'Votre offre a ete acceptee !';
-          body = `${sellerName} a accepte votre offre de ${amount} $`;
+          title = 'Proposition acceptée';
+          body = `${sellerName} a accepté votre proposition de ${amount} $. Cela ne prouve aucun encaissement ou remise physique.`;
           notificationType = 'offer_accepted';
           break;
 
         case 'rejected':
-          title = 'Offre refusee';
-          body = `${sellerName} a decline votre offre`;
+          title = 'Offre refusée';
+          body = `${sellerName} a décliné votre proposition`;
           notificationType = 'offer_rejected';
           break;
 
@@ -328,13 +362,13 @@ export const sendOfferStatusNotification = onDocumentUpdated(
           break;
 
         case 'counter_location':
-          title = 'Nouveau lieu propose';
+          title = 'Nouveau lieu proposé';
           body = `${sellerName} propose un autre lieu de rencontre`;
           notificationType = 'offer_counter';
           break;
 
         case 'counter_time':
-          title = 'Nouvel horaire propose';
+          title = 'Nouvel horaire proposé';
           body = `${sellerName} propose un autre horaire`;
           notificationType = 'offer_counter';
           break;
@@ -343,31 +377,35 @@ export const sendOfferStatusNotification = onDocumentUpdated(
           return;
       }
 
-      // Send push notification + in-app notification to the original offer sender (buyer)
-      const result = await sendPushNotification(
-        senderId,
-        title,
-        body,
-        {
+      // Bind the response to its native transition, then let the worker handle
+      // optional transport. The original sender can be buyer or seller.
+      const transitionTime = offerStatus === 'accepted' ? after.offer.acceptedAt : after.offer.respondedAt;
+      if (!nativeNoticeTime(transitionTime)) {
+        logger.warn('Historical offer response lacks a native transition witness', { messageId: event.params.messageId, offerStatus });
+        return;
+      }
+      const committed = await commitMessageNotice(event.data!.after.ref, after, {
+        eventKey: `message:${event.params.messageId}:response:${offerStatus}:${transitionTime.seconds}:${transitionTime.nanoseconds}`,
+        userId: senderId, type: notificationType, title, message: body, data: {
+          ownerId: senderId,
           chatId,
-          senderId: receiverId,
+          senderId: counterparty,
           senderName: sellerName,
           amount: String(amount || ''),
           offerStatus,
         },
-        notificationType
-      );
+      }, 'response', transitionTime);
 
       logger.info('Offer status notification sent', {
         messageId: event.params.messageId,
         recipientId: senderId,
         offerStatus,
         notificationType,
-        success: result.success,
-        sentCount: result.sentCount,
+        notificationCommitted: committed,
       });
     } catch (error) {
       logger.error('Error sending offer status notification', { error });
+      throw error;
     }
   }
 );

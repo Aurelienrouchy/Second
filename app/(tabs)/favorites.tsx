@@ -10,7 +10,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect } from 'react';
 import {
   Dimensions,
@@ -36,7 +36,7 @@ import ProductGrid from '@/components/ProductGrid';
 import { useFavorites, favoritesKeys } from '@/hooks/useFavorites';
 import { useUser } from '@/hooks/useAuth';
 import { useRequireAuth } from '@/hooks/useAuthRequired';
-import { FavoritesService } from '@/services/favoritesService';
+import { FavoritesService } from '@/features/favorites/services/favoritesService';
 import { track } from '@/lib/analytics';
 import { Article, ArticleWithLocation } from '@/types';
 
@@ -130,6 +130,12 @@ export default function FavoritesScreen() {
   const { requireAuth } = useRequireAuth();
   const { toggleFavorite, favoriteIds: articleIds } = useFavorites();
   const queryClient = useQueryClient();
+  const ownerId = user?.id;
+  useFocusEffect(useCallback(() => {
+    // Reservation and cancellation keep the membership unchanged. Re-read its
+    // articles on return instead of keeping the old availability for 5 min.
+    if (ownerId) void queryClient.invalidateQueries({queryKey: favoritesKeys.list(ownerId)});
+  }, [ownerId, queryClient]));
 
   // ── Paginated query ──────────────────────────────────────────────────────
   const {
@@ -168,9 +174,10 @@ export default function FavoritesScreen() {
     }
   }, [totalOrphaned, user?.id, queryClient]);
 
-  // Header count reflects the full favorites set (all cached IDs), not just the
-  // currently loaded pages, so it stays coherent with paginated loading.
-  const displayCount = articleIds.length;
+  // Count the same qualified articles rendered below. The independent IDs
+  // cache can lag a server-side final-sale cleanup and must not override an
+  // empty current result. With pagination this is the number already loaded.
+  const displayCount = favoriteArticles.length;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleRemoveFavorite = useCallback(
@@ -251,6 +258,7 @@ export default function FavoritesScreen() {
           displayCount > 0 ? (
             <Caption style={styles.count}>
               {displayCount} article{displayCount > 1 ? 's' : ''}
+              {hasNextPage ? ` affiché${displayCount > 1 ? 's' : ''}` : ''}
             </Caption>
           ) : undefined
         }

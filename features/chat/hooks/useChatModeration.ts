@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { type RefObject, useCallback } from 'react';
@@ -13,26 +14,37 @@ interface UseChatModerationParams {
   otherParticipant: ChatParticipantInfo | null;
   currentUserId: string | undefined;
   reportSheetRef: RefObject<ReportBottomSheetRef | null>;
+  onResumeMessageReport?: () => void;
 }
 
 export function useChatModeration({
   otherParticipant,
   currentUserId,
   reportSheetRef,
+  onResumeMessageReport,
 }: UseChatModerationParams) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleMoreOptions = useCallback(() => {
     if (!otherParticipant || !currentUserId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    const options = ['Signaler cet utilisateur', 'Bloquer cet utilisateur', 'Annuler'];
+    const options = ['Signaler cet utilisateur', 'Bloquer cet utilisateur', 'Mes signalements', 'Annuler'];
     const destructiveButtonIndex = 1;
-    const cancelButtonIndex = 2;
+    const cancelButtonIndex = 3;
 
     const handleBlock = async () => {
       try {
         await ModerationService.blockUser(currentUserId, otherParticipant.userId, otherParticipant.userName);
+        // La liste des bloqués est lue avec `staleTime: 10 * 60 * 1000` par
+        // l'écran de chat ET par la liste des conversations, sur la même clé.
+        // Sans invalidation, l'application continuait pendant dix minutes à
+        // traiter la personne comme non bloquée : pas de badge « Bloqué » dans
+        // la liste, sa conversation toujours comptée dans les pastilles, et la
+        // barre de saisie encore active si l'on rouvrait le fil. Le blocage est
+        // pourtant déjà appliqué côté serveur — l'app se contredisait elle-même.
+        await queryClient.invalidateQueries({ queryKey: ['blockedUsers', currentUserId] });
         track('user_blocked', {
           blocked_user_id: otherParticipant.userId,
           source: 'chat',
@@ -73,6 +85,8 @@ export function useChatModeration({
             reportSheetRef.current?.open('user', otherParticipant.userId, 'chat');
           } else if (buttonIndex === 1) {
             confirmBlock();
+          } else if (buttonIndex === 2) {
+            onResumeMessageReport?.();
           }
         },
       );
@@ -83,10 +97,11 @@ export function useChatModeration({
           onPress: () => reportSheetRef.current?.open('user', otherParticipant.userId, 'chat'),
         },
         { text: 'Bloquer cet utilisateur', style: 'destructive', onPress: confirmBlock },
+        { text: 'Mes signalements', onPress: onResumeMessageReport },
         { text: 'Annuler', style: 'cancel' },
       ]);
     }
-  }, [otherParticipant, currentUserId, router, reportSheetRef]);
+  }, [otherParticipant, currentUserId, router, reportSheetRef, queryClient, onResumeMessageReport]);
 
   return { handleMoreOptions };
 }

@@ -1,3 +1,5 @@
+import {establishIdentityFixture} from '@/tests/jest/helpers/identityFixture';
+beforeEach(() => establishIdentityFixture('u1'));
 /**
  * swapService — comportement MÉTIER du service d'échange.
  *
@@ -16,9 +18,10 @@
  */
 
 import { httpsCallable } from 'firebase/functions';
-import { getDocs } from 'firebase/firestore';
+import { doc, getDoc, getDocs } from 'firebase/firestore';
 
 import {
+  getPartyItemsExtended,
   getSwapItems,
   proposeSwap,
   acceptSwap,
@@ -28,6 +31,9 @@ import {
   GENERALIST_ZONE_ID,
 } from '@/services/swapService';
 import type { Swap, SwapItemInfo, SwapStatus } from '@/types';
+import { auth } from '@/config/firebaseConfig';
+import { useAuthStore } from '@/store/authStore';
+const agreementAcknowledgement = {expectedUid: 'u1', agreementProtocol: 'swap_exchange_agreement_v1' as const, expectedSourceHash: 'a'.repeat(64)};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -118,11 +124,13 @@ describe('swapService — getSwapItems (rétro-compat)', () => {
 });
 
 describe('swapService — proposeSwap (callable proposeMultiSwap)', () => {
+  beforeEach(() => { Object.defineProperty(auth, 'currentUser', {value: {uid: 'u1'}, configurable: true, writable: true}); useAuthStore.setState({authenticatedUid: 'u1'}); });
   it('applique la zone généraliste par défaut et renvoie le swapId', async () => {
     const callable = jest.fn((..._args: unknown[]) => Promise.resolve({ data: { swapId: 'swap-123', success: true } }));
     (httpsCallable as jest.Mock).mockReturnValue(callable);
 
     const swapId = await proposeSwap({
+      ...agreementAcknowledgement, exchangeMode: 'hand_delivery', arrangements: 'Lieu et heure convenus.',
       initiatorId: 'u1',
       initiatorName: 'Alice',
       initiatorItems: [item('a', 10)],
@@ -142,6 +150,7 @@ describe('swapService — proposeSwap (callable proposeMultiSwap)', () => {
     (httpsCallable as jest.Mock).mockReturnValue(callable);
 
     await proposeSwap({
+      ...agreementAcknowledgement, exchangeMode: 'hand_delivery', arrangements: 'Lieu et heure convenus.',
       initiatorId: 'u1',
       initiatorName: 'Alice',
       initiatorItems: [item('a', 10)],
@@ -159,32 +168,34 @@ describe('swapService — proposeSwap (callable proposeMultiSwap)', () => {
 });
 
 describe('swapService — acceptSwap', () => {
+  beforeEach(() => { Object.defineProperty(auth, 'currentUser', {value: {uid: 'u1'}, configurable: true, writable: true}); useAuthStore.setState({authenticatedUid: 'u1'}); });
   it('remonte payment_pending + requiresPayment quand un complément est dû', async () => {
     const callable = jest.fn((..._args: unknown[]) =>
-      Promise.resolve({ data: { success: true, status: 'payment_pending', requiresPayment: true } })
+      Promise.resolve({ data: { success: true, status: 'payment_pending', requiresPayment: true, replay: false } })
     );
     (httpsCallable as jest.Mock).mockReturnValue(callable);
 
-    const res = await acceptSwap('swap-1');
+    const res = await acceptSwap('swap-1', agreementAcknowledgement);
 
-    expect(res).toEqual({ status: 'payment_pending', requiresPayment: true });
-    expect(callable).toHaveBeenCalledWith({ swapId: 'swap-1' });
+    expect(res).toEqual({ status: 'payment_pending', requiresPayment: true, replay: false });
+    expect(callable).toHaveBeenCalledWith({ swapId: 'swap-1', ...agreementAcknowledgement });
   });
 
   it('remonte accepted sans paiement requis pour un échange sans complément', async () => {
     const callable = jest.fn((..._args: unknown[]) =>
-      Promise.resolve({ data: { success: true, status: 'accepted', requiresPayment: false } })
+      Promise.resolve({ data: { success: true, status: 'accepted', requiresPayment: false, replay: false } })
     );
     (httpsCallable as jest.Mock).mockReturnValue(callable);
 
-    const res = await acceptSwap('swap-2');
+    const res = await acceptSwap('swap-2', agreementAcknowledgement);
 
-    expect(res).toEqual({ status: 'accepted', requiresPayment: false });
+    expect(res).toEqual({ status: 'accepted', requiresPayment: false, replay: false });
   });
 });
 
 describe('swapService — getActiveSwaps (filtre statut)', () => {
   it('ne conserve que les statuts en cours et écarte proposed/declined/completed', async () => {
+    establishIdentityFixture('me');
     const swaps: Swap[] = [
       makeSwap({ id: 's-proposed', initiatorId: 'me', status: 'proposed' }),
       makeSwap({ id: 's-accepted', initiatorId: 'me', status: 'accepted' }),
@@ -223,25 +234,25 @@ describe('swapService — openSwapDispute (F48/F51)', () => {
 
     expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'openSwapDispute');
     expect(callable).toHaveBeenCalledWith({
-      swapId: 'swap-1',
+      swapId: 'swap-1', expectedUid: 'u1',
       reason: "Je n'ai pas reçu l'article",
     });
   });
 });
 
 describe('swapService — resolveSwapDispute (F48, admin)', () => {
-  it('délègue refund_payer avec note', async () => {
+  it('transmet refund_payer avec note mais refuse un ancien succès sans reçu qualifié', async () => {
     const callable = jest.fn((..._args: unknown[]) =>
       Promise.resolve({ data: { success: true } }),
     );
     (httpsCallable as jest.Mock).mockReturnValue(callable);
 
-    await resolveSwapDispute('swap-1', 'refund_payer', 'remboursement payeur');
+    await expect(resolveSwapDispute('swap-1', 'refund_payer', 'remboursement payeur')).rejects.toThrow('Résultat non qualifié');
 
     expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'resolveSwapDispute');
     expect(callable).toHaveBeenCalledWith({
       swapId: 'swap-1',
-      issue: 'refund_payer',
+      issue: 'refund_payer', mode: 'resolve', expectedAdminUid: 'u1',
       note: 'remboursement payeur',
     });
   });
@@ -252,10 +263,72 @@ describe('swapService — resolveSwapDispute (F48, admin)', () => {
     );
     (httpsCallable as jest.Mock).mockReturnValue(callable);
 
-    await resolveSwapDispute('swap-2', 'release_payee');
+    await expect(resolveSwapDispute('swap-2', 'release_payee')).rejects.toThrow('Résultat non qualifié');
 
     const payload = callable.mock.calls[0][0] as Record<string, unknown>;
-    expect(payload).toEqual({ swapId: 'swap-2', issue: 'release_payee' });
+    expect(payload).toEqual({ swapId: 'swap-2', issue: 'release_payee', mode: 'resolve', expectedAdminUid: 'u1' });
     expect('note' in payload).toBe(false);
   });
+});
+
+/**
+ * FR15 — la Swap Zone montrait l'article d'autrui déposé par un squatteur :
+ * le document d'item porte son propre `sellerId`, que rien ne confrontait au
+ * vendeur réel de l'article.
+ */
+describe('getPartyItemsExtended — dépôt squatté (FR15)', () => {
+  function itemsSnapshot(items: Record<string, unknown>[]) {
+    return {
+      docs: items.map((it) => ({
+        id: it.id as string,
+        data: () => ({ ...it, addedAt: { toDate: () => new Date('2026-01-01') } }),
+      })),
+    };
+  }
+
+  it('écarte un item dont l’article appartient à quelqu’un d’autre', async () => {
+    (getDocs as jest.Mock).mockResolvedValueOnce(
+      itemsSnapshot([
+        { id: 'i1', articleId: 'a1', sellerId: 'u1', title: 'Robe', price: 20 },
+        { id: 'i2', articleId: 'a2', sellerId: 'mallory', title: 'Veste', price: 50 },
+      ]),
+    );
+    (doc as jest.Mock).mockImplementation((_db: unknown, _col: string, id: string) => ({ id }));
+    (getDoc as jest.Mock).mockImplementation(async (ref: { id: string }) => ({
+      exists: () => true,
+      data: () =>
+        ref.id === 'a1'
+          ? { sellerId: 'u1', isActive: true, isSold: false }
+          : { sellerId: 'victime', isActive: true, isSold: false },
+    }));
+
+    const items = await getPartyItemsExtended('zone-1');
+
+    expect(items.map((i) => i.id)).toEqual(['i1']);
+  });
+});
+
+// A native decision receipt binds the instruction and notices; it never certifies a refund.
+function disputeReceipt(issue: 'refund_payer' | 'release_payee', note: string | null) {
+  const hash = (value: unknown) => require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex') as string;
+  const sourceHash = 'a'.repeat(64), decisionKey = hash([sourceHash, 'u1', issue, note]);
+  const eventKey = `swap_dispute_decision:swap-1:${decisionKey}`;
+  return {mode: 'resolve', swapId: 'swap-1', adminUid: 'u1', issue, noteHash: hash(note), observationState: 'recorded',
+    protocol: 'swap_dispute_notice_v1', sourceHash, decisionKey, initiatorId: 'u1', receiverId: 'u2',
+    committedAt: '2026-11-25T18:00:00.000Z', notificationIds: ['u1', 'u2'].map(uid => `operational_${hash([eventKey, uid])}`),
+    movedCents: 0, financialInstruction: issue, success: true, decisionCommitted: true, notificationCommitted: true,
+    refundConfirmed: false, deviceDeliveryVerified: false, readingVerified: false, nonExecutionVerified: false, replay: false};
+}
+it.each(['refund_payer', 'release_payee'] as const)('qualifies the exact native %s instruction without claiming refunded funds or delivered notices', async issue => {
+  const receipt = disputeReceipt(issue, null); const rpc = jest.fn(async () => ({data: receipt}));
+  (httpsCallable as jest.Mock).mockReturnValue(rpc);
+  await expect(resolveSwapDispute('swap-1', issue)).resolves.toEqual(receipt);
+  expect(rpc).toHaveBeenCalledTimes(1);
+  expect(receipt.refundConfirmed).toBe(false); expect(receipt.deviceDeliveryVerified).toBe(false); expect(receipt.readingVerified).toBe(false);
+});
+it('rejects another instruction’s notice reference without retrying the mutation', async () => {
+  const rpc = jest.fn(async () => ({data: {...disputeReceipt('refund_payer', null), notificationIds: ['another-notice', 'another-notice']}}));
+  (httpsCallable as jest.Mock).mockReturnValue(rpc);
+  await expect(resolveSwapDispute('swap-1', 'refund_payer')).rejects.toThrow('Résultat non qualifié');
+  expect(rpc).toHaveBeenCalledTimes(1);
 });

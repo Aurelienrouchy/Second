@@ -9,7 +9,10 @@
  * read by the app and went stale on every settings edit.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import { hasAccountClosure } from '../shared/eligibility';
+import { assertPrivateAccountSession, withPrivateAccountSession } from '../utils/privateAccountSession';
 
 /**
  * Valid values for the sex field
@@ -70,30 +73,38 @@ export const saveOnboardingPreferences = onCall(
 
     try {
       if (request.auth?.uid) {
+        const uid = request.auth.uid;
         const allSizes = [...cleanData.sizesTop, ...cleanData.sizesBottom];
-
-        await db.collection('users').doc(request.auth.uid).set(
-          {
-            preferences: {
-              sizes: allSizes,
-              shoesSizes: cleanData.sizesShoes,
-              sex: cleanData.sex,
-            },
-            onboardingCompleted: true,
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-        return { success: true, saved: 'user', userId: request.auth.uid };
+        return await withPrivateAccountSession(request, async () => {
+          await db.runTransaction(async tx => {
+            await assertPrivateAccountSession(request, tx);
+            const profile = (await tx.get(db.collection('eligibility_profiles').doc(uid))).data();
+            if (hasAccountClosure(profile)) throw new HttpsError('failed-precondition',
+              'Votre compte est fermé aux nouvelles opérations.', { reason: 'account_closing', action: 'contactSupport' });
+            // An initial public profile may not exist at signup. The private
+            // closure/security source, rather than profile existence, governs
+            // whether these preferences may create that initial document.
+            tx.set(db.collection('users').doc(uid), {
+              preferences: {
+                sizes: allSizes,
+                shoesSizes: cleanData.sizesShoes,
+                sex: cleanData.sex,
+              },
+              onboardingCompleted: true,
+              updatedAt: FieldValue.serverTimestamp(),
+            }, { merge: true });
+          });
+          return { success: true, saved: 'user', userId: uid };
+        });
       } else {
         // Guest: no server-side persistence. AsyncStorage holds the prefs and
         // mergeGuestDataIntoUser replays them at sign-in — no orphan doc.
         return { success: true, saved: 'guest' };
       }
     } catch (error: unknown) {
+      if (error instanceof HttpsError) throw error;
       const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error saving onboarding preferences:', error);
+      logger.error('Error saving onboarding preferences', { error: message });
       throw new HttpsError('internal', 'Failed to save onboarding preferences: ' + message);
     }
   }

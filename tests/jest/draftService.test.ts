@@ -17,6 +17,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getEnvironmentStorageKey } from '@/config/firebaseEnvironment';
+import { getEnvironmentFileDirectory } from '@/utils/environmentStorage';
 
 const mockAuth: { currentUser: { uid: string } | null } = { currentUser: { uid: 'alice' } };
 let mockAuthListener: ((user: { uid: string } | null) => void) | undefined;
@@ -37,9 +39,10 @@ const mockReadDirectoryAsync = jest.fn(
   (..._args: unknown[]): Promise<string[]> => Promise.resolve([]),
 );
 const mockDeleteAsync = jest.fn((..._args: unknown[]) => Promise.resolve());
+let mockDocumentDirectory = 'file:///documents/';
 jest.mock('expo-file-system/legacy', () => ({
   get documentDirectory() {
-    return 'file:///documents/';
+    return mockDocumentDirectory;
   },
   getInfoAsync: (...a: unknown[]) => mockGetInfoAsync(...a),
   makeDirectoryAsync: (...a: unknown[]) => mockMakeDirectoryAsync(...a),
@@ -50,17 +53,19 @@ jest.mock('expo-file-system/legacy', () => ({
 
 // aiService.deleteDraftImagesFromStorage — on observe les appels Storage.
 const mockDeleteDraftImagesFromStorage = jest.fn((..._args: unknown[]) => Promise.resolve());
-jest.mock('@/services/aiService', () => ({
+jest.mock('@/features/sell/services/aiService', () => ({
   deleteDraftImagesFromStorage: (...a: unknown[]) =>
     mockDeleteDraftImagesFromStorage(...a),
 }));
 
-import type { ArticleDraft, DraftFields, DraftPricing } from '@/services/draftService';
+import type { ArticleDraft, DraftFields, DraftPricing } from '@/features/sell/services/draftService';
 // Load after the account mock is initialized: the singleton subscribes on import.
-const { default: draftService, createEmptyDraft, getDaysUntilExpiration } = require('@/services/draftService') as typeof import('@/services/draftService');
+const { default: draftService, createEmptyDraft, getDaysUntilExpiration } = require('@/features/sell/services/draftService') as typeof import('@/features/sell/services/draftService');
 
-const DRAFT_KEY = '@article_draft:user:alice';
-const OWN_DIRECTORY = 'file:///documents/draft_images/alice/';
+const accountDraftKey = (uid: string) => getEnvironmentStorageKey(`@article_draft:user:${uid}`);
+const accountDraftDirectory = (uid: string) => `file:///documents/${getEnvironmentFileDirectory('draft_images')}/${uid}/`;
+const DRAFT_KEY = accountDraftKey('alice');
+const OWN_DIRECTORY = accountDraftDirectory('alice');
 
 function readStored(): ArticleDraft | null {
   const calls = (AsyncStorage.setItem as jest.Mock).mock.calls;
@@ -91,11 +96,78 @@ const samplePricing = (): DraftPricing => ({
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  mockDocumentDirectory = 'file:///documents/';
   switchAccount('alice');
   await AsyncStorage.clear();
   // Par défaut : le répertoire d'images existe et est vide.
-  mockGetInfoAsync.mockResolvedValue({ exists: true });
+  mockGetInfoAsync.mockReset().mockResolvedValue({ exists: true });
   mockReadDirectoryAsync.mockResolvedValue([]);
+});
+
+describe('reprise du même cache après déplacement du conteneur iOS', () => {
+  function movedDraft() {
+    const prefix = 'file:///private/var/mobile/Containers/Data/Application/';
+    const oldDocuments = `${prefix}11111111-1111-4111-8111-111111111111/Documents/`;
+    mockDocumentDirectory = `${prefix}22222222-2222-4222-8222-222222222222/Documents/`;
+    const draft = createEmptyDraft();
+    const tail = `${getEnvironmentFileDirectory('draft_images')}/alice/${draft.id}_0_1700000000000_owned.jpg`;
+    const oldUri = `${oldDocuments}${tail}`, currentUri = `${mockDocumentDirectory}${tail}`;
+    draft.photos = [oldUri]; draft.originalPhotoUris = [oldUri];
+    draft.storageUrls = ['https://firebasestorage.googleapis.com/v0/b/test-bucket/o/drafts%2Falice%2Fsynthetic%2Fphoto.jpg?alt=media'];
+    draft.fields = sampleFields(); draft.pricing = samplePricing(); draft.currentStep = 4;
+    return {draft, oldUri, currentUri};
+  }
+
+  it('relit seulement le candidat actuel et persiste les références normalisées sans recopier l’ancien conteneur', async () => {
+    const {draft, oldUri, currentUri} = movedDraft();
+    await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    const loaded = await draftService.loadDraft();
+    expect(loaded).toMatchObject({id: draft.id, ownerUid: 'alice', photos: [currentUri], originalPhotoUris: [currentUri], storageUrls: draft.storageUrls, fields: draft.fields, currentStep: 4});
+    expect(JSON.parse((await AsyncStorage.getItem(DRAFT_KEY))!)).toMatchObject({photos: [currentUri], originalPhotoUris: [currentUri], storageUrls: draft.storageUrls});
+    expect(mockGetInfoAsync).toHaveBeenCalledWith(currentUri);
+    expect(mockGetInfoAsync.mock.calls.every(([uri]) => uri === currentUri)).toBe(true);
+    expect(mockGetInfoAsync).not.toHaveBeenCalledWith(oldUri);
+    expect(mockCopyAsync).not.toHaveBeenCalled(); expect(mockDeleteAsync).not.toHaveBeenCalled();
+  });
+
+  it.each([{exists: false}, {exists: true, isDirectory: true}])('refuse le candidat indisponible sans réécrire ni supprimer le brouillon (%j)', async info => {
+    const {draft, currentUri} = movedDraft(); const original = JSON.stringify(draft);
+    await AsyncStorage.setItem(DRAFT_KEY, original); jest.clearAllMocks(); mockGetInfoAsync.mockResolvedValue(info);
+    await expect(draftService.loadDraft()).resolves.toBeNull();
+    expect(mockGetInfoAsync).toHaveBeenCalledWith(currentUri);
+    expect(await AsyncStorage.getItem(DRAFT_KEY)).toBe(original);
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled(); expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
+    expect(mockCopyAsync).not.toHaveBeenCalled(); expect(mockDeleteAsync).not.toHaveBeenCalled();
+  });
+
+  it('refuse le résultat tardif du contrôle de fichier après A→B→A sans adopter ni écrire pour le nouveau compte', async () => {
+    const {draft, currentUri} = movedDraft(); const original = JSON.stringify(draft);
+    await AsyncStorage.setItem(DRAFT_KEY, original); jest.clearAllMocks();
+    let release!: () => void, entered!: () => void;
+    const start = new Promise<void>(resolve => {entered = resolve;}), gate = new Promise<void>(resolve => {release = resolve;});
+    mockGetInfoAsync.mockImplementationOnce(async () => {entered(); await gate; return {exists: true};});
+    const pending = draftService.loadDraft(); await start;
+    expect(mockGetInfoAsync).toHaveBeenCalledWith(currentUri); switchAccount('bob'); switchAccount('alice'); release();
+    await expect(pending).resolves.toBeNull();
+    expect(await AsyncStorage.getItem(DRAFT_KEY)).toBe(original);
+    expect(await AsyncStorage.getItem(accountDraftKey('bob'))).toBeNull();
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled(); expect(mockCopyAsync).not.toHaveBeenCalled();
+  });
+
+  it('fusionne la normalisation avec les champs modifiés pendant la vérification du fichier', async () => {
+    const {draft, currentUri} = movedDraft(); await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    let release!: () => void, entered!: () => void;
+    const start = new Promise<void>(resolve => {entered = resolve;}), gate = new Promise<void>(resolve => {release = resolve;});
+    mockGetInfoAsync.mockImplementationOnce(async () => {entered(); await gate; return {exists: true};});
+    const pending = draftService.loadDraft(); await start;
+    const edited = {...sampleFields(), title: 'Titre modifié pendant la reprise'};
+    await draftService.updateDraftFields(draft, edited); release();
+    const loaded = await pending;
+    expect(loaded).toMatchObject({photos: [currentUri], originalPhotoUris: [currentUri], storageUrls: draft.storageUrls, fields: edited, pricing: draft.pricing, currentStep: 4});
+    expect(JSON.parse((await AsyncStorage.getItem(DRAFT_KEY))!)).toMatchObject({photos: [currentUri], fields: edited});
+    expect(mockGetInfoAsync.mock.calls.every(([uri]) => uri === currentUri)).toBe(true);
+    expect(mockCopyAsync).not.toHaveBeenCalled();
+  });
 });
 
 describe('createEmptyDraft', () => {
@@ -199,6 +271,29 @@ describe('expiration — purge à 14 jours', () => {
     ).toISOString();
     expect(getDaysUntilExpiration(expired)).toBe(0);
   });
+
+  it.each([
+    ['fin de l’heure d’été', '2026-10-26T16:00:00Z', '2026-11-09T17:00:00Z', '2026-10-26T16:00:00Z', '2026-11-01T06:00:00Z', 240, 300, 14],
+    ['début de l’heure d’été', '2026-03-01T17:00:00Z', '2026-03-15T16:00:00Z', '2026-03-01T17:00:00Z', '2026-03-08T07:00:00Z', 300, 240, 14],
+    ['échéance passée dans l’heure répétée', '2026-10-18T05:45:00Z', '2026-11-01T05:45:00Z', '2026-11-01T06:15:00Z', '2026-11-01T06:00:00Z', 240, 300, 0],
+  ] as const)('affiche les jours calendaires pour %s, indépendamment du fuseau du runner', (_label, createdAt, expiresAt, now, transition, startOffset, endOffset, expectedDays) => {
+    jest.useFakeTimers().setSystemTime(new Date(now));
+    const expirationTime = Date.parse(expiresAt);
+    // Model Toronto's calendar addition and offsets explicitly, even on a UTC runner.
+    const calendarAddition = jest.spyOn(Date.prototype, 'setDate').mockImplementation(function(this: Date) {
+      return this.setTime(expirationTime);
+    });
+    const zoneOffset = jest.spyOn(Date.prototype, 'getTimezoneOffset').mockImplementation(function(this: Date) {
+      return this.getTime() >= Date.parse(transition) ? endOffset : startOffset;
+    });
+    try {
+      expect(getDaysUntilExpiration({ ...createEmptyDraft(), createdAt })).toBe(expectedDays);
+    } finally {
+      calendarAddition.mockRestore();
+      zoneOffset.mockRestore();
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe('progression des étapes — Math.max, jamais de régression', () => {
@@ -267,13 +362,6 @@ describe('photos & storageUrls', () => {
       {} as any,
     );
     expect(updated.storageUrls).toEqual(['https://storage/a.jpg']);
-  });
-
-  it('hasStorageUrls reflète la présence d’URLs uploadées', () => {
-    const empty = createEmptyDraft();
-    expect(draftService.hasStorageUrls(empty)).toBe(false);
-    empty.storageUrls = ['https://storage/a.jpg'];
-    expect(draftService.hasStorageUrls(empty)).toBe(true);
   });
 });
 
@@ -474,18 +562,26 @@ describe('account isolation and interrupted operations', () => {
     expect((await draftService.loadDraft())?.id).toBe(bob.id);
     switchAccount('alice');
     expect((await draftService.loadDraft())?.id).toBe(alice.id);
-    expect(JSON.parse((await AsyncStorage.getItem('@article_draft:user:bob'))!).id).toBe(bob.id);
+    expect(JSON.parse((await AsyncStorage.getItem(accountDraftKey('bob')))!).id).toBe(bob.id);
   });
 
   it('does not read another account or legacy cache and cleans only its own directory', async () => {
     switchAccount('bob');
-    await expect(draftService.cachePhotos([`${OWN_DIRECTORY}private.jpg`], 'd1')).rejects.toThrow('another draft cache');
-    await expect(draftService.cachePhotos(['file:///documents/draft_images/legacy.jpg'], 'd1')).rejects.toThrow('another draft cache');
+    await expect(draftService.cachePhotos([`${OWN_DIRECTORY}private.jpg`], 'd1')).rejects.toThrow('ne correspond pas au cache du brouillon');
+    await expect(draftService.cachePhotos(['file:///documents/draft_images/legacy.jpg'], 'd1')).rejects.toThrow('ne correspond pas au cache du brouillon');
     expect(mockCopyAsync).not.toHaveBeenCalled();
     mockReadDirectoryAsync.mockResolvedValue(['orphan.jpg']);
     await draftService.cleanupExpiredDrafts();
-    expect(mockReadDirectoryAsync).toHaveBeenCalledWith('file:///documents/draft_images/bob/');
-    expect(mockDeleteAsync).toHaveBeenCalledWith('file:///documents/draft_images/bob/orphan.jpg', { idempotent: true });
+    expect(mockReadDirectoryAsync).toHaveBeenCalledWith(accountDraftDirectory('bob'));
+    expect(mockDeleteAsync).toHaveBeenCalledWith(`${accountDraftDirectory('bob')}orphan.jpg`, { idempotent: true });
+  });
+
+  it('rejects another environment’s private photo without reading, copying or deleting its file', async () => {
+    await expect(draftService.cachePhotos(['file:///documents/draft_images/alice/production-private.jpg'], 'd1'))
+      .rejects.toThrow('ne correspond pas au cache du brouillon');
+    expect(mockCopyAsync).not.toHaveBeenCalled();
+    expect(mockReadDirectoryAsync).not.toHaveBeenCalled();
+    expect(mockDeleteAsync).not.toHaveBeenCalled();
   });
 
   it('rejects queued edits after an account switch, including switching back before completion', async () => {
@@ -536,7 +632,7 @@ describe('account isolation and interrupted operations', () => {
     release();
     await rejected;
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(DRAFT_KEY, expect.any(String));
-    expect(await AsyncStorage.getItem('@article_draft:user:bob')).toBeNull();
+    expect(await AsyncStorage.getItem(accountDraftKey('bob'))).toBeNull();
     switchAccount('alice');
     expect((await draftService.loadDraft())?.id).toBe(alice.id);
   });
@@ -568,7 +664,7 @@ describe('account isolation and interrupted operations', () => {
     release();
     await rejected;
     expect(AsyncStorage.setItem).not.toHaveBeenCalled();
-    expect(mockCopyAsync).toHaveBeenCalledWith(expect.objectContaining({ to: expect.stringContaining('/draft_images/alice/') }));
+    expect(mockCopyAsync).toHaveBeenCalledWith(expect.objectContaining({ to: expect.stringContaining(accountDraftDirectory('alice')) }));
   });
 
   it('does not create, read, write or clean a draft without authentication', async () => {

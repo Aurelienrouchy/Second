@@ -13,12 +13,13 @@ export const ChatArticleBar = React.memo(function ChatArticleBar({
   articleTitle,
   articlePrice,
   snapshotPrice,
-  snapshotImage,
 }: ChatArticleBarProps) {
   const router = useRouter();
   const isUnavailable = article === null;
   const isSold = article?.isSold === true;
-  const imageUrl = article?.images?.[0]?.url ?? snapshotImage;
+  // A chat's client-created header cannot authorize a withdrawn private
+  // photo. Existing order parties use the separately qualified summary.
+  const imageUrl = article?.isActive === true ? article.images?.[0]?.url : undefined;
   const displayPrice = articlePrice ?? snapshotPrice;
 
   // Detect whether the price changed since the chat was created

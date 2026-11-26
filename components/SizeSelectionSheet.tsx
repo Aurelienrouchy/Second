@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, typography, components } from '@/constants/theme';
 import {
   getSizes,
   getSizesForCategory,
@@ -39,6 +39,8 @@ export interface SizeSelectionSheetRef {
 }
 
 interface SizeSelectionSheetProps {
+  /** Opt-in visual identity; other consumers keep their existing presentation. */
+  appearance?: 'default' | 'troc';
   selectedSizes: ArticleSize[];
   onConfirm: (sizes: ArticleSize[]) => void;
   /** When provided, restricts available sizes to this category */
@@ -65,8 +67,9 @@ const groupBySystem = (sizes: ArticleSize[]): Record<SizeSystem, string[]> => {
 };
 
 const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetProps>(
-  ({ selectedSizes, onConfirm, categoryPath }, ref) => {
+  ({ selectedSizes, onConfirm, categoryPath, appearance = 'default' }, ref) => {
     const insets = useSafeAreaInsets();
+    const isTroc = appearance === 'troc';
     const snapPoints = useMemo(() => ['85%'], []);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
     // Selections are tracked per system so switching US/EU never wipes the
@@ -146,13 +149,16 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
     const renderFooter = useCallback(
       (props: any) => (
         <BottomSheetFooter {...props}>
-          <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={[styles.confirmContainer, isTroc && styles.trocSurface, { paddingBottom: insets.bottom + 16 }]}>
             <TouchableOpacity
               style={[
                 styles.confirmButton,
+                isTroc && styles.trocConfirmButton,
                 totalSelectedCount === 0 && styles.confirmButtonDisabled,
               ]}
               onPress={handleConfirm}
+              accessibilityRole={isTroc ? 'button' : undefined}
+              accessibilityLabel={isTroc ? 'Valider les tailles' : undefined}
             >
               <Text style={styles.confirmButtonText}>
                 {totalSelectedCount > 0
@@ -163,7 +169,7 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
           </View>
         </BottomSheetFooter>
       ),
-      [insets.bottom, totalSelectedCount, handleConfirm]
+      [insets.bottom, totalSelectedCount, handleConfirm, isTroc]
     );
 
     const renderSizeSection = useCallback((section: SizeSection) => {
@@ -179,6 +185,9 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
               return (
                 <Pressable
                   key={size}
+                  accessibilityRole={isTroc ? 'checkbox' : undefined}
+                  accessibilityLabel={isTroc ? size : undefined}
+                  accessibilityState={isTroc ? {checked: isSelected} : undefined}
                   style={[
                     styles.sizeChip,
                     isSelected && styles.sizeChipSelected,
@@ -197,12 +206,13 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
           </View>
         </View>
       );
-    }, [sizeSystem, demographic, localSelectedSizes, handleSizeToggle]);
+    }, [sizeSystem, demographic, localSelectedSizes, handleSizeToggle, isTroc]);
 
     if (!mounted) return null;
 
     return (
       <BottomSheet
+        accessible={isTroc ? false : undefined}
         ref={bottomSheetRef}
         index={0}
         snapPoints={snapPoints}
@@ -212,13 +222,13 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
         onClose={() => setMounted(false)}
         topInset={insets.top}
         handleIndicatorStyle={styles.handleIndicator}
-        backgroundStyle={styles.sheetBackground}
+        backgroundStyle={[styles.sheetBackground, isTroc && styles.trocSurface]}
         enableDynamicSizing={false}
       >
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>Taille</Text>
+            <Text style={[styles.title, isTroc && styles.trocTitle]}>Taille</Text>
             {totalSelectedCount > 0 && (
               <View style={styles.countBadge}>
                 <Text style={styles.countBadgeText}>{totalSelectedCount}</Text>
@@ -239,6 +249,8 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
               onPress={() => bottomSheetRef.current?.close()}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={styles.closeButton}
+              accessibilityRole={isTroc ? 'button' : undefined}
+              accessibilityLabel={isTroc ? 'Fermer les tailles' : undefined}
             >
               <Ionicons name="close" size={22} color={colors.charcoal} />
             </TouchableOpacity>
@@ -264,6 +276,9 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
               {DEMOGRAPHIC_OPTIONS.map(opt => (
                 <Pressable
                   key={opt.id}
+                  accessibilityRole={isTroc ? 'radio' : undefined}
+                  accessibilityLabel={isTroc ? opt.label : undefined}
+                  accessibilityState={isTroc ? {checked: demographic === opt.id} : undefined}
                   style={[
                     styles.toggleOption,
                     demographic === opt.id && styles.toggleOptionSelected,
@@ -288,6 +303,9 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
               {SIZE_SYSTEM_OPTIONS.map(opt => (
                 <Pressable
                   key={opt.id}
+                  accessibilityRole={isTroc ? 'radio' : undefined}
+                  accessibilityLabel={isTroc ? `Tailles ${opt.label}` : undefined}
+                  accessibilityState={isTroc ? {checked: sizeSystem === opt.id} : undefined}
                   style={[
                     styles.toggleOption,
                     sizeSystem === opt.id && styles.toggleOptionSelected,
@@ -315,6 +333,9 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
                   return (
                     <Pressable
                       key={size}
+                      accessibilityRole={isTroc ? 'checkbox' : undefined}
+                      accessibilityLabel={isTroc ? size : undefined}
+                      accessibilityState={isTroc ? {checked: isSelected} : undefined}
                       style={[
                         styles.sizeChip,
                         isSelected && styles.sizeChipSelected,
@@ -346,6 +367,9 @@ const SizeSelectionSheet = forwardRef<SizeSelectionSheetRef, SizeSelectionSheetP
 // ─────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  trocSurface: { backgroundColor: colors.background },
+  trocTitle: { ...typography.trocScreenTitle, color: colors.foreground },
+  trocConfirmButton: { backgroundColor: colors.primaryDark, borderRadius: components.troc.cardRadius },
   sheetBackground: {
     backgroundColor: colors.surface,
   },

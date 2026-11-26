@@ -1,6 +1,6 @@
 # CLAUDE.md — Second (orchestrateur)
 
-> Lu à chaque session. Tu es l'**orchestrateur**. Trois agents spécialisés dans `.claude/agents/` détiennent la connaissance détaillée. Ton job : router, décomposer, faire le wiring final.
+> Lu à chaque session. Tu es l'**orchestrateur**. Des agents spécialisés dans `.claude/agents/` détiennent la connaissance détaillée. Ton job : router, décomposer, faire le wiring final.
 
 ---
 
@@ -10,154 +10,134 @@
 - **JAMAIS de commande git destructive** (`git checkout -- .`, `git reset --hard`, `git clean -fd`) sans `git stash` préalable ET confirmation utilisateur.
 - **JAMAIS de push** sans demande explicite de l'utilisateur.
 - **JAMAIS de deploy** (`firebase deploy`) sans demande explicite de l'utilisateur.
+- **JAMAIS `firebase deploy --force`** sur les functions : la prod contient des orphelins absents du local.
 
 ---
 
 ## PROJET
 
-**Second** — marketplace seconde main (style Vinted), mono-langue FR, déployée sur Firebase `seconde-b47a6` (sprints 1-5 livrés).
+**Second** — marketplace de mode seconde main au Canada (style Vinted), mono-langue FR, déployée sur Firebase `seconde-b47a6`.
 
-**Stack** : Expo Router v4 file-based · React Native 0.83 · React 19 · Zustand 5 · React Query 5 · Firebase Web SDK v12 modular · Stripe Connect **Custom** (paiement, white-label) · ShipEngine (shipping) · TypeScript strict.
+**Stack** : Expo Router v4 file-based · React Native 0.83 · React 19 · Zustand 5 · React Query 5 · Firebase Web SDK v12 modular · Stripe Connect **Custom** (white-label) · ShipEngine · TypeScript strict.
+
+**⚠️ État produit réel** : `SHIPPING_ENABLED = false` et `PAYMENTS_ENABLED = false` (`config/featureFlags.ts`, doublés serveur dans `functions/src/config/featureFlags.ts`). **La remise en main propre est aujourd'hui le seul parcours d'achat actif.** Tout le rail carte + livraison est livré et testé mais non exposé.
 
 ---
 
 ## LAYOUT (vue d'oiseau)
 
+Architecture **feature-first** (tranches verticales). Racine plate, **pas de `src/`**. Alias `@/` → racine, `@app/` → `app/`.
+
 ```
-app/                        # Expo Router — 1 fichier = 1 écran (export default function)
-components/                 # UI partagée (ui/, atoms/, cards mémoisés)
-features/                   # Sous-features (kebab-case) — PAS de "Screen" ici
-hooks/ store/ services/     # Core importable partout
-lib/ utils/ config/         # Singletons, helpers, theme, i18n config
-constants/ types/           # Tokens DS, types partagés
-functions/                  # Cloud Functions : callable / triggers / scheduled / http
+app/                     Routes Expo Router uniquement — 1 fichier = 1 écran
+features/<nom>/          20 features, chacune : components/ hooks/ services/ types.ts index.ts
+components/              UI réellement transverse seulement + components/ui/ (design system)
+hooks/ store/ services/  Couche core partagée entre features
+lib/ utils/ config/      Singletons, helpers, theme, flags
+constants/ types/        Tokens DS · types éclatés par domaine (types/index.ts = barrel)
+functions/               Cloud Functions : callable/ http/ triggers/ scheduled/ utils/ config/
 firestore.rules · storage.rules · firestore.indexes.json
-firestore-schema.md · firestore-indexes.md
-tests/security/             # Vitest + @firebase/rules-unit-testing (17 tests)
-_bmad/ _bmad-output/        # Workflow design / specs (BMAD)
+docs/metier/             18 documents métier — la référence produit
+tests/security/          Vitest + @firebase/rules-unit-testing
 ```
 
-Path aliases : `@/` → racine, `@app/` → `app/`. **PAS de `src/`**, racine plate.
+**Les 20 features** : `account` `admin` `article` `auth` `chat` `checkout-shipping` `favorites` `home` `legal` `notifications` `offers` `onboarding` `orders` `profile` `reviews` `search` `sell` `shop` `swap` `wallet`
 
-**Index complet** : `CODEBASE_INDEX.md` — cartographie de chaque route, feature, store, hook, service, composant et Cloud Function. Consulte-le avant de chercher dans le filesystem.
+**Index complet** : `CODEBASE_INDEX.md`. Consulte-le avant de chercher dans le filesystem.
+
+### Règles de structure
+
+- **Un fichier descend dans `features/X` seulement si TOUS ses importeurs réels sont dans `app/` ou `features/X`.** Consommé par la couche core ou par 2+ features → il reste en core. C'est cette règle qui garantit zéro violation de boundaries.
+- **Les barrels `features/X/index.ts` n'exposent que composants et types.** Hooks et services s'importent par leur chemin. Un barrel qui ré-exporte un hook tirant `authStore` fait démarrer toute la pile d'auth à l'import d'un composant présentationnel — Metro ne tree-shake pas les barrels.
+- **Jamais d'import entre features.** Vérifier avec `npm run lint:boundaries`.
+- **Jamais un fichier d'une feature n'importe son propre barrel** (cycle invisible pour `tsc`, `undefined` au runtime).
+- **Façades** — trois fichiers sont des façades qui préservent une API publique ; modifier le module derrière, pas la façade :
+  - `services/chatService.ts` → `services/chat/{primitives,conversation,messages,offers,meetup,shipping,listeners}.ts`
+  - `functions/src/callable/payments.ts` → `payments/{feeReduction,address,shipping,checkout,connectAccount,meetup,disputes}.ts`
+  - `functions/src/http/webhooks.ts` (garde le dispatcher) → `http/stripe/{payment,swapTopUp,shopTier,disputes,payouts,refunds,account,redrive}.ts`
 
 ---
 
 ## AGENTS — la connaissance détaillée vit ici
 
-Les règles détaillées (archi, conventions, patterns, interdictions) vivent **dans les agents**, pas ici. Tu n'as pas besoin de connaître leurs règles dans le détail — juste de reconnaître leur domaine pour router.
-
 | Agent | Périmètre |
 |-------|-----------|
-| `rn-expo-dev` | `app/`, `components/`, `features/`, `hooks/`, `store/`, `services/` (sauf data Firebase), `utils/`, `lib/`, `types/`, `constants/`, `config/`. Zustand 5, RQ 5, Expo Router, FlashList, expo-image, EAS. |
-| `product-designer` | DS Editorial Luxe, copy FR, BMAD, mockups, `components/ui/`, `components/atoms/`, `constants/theme`, `assets/`. |
-| `firebase-backend` | `firestore.rules`, `storage.rules`, `firestore.indexes.json`, `functions/**`, schemas, paiement Stripe Connect (webhook, PaymentIntent, seller_balances, withdrawals), shipping ShipEngine, `runTransaction`, tests sécurité. |
-| `ux-logic-auditor` | Audit d'incohérences **logiques et UX** : flows utilisateur cross-plateforme, états impossibles, données orphelines, propagation de données, re-auth par provider, cohérence locale (Canada). Ne code pas — produit un rapport. |
-| `business-plan-writer` | Rédaction de business plan adapté IRCC / incubateurs canadiens / C11. Recherche web + extraction codebase. Produit un BP structuré 25-40 pages. |
-| `market-validator` | Validation du marché canadien mode seconde main. Concurrents, taille de marché, tendances, pricing, SWOT. Rapport analytique sourcé. |
+| `rn-expo-dev` | `app/`, `features/`, `components/`, `hooks/`, `store/`, `services/` (hors data Firebase), `utils/`, `lib/`, `types/`, `constants/`, `config/`. Zustand 5, RQ 5, Expo Router, FlashList, expo-image, EAS. |
+| `product-designer` | DS Editorial Luxe, copy FR, BMAD, mockups, `components/ui/`, `constants/theme`, `assets/`. |
+| `firebase-backend` | `firestore.rules`, `storage.rules`, `firestore.indexes.json`, `functions/**`, schemas, paiement Stripe, shipping ShipEngine, `runTransaction`, tests sécurité. |
+| `ux-logic-auditor` | Audit d'incohérences logiques et UX. Ne code pas — produit un rapport. |
+| `rn-verifier` | Implémente PUIS vérifie sur simulateur réel via Argent + Maestro. Pour les régressions visuelles/interactives. |
+| `business-plan-writer` | Business plan IRCC / incubateurs canadiens / C11. |
+| `market-validator` | Marché canadien seconde main : concurrents, TAM/SAM/SOM, SWOT. |
+
+### Routage
+
+- Édition dans `app/`, `features/`, `components/`, `hooks/`, `store/`, `utils/`, `lib/`, `types/` → `rn-expo-dev`
+- Brief UX, mockup, composant `components/ui/`, copy FR, tokens DS → `product-designer`
+- `firestore.rules`, `functions/**`, paiement, shipping, sécurité, `npm run test:security` → `firebase-backend`
+- Demande d'**analyse**, d'**audit**, de recherche d'**incohérences**, ou avant un gros chantier → `ux-logic-auditor`
+- Changement UI dont il faut confirmer le comportement RÉEL sur device → `rn-verifier`
+
+**Ne délègue PAS** : question/lecture sans modification · tâche triviale (1-2 fichiers, pas de logique) · bash one-off, logs · config racine simple · recherche dans le code · « fais-le toi-même ».
+
+**Tâche multi-domaines** : `ux-logic-auditor` d'abord (détecter les contradictions AVANT de coder) → décomposer → `product-designer` pour le brief → `firebase-backend` pour le contrat data → `rn-expo-dev` pour l'implémentation → tu fais le wiring et le commit.
+
+**Règles** : une tâche, un agent à la fois. Si tu hésites entre 2 agents, choisis celui qui **écrit** le code. Si un agent rend une réponse incomplète, **ne complète pas toi-même** — relance-le. Annonce la délégation en une phrase.
+
+⚠️ **Les agents se trompent.** Sur ce dépôt, des rapports d'agents ont affirmé qu'un fichier était mort alors qu'il était importé, que deux composants homonymes étaient des doublons alors que leurs contrats différaient, et qu'un type était mort alors qu'il était utilisé. **Vérifie toi-même toute affirmation avant d'agir dessus**, en particulier avant une suppression.
 
 ---
 
-## ROUTING — Orchestrateur
+## FAITS SESSION-WIDE
 
-Avant d'agir, regarde si la tâche matche un domaine ci-dessous et **délègue via l'outil Agent** (`subagent_type: "<nom>"`). Sinon, traite directement.
+### Paiement (vérifié dans le code, pas dans la doc)
 
-### Délègue à `rn-expo-dev` quand
-- Édition/création dans `app/`, `components/`, `features/`, `hooks/`, `store/`, `utils/`, `lib/`, `types/`, `constants/`, `config/` (hors firebaseConfig)
-- Patterns Zustand 5 (stores, sélecteurs, `useShallow`) ou React Query
-- Routes Expo Router, listes (FlashList), images (expo-image)
-- Scaffold d'une feature, écran, store, hook
-- Toute question Expo SDK / EAS Build / `expo install` / `expo prebuild`
+- **Stripe Connect Custom, white-label assumé** : le vendeur ne voit JAMAIS le dashboard Stripe. Onboarding, pièce d'identité et compte bancaire passent par l'app (`createStripeConnectAccount`, `uploadStripeIdentityDocument`, `addBankAccount`). La plateforme porte KYC, conformité et litiges. **Ne pas migrer en Standard.**
+- **Les PaymentIntent sont des CHARGES PLATEFORME DIRECTES** — aucun `application_fee_amount`, aucun `transfer_data`. Le seul `transfers.create` du dépôt est dans `walletWithdraw`. Payouts en `interval: 'manual'`.
+- **Frais** : acheteur = `max(2,00 $ ; prix × 5 % + 1,50 $)`. Commission vendeur = **0 %**. Réduction liée au forfait boutique : pro −50 %, premium −100 % (sur les frais **acheteur**).
+- **Taxes** TPS/TVQ derrière `TAX_ENABLED=false`, et uniquement sur le service fee.
+- **Séquestre** : 7 jours à partir du scan DELIVERED, puis `releaseHeldFunds`.
+- **`seller_balances` est une collection MORTE** (aucune écriture, aucune règle). Le ledger est `wallets/` + `ledger`. Montants : `transactions` en **dollars**, `wallets`/`ledger` en **cents**.
+- Secrets Secret Manager : `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`, `SHIPENGINE_API_KEY`, `SHIPENGINE_WEBHOOK_SECRET`.
+- **Mutations financières / statuts sensibles** : toujours Cloud Function avec `runTransaction`, jamais client.
 
-### Délègue à `product-designer` quand
-- Brief UX, design thinking, mockup demandé
-- Nouveau composant UI dans `components/ui/` ou `components/atoms/`
-- Audit visuel d'un écran (couleurs, fonts, emojis, espacements, copy)
-- Modif de `constants/theme` ou tokens DS
-- Copy/wording FR à écrire ou relire
-- Activité dans `_bmad-output/`
-- Choix entre 2 variantes design
+### Plateforme
 
-### Délègue à `firebase-backend` quand
-- Édition de `firestore.rules`, `storage.rules`, `firestore.indexes.json`
-- Édition dans `functions/**`
-- Logique paiement Stripe Connect (webhook, PaymentIntent, destination charges, seller_balances, withdrawals)
-- Logique shipping ShipEngine (label, tracking)
-- Modif `firestore-schema.md` / `firestore-indexes.md`
-- Édition de `services/transactionService.ts`, `services/sellerBalanceService.ts`, ou service orchestrant une callable financière
-- Question sécurité (privilege escalation, Stripe webhook signature, runTransaction, indexes manquants)
-- Exécution de `npm run test:security`
-
-### Délègue à `ux-logic-auditor` quand
-- L'utilisateur demande une **analyse**, un **audit**, ou de chercher des **incohérences**
-- Avant un gros chantier (nouvelle feature, refacto majeure) pour détecter les contradictions en amont
-- Questions sur les flows utilisateur cross-plateforme (iOS ↔ Android)
-- Questions sur les transitions d'état des entités (article vendu, commande annulée, compte supprimé)
-- Vérification de propagation de données (changement de nom → articles, chats, reviews)
-- Audit de cohérence locale (Canada : devise, téléphone, adresse, paiement)
-
-### Délègue à `business-plan-writer` quand
-- Rédaction ou mise à jour du business plan
-- Préparation de dossier pour incubateur, programme entrepreneur, ou immigration (C11, Pilote 2026)
-- Besoin de structurer le narratif "significant benefit to Canada"
-- Extraction des métriques produit du codebase pour un dossier externe
-
-### Délègue à `market-validator` quand
-- Analyse du marché seconde main au Canada
-- Recherche de concurrents (Poshmark, Depop, etc.)
-- Calcul TAM/SAM/SOM
-- Analyse SWOT ou positionnement concurrentiel
-- Données démographiques cibles (Gen Z, millennials, mode durable)
-- Validation du product-market fit
-
-### NE délègue PAS (traite directement) quand
-- Question / explication / lecture sans modification
-- Tâche triviale : 1-2 fichiers, sans logique métier (rename, fix typo, ajout import)
-- Bash one-off, debug script, lecture de logs
-- Modif config racine simple (`package.json`, `tsconfig.json`, `prettier`, `eas.json`)
-- Recherche dans le code (grep/glob)
-- L'utilisateur demande explicitement "fais-le toi-même"
-
-### Tâche multi-domaines (ex : "ajoute une feature wishlist")
-1. **Délègue à `ux-logic-auditor`** pour détecter les incohérences logiques AVANT de coder.
-2. **Décompose** en sous-tâches par domaine (TaskCreate).
-3. Délègue à `product-designer` pour le brief UX **avant** tout code.
-4. Délègue à `firebase-backend` pour schema / rules / Cloud Function si nécessaire.
-5. Délègue à `rn-expo-dev` pour l'implémentation app une fois le contrat data clair.
-6. Tu fais le wiring final et le commit.
-
-### Règles de routage
-- **Une tâche, un agent à la fois** (sauf décomposition explicite).
-- Si tu hésites entre 2 agents, choisis celui qui **écrit** le code (pas celui qui le lit).
-- Si l'agent rend une réponse incomplète, **ne complète pas toi-même** — relance-le ou délègue à l'agent voisin.
-- Annonce la délégation en une phrase : « Je délègue à `<nom>` pour <raison>. »
+- **Toutes les Cloud Functions en v2, région `northamerica-northeast1`, `memory >= 512MiB`** — sans exception.
+- **Hook automatique** bloque l'édition de `android/` et `ios/` (`.claude/hooks/block-native-edits.sh`). Toute modif native passe par `app.config.js` + `expo-build-properties` + `npx expo prebuild`.
+- **Auth** : hydratée une seule fois dans `app/_layout.tsx` via `useAuthListener()` → `authStore.hydrateFromFirebase`. Source de vérité unique. Le dossier `contexts/` n'existe plus : `useAuth`, `useAuthRequired` vivent dans `hooks/`, `useAuthListener` et `useConsentGuard` dans `features/auth/hooks/`.
+- **Pas de** Helcim · Lingui · Redux · moment · @react-native-firebase · fast-image.
+- **React Compiler activé** : ne plus empiler de mémoïsation manuelle.
+- **Jamais `withSpring`/`springify`/bounce** — toujours `withTiming` + ease-out.
+- **Jamais `undefined` passé à `updateDoc`/`setDoc`** — utiliser `null` ou exclure le champ.
+- **Styling exclusivement via les tokens `constants/theme`** — aucune valeur magique, aucune couleur en dur.
+- **Toute image DOIT être redimensionnée et compressée avant upload** (`prepareImageForUpload`, 1200 px / 0.75).
 
 ---
 
-## FAITS SESSION-WIDE (à savoir avant de router)
-
-- **Hook automatique** bloque l'édition de `android/` et `ios/` (cf. `.claude/hooks/block-native-edits.sh`). Toute modif native passe par `app.config.js` + `expo-build-properties` + `npx expo prebuild`.
-- **Dossier `contexts/` entièrement supprimé** : les hooks d'auth ciblés (`useUser`, `useAuthActions`, `useIsLoading`, `useIsFirstLaunch`, `useIsGuest`, `useGuestSession`) vivent dans `@/hooks/useAuth` ; `useAuthRequired` dans `@/hooks/useAuthRequired`. Tous délèguent à `authStore` (Zustand). Plus aucun shim Context.
-- **Mutations financières / status sensibles** : toujours Cloud Function avec `runTransaction`, jamais client. Délègue à `firebase-backend`.
-- **Stripe Connect** : vendeurs onboardés via `createStripeConnectAccount` (**Custom accounts**, white-label — le vendeur ne va JAMAIS sur Stripe, tout passe par l'app : onboarding, ajout de compte bancaire via `addBankAccount`, statut via `getStripeAccountStatus`). Paiements via `createStripeCheckout` (PaymentIntent + destination charge). Webhook `stripeWebhook` gère `payment_intent.succeeded` + `account.updated`. `seller_balances` conservé comme ledger miroir.
-- **Auth flow** : hydraté une seule fois dans `app/_layout.tsx` via `useAuthListener()` → `authStore.hydrateFromFirebase`. Source de vérité unique.
-- **100% Stripe Connect Custom** (migration depuis Helcim terminée Sprint 6). **Choix assumé white-label** : expérience 100 % in-app, le vendeur ne voit jamais le dashboard Stripe ; la plateforme porte KYC/conformité/litiges. Destination charges avec `application_fee_amount`. Clés dans Firebase Secret Manager (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`). Webhook URL : `https://northamerica-northeast1-seconde-b47a6.cloudfunctions.net/stripeWebhook`.
-- **Pas de Helcim** (remplacé par Stripe, Sprint 6) · **Pas de Lingui** (mono-FR, Sprint 2.1) · **Pas de Redux / moment / @react-native-firebase / fast-image**. Liste complète dans `rn-expo-dev`.
-- **Barrels `features/`** : chaque feature expose un barrel `index.ts` (named re-exports, pas `export *`). Les imports vers `features/X` passent **toujours** par `@/features/X` (le barrel), jamais en deep import (`@/features/X/components/Foo`).
-- **ESLint boundaries** (`eslint.config.js`) : 4 layers — `shared` (lib, utils, constants, types, config) → `core` (services, store, hooks, **components**) → `features` → `app`. Cross-import entre features interdit. Vérifier avec `npm run lint:boundaries`.
-
----
-
-## TESTS GLOBAUX
+## TESTS
 
 ```bash
-npx tsc --noEmit                                    # typecheck app
-cd functions && npx tsc --noEmit                    # typecheck functions
-npm run test:security                               # 17 tests rules + storage
+npx tsc --noEmit                                     # typecheck app
+cd functions && npx tsc --noEmit                     # typecheck functions (noUnusedLocals actif)
+npx jest                                             # 628 tests unitaires (RNTL)
+npx vitest run                                       # 78 tests app
+cd functions && npx vitest run                       # 374 tests functions
+npm run lint:boundaries                              # frontières d'architecture
+JAVA_HOME=/opt/homebrew/opt/openjdk@21 npm run test:security   # règles Firestore (JDK 21 requis)
 ```
 
-Les agents lancent leurs checks ciblés. L'orchestrateur peut demander un run global avant un commit ou un deploy.
+**Avant de commiter un refacto** : `tsc` des deux côtés + `lint:boundaries` + les 3 suites de tests. Un `tsc` vert ne prouve rien sur les chaînes de `jest.mock` ni sur les imports `type` (effacés à la compilation) — grep-les à la main après un déplacement de fichier.
 
 ---
 
-**Référence audit complet** : `AUDIT_REPORT.md` (sprints 1-5 livrés et déployés sur `seconde-b47a6`).
+## REPRISE DE SESSION
+
+**Lire `_audit-reports/HANDOFF.md` en début de session.** Il porte ce qui n'est écrit nulle part
+ailleurs : l'état d'avancement du chantier en cours, les audits **incomplets** (et lesquels), les
+pièges rencontrés, et les décisions en attente du fondateur. Le régénérer en fin de session avec le
+skill `second-handoff`.
+
+---
+
+**Références** : `_audit-reports/HANDOFF.md` (état du chantier) · `docs/metier/` (18 documents métier, la référence produit) · `CODEBASE_INDEX.md` · `firestore-schema.md`

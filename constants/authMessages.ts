@@ -8,7 +8,7 @@ export const AUTH_MESSAGES = {
   buy: "Créez un compte pour finaliser votre achat",
   sell: "Inscrivez-vous pour vendre vos articles",
   follow: "Créez un compte pour suivre ce vendeur",
-  swapParty: "Inscrivez-vous pour participer à la Swap Zone",
+  swapParty: "Inscrivez-vous pour participer au Troc",
   saveSearch: "Créez un compte pour sauvegarder vos recherches",
   default: "Connectez-vous pour continuer",
 } as const;
@@ -32,10 +32,10 @@ export const COPY_CONSENT = {
 } as const;
 
 /**
- * Sell gate copy for 16-17 year olds (rédigé par le juriste — ne pas modifier).
+ * Nouveaux achats et ventes 18+ — décision produit confirmée, distincte de l’inscription 16+.
  */
 export const COPY_SELL_GATE =
-  "La vente d'articles est réservée aux personnes de 18 ans et plus, car notre partenaire de paiement Stripe exige cet âge pour ouvrir un compte de versement. Vous pouvez continuer à acheter et naviguer sur Second.";
+  'Les nouveaux achats et ventes sont réservés aux personnes de 18 ans et plus. Vous pouvez consulter le catalogue et accéder à vos dossiers et à l’assistance.';
 
 /**
  * Username choice + consent route copy (figée par le designer — ne pas paraphraser).

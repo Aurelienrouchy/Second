@@ -1,0 +1,82 @@
+import { useEffect, useRef } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
+
+import { auth } from '@/config/firebaseConfig';
+import { AuthService } from '@/services/authService';
+import { getAuthSessionGeneration, useAuthStore } from '@/store/authStore';
+import {captureNativeReauthenticationReturn} from '@/services/nativeReauthentication';
+
+/**
+ * Mount the Firebase Auth listener exactly once.
+ *
+ * Call from the root layout. The listener is the single source of truth
+ * for `authStore.user` and is the only writer that flips
+ * `authStore.isLoading` to `false`. AsyncStorage is read in
+ * `bootstrap()` solely for first-launch detection / guest session — it
+ * never decides whether the user is authenticated, fixing the original
+ * AuthContext race condition where AsyncStorage hydration could ship a
+ * stale (potentially revoked) user before Firebase confirmed.
+ *
+ * Also listens for AppState changes: when the app returns from background,
+ * it reloads the Firebase Auth user so that external changes (e.g. email
+ * verification completed in browser) are picked up immediately.
+ */
+export function useAuthListener(): void {
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    const store = useAuthStore.getState();
+
+    AuthService.initialize().catch((error) => {
+      if (__DEV__) console.error('[useAuthListener] AuthService.initialize failed:', error);
+    });
+
+    void store.bootstrap();
+
+    const unsubscribe = AuthService.onAuthStateChanged(async (firebaseUser) => {
+      await useAuthStore.getState().hydrateFromFirebase(firebaseUser);
+    });
+
+    // When the app returns from background, reload the Firebase Auth user
+    // to capture external changes (e.g. email changed via verification link
+    // opened in the browser).
+    const appStateSub = AppState.addEventListener('change', async (nextState: AppStateStatus) => {
+      if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const generation = getAuthSessionGeneration();
+          const sameOwner = () => auth.currentUser === currentUser && useAuthStore.getState().authenticatedUid === currentUser.uid &&
+            getAuthSessionGeneration() === generation;
+          const nativeReturn = captureNativeReauthenticationReturn(currentUser);
+          try {
+            await currentUser.reload();
+            if (sameOwner() && !nativeReturn?.preservesSession()) await useAuthStore.getState().hydrateFromFirebase(currentUser);
+          } catch (error) {
+            if (__DEV__) console.error('[useAuthListener] foreground reload error:', error);
+            // With the Web SDK, onAuthStateChanged does NOT re-fire on a
+            // server-side revocation/deletion/disable. reload() is the only
+            // foreground detector and throws these codes. Without a signOut the
+            // store keeps a ghost user (authed screens + writes that fail
+            // permission-denied) until the token next refreshes. Trigger a
+            // clean signOut so the session resets immediately.
+            const code = (error as { code?: string } | null)?.code;
+            if (sameOwner() && (
+              code === 'auth/user-token-expired' ||
+              code === 'auth/user-disabled' ||
+              code === 'auth/user-not-found'
+            )) {
+              // Token is revoked/disabled/not-found here, so skip the remote FCM write (it would permission-deny).
+              await useAuthStore.getState().signOut({ skipRemoteFcmCleanup: true });
+            }
+          } finally {nativeReturn?.finish();}
+        }
+      }
+      appStateRef.current = nextState;
+    });
+
+    return () => {
+      unsubscribe();
+      appStateSub.remove();
+    };
+  }, []);
+}

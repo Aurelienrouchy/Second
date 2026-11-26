@@ -35,7 +35,7 @@ jest.mock('@/services/articlesService', () => ({
   },
 }));
 
-import { UserStatsService } from '@/services/userStatsService';
+import { UserStatsService } from '@/features/profile/services/userStatsService';
 
 // Construit un snapshot Firestore minimal à partir d'un tableau de data.
 function snapshotOf(docs: Record<string, unknown>[]) {
@@ -93,7 +93,7 @@ describe('UserStatsService.getUserStats — partition articles & gains', () => {
   it('calcule la moyenne arithmétique des notes des avis', async () => {
     mockGetDocs
       .mockResolvedValueOnce(snapshotOf([]))
-      .mockResolvedValueOnce(snapshotOf([{ note: 5 }, { note: 4 }, { note: 3 }]));
+      .mockResolvedValueOnce(snapshotOf([{ note: 5, text: 'Excellent' }, { note: 4, text: 'Très bien' }, { note: 3, text: 'Correct' }]));
 
     const stats = await UserStatsService.getUserStats('seller-1');
 

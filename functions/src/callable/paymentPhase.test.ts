@@ -3,7 +3,7 @@ import { createFirestoreMock, createStripeMock } from '../utils/testHelpers/fire
 import type { MockFirestore, StripeMock } from '../utils/testHelpers/firestoreMock';
 const holder = vi.hoisted(() => ({ fs: null as MockFirestore | null, stripe: null as StripeMock | null }));
 const fs = createFirestoreMock(); const stripe = createStripeMock(); holder.fs = fs; holder.stripe = stripe;
-vi.mock('../config/firebase', () => ({ get db() { return holder.fs!.db; }, get FieldValue() { return holder.fs!.FieldValue; } }));
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) }, get db() { return holder.fs!.db; }, get FieldValue() { return holder.fs!.FieldValue; } }));
 vi.mock('../config/stripe', () => ({ getStripe: () => holder.stripe!.client }));
 vi.mock('../config/shipEngine', () => ({ getShipEngine: () => null }));
 vi.mock('../lib/analytics', () => ({ captureServerEvent: async () => {} }));
@@ -24,7 +24,7 @@ type Call = (r: { auth: { uid: string }, data: Record<string, unknown> }) => Pro
 
 describe('free MVP server policy', () => {
   it.each([walletWithdraw, payWithWallet, purchaseShopTier, createSwapTopUpCheckout, createStripeCheckout])('closes a new financial rail before external work', async callable => {
-    await expect((callable as unknown as Call)({ auth: { uid: 'user1' }, data: {} })).rejects.toMatchObject({ code: 'failed-precondition' });
+    await expect((callable as unknown as Call)({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1',} })).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(stripe.calls.paymentIntentsCreate).toHaveLength(0);
     expect(stripe.calls.transfersCreate).toHaveLength(0);
     expect(stripe.calls.payoutsCreate).toHaveLength(0);
@@ -34,11 +34,11 @@ describe('free MVP server policy', () => {
     vi.stubEnv('PAYMENTS_ENABLED', 'true'); vi.stubEnv('SHIPPING_ENABLED', 'false');
     fs.setDoc('wallets/user1', { balance: 5000, status: 'active' });
     fs.setDoc('transactions/order', { buyerId: 'user1', sellerId: 'user2', deliveryType: 'shipping', status: 'pending_payment', totalAmount: 25 });
-    await expect((payWithWallet as unknown as Call)({ auth: { uid: 'user1' }, data: { transactionId: 'order' } })).rejects.toMatchObject({ code: 'failed-precondition' });
+    await expect((payWithWallet as unknown as Call)({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', transactionId: 'order' } })).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(fs.getDoc('wallets/user1')!.balance).toBe(5000);
   });
   it('rejects a top-up proposal without creating a swap', async () => {
-    await expect((proposeMultiSwap as unknown as Call)({ auth: { uid: 'user1' }, data: {
+    await expect((proposeMultiSwap as unknown as Call)({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1',
       initiatorId: 'user1', initiatorName: 'Buyer', receiverId: 'user2', receiverName: 'Seller',
       initiatorItems: [{ articleId: 'a1' }], receiverItems: [{ articleId: 'a2' }], cashTopUp: { payerId: 'user1', amount: 100 },
     } })).rejects.toMatchObject({ code: 'failed-precondition' });

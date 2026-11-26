@@ -1,3 +1,4 @@
+/** Shared address discovery for profile editing and shipping checkout. */
 export interface AddressSuggestion {
   id: string;
   label: string;
@@ -60,7 +61,8 @@ const normalizeProvince = (province = ''): string =>
 /**
  * Fallback d'autocomplétion sans clé pour la bêta. Photon utilise les données
  * OpenStreetMap et accepte la recherche interactive; la requête est limitée au
- * Canada et à cinq résultats pour rester légère.
+ * Canada avant le classement des résultats, avec un biais sur Montréal.
+ * Le résultat ne constitue pas une validation de délivrabilité.
  */
 export async function searchCanadianAddresses(
   query: string,
@@ -73,6 +75,9 @@ export async function searchCanadianAddresses(
   url.searchParams.set('q', normalized);
   url.searchParams.set('lang', 'fr');
   url.searchParams.set('limit', '5');
+  url.searchParams.set('countrycode', 'CA');
+  url.searchParams.set('lat', '45.5019');
+  url.searchParams.set('lon', '-73.5674');
 
   const response = await fetch(url.toString(), { signal });
   if (!response.ok) throw new Error(`Address autocomplete failed: ${response.status}`);
@@ -85,7 +90,8 @@ export async function searchCanadianAddresses(
       const street = [properties.housenumber, properties.street || properties.name]
         .filter(Boolean)
         .join(' ');
-      const city = properties.city || properties.district || properties.county || '';
+      // Un arrondissement ou une MRC ne remplace pas une ville manquante.
+      const city = properties.city || '';
       const province = normalizeProvince(properties.state);
       const coordinates = feature.geometry?.coordinates;
       return {
@@ -100,5 +106,5 @@ export async function searchCanadianAddresses(
         latitude: coordinates?.[1],
       };
     })
-    .filter((suggestion) => suggestion.label.length > 0);
+    .filter((suggestion) => suggestion.street.length > 0);
 }

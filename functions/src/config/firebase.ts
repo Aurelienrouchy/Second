@@ -3,6 +3,8 @@
  * Firebase Functions v7 / firebase-admin v13.6.0
  */
 import * as admin from 'firebase-admin';
+import {installFinancialSubjectTransactions} from '../utils/financialSubjectTransaction';
+import { requireRuntimeProjectId, runtimeStorageBucket } from './runtimeEnvironment';
 
 // Unit tests mock this module. Integration tests must explicitly configure all
 // emulators on a demo project; an accidental unmocked import fails before ADC
@@ -20,14 +22,22 @@ if (process.env.NODE_ENV === 'test') {
   }
 }
 
+// Refuse a dev/prod target mismatch before Admin can initialize ADC clients.
+const runtimeProject = requireRuntimeProjectId();
+const runtimeBucket = runtimeStorageBucket();
+if (admin.apps.some(app => app && (app.options.projectId !== runtimeProject || app.options.storageBucket !== runtimeBucket))) {
+  throw new Error('Firebase Admin cannot reuse an app from another or unqualified environment.');
+}
+
 // Initialize Firebase Admin (singleton)
 if (!admin.apps.length) {
-  admin.initializeApp(process.env.NODE_ENV === 'test'
-    ? { projectId: testProjectId, storageBucket: `${testProjectId}.appspot.com` }
-    : undefined);
+  // Pass only the validated tuple. initializeApp(undefined) would independently
+  // adopt FIREBASE_CONFIG.storageBucket, even when its projectId is correct.
+  admin.initializeApp({ projectId: runtimeProject, storageBucket: runtimeBucket });
 }
 
 export const db = admin.firestore();
+installFinancialSubjectTransactions(db);
 export const auth = admin.auth();
 export const messaging = admin.messaging();
 export const storage = admin.storage();

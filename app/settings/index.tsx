@@ -5,12 +5,12 @@
 import Constants from 'expo-constants';
 import { AuthService } from '@/services/authService';
 import { UserService } from '@/services/userService';
-import { useUser } from '@/hooks/useAuth';
+import { useUser, useAuthenticatedUid } from '@/hooks/useAuth';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { PAYMENTS_ENABLED, SHIPPING_ENABLED } from '@/config/featureFlags';
+import { PAYMENTS_ENABLED, SHIPPING_ENABLED, SQUARE_INVENTORY_PILOT_ENABLED } from '@/config/featureFlags';
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -69,6 +69,7 @@ const SettingSection = ({ title, children }: { title: string; children: React.Re
 export default function SettingsScreen() {
   const router = useRouter();
   const user = useUser();
+  const authenticatedUid = useAuthenticatedUid();
   // Dérivé de Firebase Auth (providerData/emailVerified), pas de l'observable
   // Firestore. Recalculé au focus pour refléter l'état après retour de
   // add-password / email / verify-email (sinon valeurs périmées).
@@ -99,6 +100,10 @@ export default function SettingsScreen() {
       >
         {/* Compte */}
         <SettingSection title="Compte">
+          {authenticatedUid && <SettingItem testID="settings-item-account-security" icon="lock-closed-outline" title="Sécuriser mon compte"
+            subtitle="Bloquer les nouvelles opérations et demander la révocation des sessions" onPress={() => router.push('/settings/account-security' as Href)} />}
+          {authenticatedUid && <SettingItem testID="settings-item-eligibility" icon="shield-checkmark-outline" title="Achat et vente"
+            subtitle="Déclarations et demandes privées" onPress={() => router.push('/settings/eligibility' as Href)} />}
           <SettingItem
             icon="person-outline"
             title="Détails du profil"
@@ -141,6 +146,18 @@ export default function SettingsScreen() {
           )}
         </SettingSection>
 
+        {authenticatedUid && SQUARE_INVENTORY_PILOT_ENABLED && (
+          <SettingSection title="Essais Seconde Dev">
+            <SettingItem
+              testID="settings-item-square-pilot"
+              icon="storefront-outline"
+              title="Tester Square"
+              subtitle="Connecter une boutique d’essai et consulter son stock"
+              onPress={() => router.push('/shop/square')}
+            />
+          </SettingSection>
+        )}
+
         {/* Envoi & Livraison */}
         <SettingSection title="Envoi & Livraison">
           <SettingItem
@@ -168,20 +185,23 @@ export default function SettingsScreen() {
           />
         </SettingSection>
 
-        {/* Paiements — cachés pendant la bêta via feature flag central. */}
-        {PAYMENTS_ENABLED && (
+        {/* Existing-account consultation stays available while new payments are disabled. */}
+        {(PAYMENTS_ENABLED || !!authenticatedUid) && (
           <SettingSection title="Paiements">
+            {!!authenticatedUid && <SettingItem testID="settings-item-tax" icon="document-text-outline" title="Documents et démarches fiscales"
+              subtitle="Historique annuel, copies et demandes d’aide" onPress={() => router.push('/settings/tax' as Href)}/>}
             <SettingItem
               icon="card-outline"
               title="Compte de paiement"
-              subtitle="Configurer Stripe Connect"
+              subtitle={PAYMENTS_ENABLED ? 'Statut et configuration' : 'Consulter ou corriger un compte existant'}
               onPress={() => router.push('/settings/stripe-onboarding')}
             />
-            <SettingItem
+            {!!authenticatedUid && <SettingItem
               icon="wallet-outline"
               title="Mon porte-monnaie"
+              subtitle={PAYMENTS_ENABLED ? undefined : 'Soldes, historique et demandes existantes'}
               onPress={() => router.push('/wallet')}
-            />
+            />}
           </SettingSection>
         )}
 
@@ -231,7 +251,7 @@ export default function SettingsScreen() {
           <SettingItem
             icon="trash-outline"
             title="Supprimer mon compte"
-            subtitle="Supprimer définitivement toutes vos données"
+            subtitle="Demander la suppression et suivre son traitement"
             onPress={() => router.push('/settings/delete-account')}
             variant="danger"
           />

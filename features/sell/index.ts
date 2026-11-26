@@ -22,7 +22,6 @@ export { FormErrors } from './components/pricing/FormErrors';
 // Analysis
 export { AnalysisCard } from './components/analysis/AnalysisCard';
 export { ProgressStepsList } from './components/analysis/ProgressStepsList';
-export { ResultsSummary } from './components/analysis/ResultsSummary';
 export { AnalysisFooter } from './components/analysis/AnalysisFooter';
 
 // Capture
@@ -31,5 +30,21 @@ export { TopControls } from './components/capture/TopControls';
 export { ThumbnailStrip } from './components/capture/ThumbnailStrip';
 export { CameraControlsRow } from './components/capture/CameraControlsRow';
 export { SellOverlayCapture } from './components/capture/SellOverlayCapture';
-export { useSellCamera } from './hooks/useSellCamera';
+
+// — modules rattachés lors du regroupement par feature —
+export { default as CategoryDisplay } from './components/details/CategoryDisplay';
+export { default as ConditionSelector } from './components/details/ConditionSelector';
+export { ConditionValue } from './components/details/ConditionSelector';
+export { default as EditableField } from './components/details/EditableField';
+export { default as NeighborhoodBottomSheet } from './components/pricing/NeighborhoodBottomSheet';
+export { NeighborhoodBottomSheetRef } from './components/pricing/NeighborhoodBottomSheet';
+export { default as BlurOverlay } from './components/shared/BlurOverlay';
+export { default as CameraGuides } from './components/shared/CameraGuides';
+export { default as DraftResumeModal } from './components/shared/DraftResumeModal';
+export { default as FormFieldGroup } from './components/shared/FormFieldGroup';
+export { default as FormSectionTitle } from './components/shared/FormSectionTitle';
+export { default as PhotoCarousel } from './components/shared/PhotoCarousel';
+export { default as SuccessModal } from './components/shared/SuccessModal';
+
 export { PhotoOrderControls } from './components/shared/PhotoOrderControls';
+export { DraggablePhotoGrid } from './components/photos-review/DraggablePhotoGrid';

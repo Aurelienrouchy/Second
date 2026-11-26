@@ -1,3 +1,5 @@
+import { establishIdentityFixture } from '@/tests/jest/helpers/identityFixture';
+beforeEach(() => establishIdentityFixture('u1'));
 /**
  * useWallet — hook React Query du porte-monnaie (lecture + mutations).
  *
@@ -11,7 +13,7 @@
  *  - enabled=false → aucune lecture (on ne tape pas la callable pour un écran
  *    sans utilisateur connecté).
  *  - enabled=true → wallet exposé, isLoading retombe.
- *  - withdraw(cents) appelle le service avec le MONTANT EN CENTS et invalide la
+ *  - withdraw({attempt, assertCurrent}) transmet l’intention propriétaire immuable en cents et invalide la
  *    clé ['wallet'] → la query d'info est refetchée (2 lectures au total).
  *  - payWithWallet invalide wallet + orders + payments (un achat modifie ces 3
  *    surfaces) — invariant de cohérence cache après paiement.
@@ -32,7 +34,7 @@ const mockActivateWallet = jest.fn();
 const mockWithdraw = jest.fn();
 const mockPayWithWallet = jest.fn();
 
-jest.mock('@/services/walletService', () => ({
+jest.mock('@/features/wallet/services/walletService', () => ({
   WalletService: {
     getWalletInfo: (...a: unknown[]) => mockGetWalletInfo(...a),
     activateWallet: (...a: unknown[]) => mockActivateWallet(...a),
@@ -41,9 +43,11 @@ jest.mock('@/services/walletService', () => ({
   },
 }));
 
-import { useWallet } from '@/hooks/useWallet';
+import { useWallet } from '@/features/wallet/hooks/useWallet';
 import type { WalletInfo } from '@/types';
 
+const withdrawalAttempt: import('@/types/wallet').WithdrawalAttempt = {version: 1, uid: 'u1', requestId: 'withdrawal-attempt-fixture', amountCents: 7000, bankAccountId: 'ba_fixture'};
+const assertWithdrawalCurrent = jest.fn();
 const ACTIVE_WALLET: WalletInfo = {
   hasWallet: true,
   balance: 12000,
@@ -127,11 +131,13 @@ describe('useWallet — withdraw', () => {
     await waitFor(() => expect(mockGetWalletInfo).toHaveBeenCalledTimes(1));
 
     await act(async () => {
-      await result.current.withdraw(7000); // 70,00 $ en cents
+      await result.current.withdraw({attempt: withdrawalAttempt, assertCurrent: assertWithdrawalCurrent}); // 70,00 $ en cents
     });
 
     // Le service reçoit les cents bruts (jamais une conversion en dollars).
-    expect(mockWithdraw).toHaveBeenCalledWith(7000);
+    expect(mockWithdraw).toHaveBeenCalledWith(withdrawalAttempt, {assertCurrent: assertWithdrawalCurrent});
+    expect(mockWithdraw.mock.calls[0][0].amountCents).toBe(7000);
+    expect(mockWithdraw.mock.calls[0][0].requestId).toBe(withdrawalAttempt.requestId);
 
     // onSuccess invalide ['wallet'] → la query info est refetchée (2e lecture).
     await waitFor(() => expect(mockGetWalletInfo).toHaveBeenCalledTimes(2));
@@ -150,7 +156,7 @@ describe('useWallet — withdraw', () => {
 
     await expect(
       act(async () => {
-        await result.current.withdraw(2000);
+        await result.current.withdraw({attempt: {...withdrawalAttempt, amountCents: 2000}, assertCurrent: assertWithdrawalCurrent});
       }),
     ).rejects.toThrow(/litige/i);
 
@@ -182,7 +188,7 @@ describe('useWallet — payWithWallet', () => {
       await result.current.payWithWallet('tx_42');
     });
 
-    expect(mockPayWithWallet).toHaveBeenCalledWith('tx_42');
+    expect(mockPayWithWallet).toHaveBeenCalledWith('tx_42', {expectedUid: 'u1'});
 
     const invalidatedKeys = invalidateSpy.mock.calls.map(
       ([arg]) => (arg as { queryKey: unknown[] }).queryKey,

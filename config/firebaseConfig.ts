@@ -10,78 +10,62 @@ import {
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { resolveFirebaseEnvironment } from './firebaseEnvironment';
+import firebaseProjects from './firebaseProjects.json';
+import { runtimeEnvironment as environment } from './firebaseEnvironment';
 
-const environment = resolveFirebaseEnvironment({
-  test: process.env.NODE_ENV === 'test',
-  useEmulators: process.env.EXPO_PUBLIC_FIREBASE_EMULATORS,
-  emulatorHost: process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST,
-});
-
-// Hardcoded fallbacks for the production project.
-// Prefer EXPO_PUBLIC_FIREBASE_* env vars (see .env.example) so credentials
-// can be rotated and per-environment configs (dev/staging/prod) work.
-const FALLBACK_CONFIG = {
-  apiKey: 'AIzaSyABP_QVBln4VORUy5w_vCgmYYqbZZbVMSA',
-  authDomain: 'seconde-b47a6.firebaseapp.com',
-  projectId: 'seconde-b47a6',
-  storageBucket: 'seconde-b47a6.firebasestorage.app',
-  messagingSenderId: '628214013296',
-  appId: '1:628214013296:ios:f8cb32e7616df1b0dd83b5',
-};
-
+// Firebase public configuration is a single canonical tuple per project. Old
+// EXPO_PUBLIC_FIREBASE_* values cannot silently mix development and production.
 const firebaseConfig = environment.useEmulators ? {
   apiKey: 'demo-api-key',
   projectId: environment.emulatorProjectId,
   authDomain: `${environment.emulatorProjectId}.firebaseapp.com`,
   storageBucket: `${environment.emulatorProjectId}.appspot.com`,
   appId: 'demo-second-app',
-} : {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || FALLBACK_CONFIG.apiKey,
-  authDomain:
-    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || FALLBACK_CONFIG.authDomain,
-  projectId:
-    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || FALLBACK_CONFIG.projectId,
-  storageBucket:
-    process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ||
-    FALLBACK_CONFIG.storageBucket,
-  messagingSenderId:
-    process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ||
-    FALLBACK_CONFIG.messagingSenderId,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || FALLBACK_CONFIG.appId,
-};
+} : firebaseProjects[environment.name];
 
-// No warning when fallbacks are used: the hardcoded values ARE the
-// canonical prod config, kept here so the app boots even when no .env
-// is present (e.g. CI smoke runs, fresh clones). Set
-// EXPO_PUBLIC_FIREBASE_* in .env only when targeting a different
-// project (dev/staging) — they take precedence automatically.
-
-// Initialize Firebase (prevent double init)
-const existingApp = getApps()[0];
-const app = existingApp ?? initializeApp(firebaseConfig);
-if (environment.useEmulators && app.options.projectId !== environment.emulatorProjectId) {
-  throw new Error('Emulator builds require the demo-second Firebase project.');
+const requiredCloudOptions = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'] as const;
+const cloudConfig = firebaseProjects[environment.name];
+if (!environment.useEmulators && requiredCloudOptions.some(key =>
+  typeof cloudConfig[key] !== 'string' || !cloudConfig[key].trim())) {
+  throw new Error(`Configuration Firebase ${environment.name} incomplète.`);
 }
 
-// Initialize Auth with AsyncStorage persistence for React Native
-const auth = !existingApp
-  ? initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    })
-  : getAuth(app);
-
-// Memory cache: the Web SDK's persistentLocalCache needs IndexedDB, which
-// React Native lacks — it always fell back to memory anyway (with a noisy
-// warning). Offline cold-start of the user doc is handled separately via the
-// AsyncStorage snapshot in authStore.hydrateFromFirebase.
-const firestore = initializeFirestore(app, {
-  localCache: memoryLocalCache(),
+const appName = environment.useEmulators
+  ? 'seconde-emulator'
+  : environment.name === 'production' ? '[DEFAULT]' : 'seconde-development';
+const signature = JSON.stringify({
+  config: firebaseConfig,
+  appName,
+  transport: environment.useEmulators ? `emulator:${environment.emulatorHost}` : 'cloud',
 });
+// Survives Fast Refresh. A reload is required before changing project or
+// transport, so no existing Auth session can be adopted by another environment.
+const runtime = globalThis as typeof globalThis & { __SECONDE_FIREBASE_RUNTIME__?: string };
+const existingApps = getApps();
+if (existingApps.length && (
+  runtime.__SECONDE_FIREBASE_RUNTIME__ !== signature ||
+  existingApps.some(existing => existing.name !== appName ||
+    Object.entries(firebaseConfig).some(([key, value]) =>
+      existing.options[key as keyof typeof existing.options] !== value))
+)) {
+  throw new Error(environment.useEmulators
+    ? 'Emulator builds require the demo-second Firebase project. Redémarrez entièrement l’application.'
+    : 'Le projet Firebase ou son transport a changé. Redémarrez entièrement l’application.');
+}
+const existingApp = existingApps.find(existing => existing.name === appName);
+const app = existingApp ?? initializeApp(firebaseConfig, appName);
+runtime.__SECONDE_FIREBASE_RUNTIME__ = signature;
+
+// Auth persistence is keyed by the SDK app name and API key. Dev uses its own
+// named app; production retains [DEFAULT] and its existing member sessions.
+const auth = !existingApp
+  ? initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) })
+  : getAuth(app);
+const firestore = initializeFirestore(app, { localCache: memoryLocalCache() });
 const storage = getStorage(app);
 const functions = getFunctions(app, 'northamerica-northeast1');
 
-if (environment.useEmulators) {
+if (environment.useEmulators && !existingApp) {
   const host = environment.emulatorHost;
   connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
   connectFirestoreEmulator(firestore, host, 8080);

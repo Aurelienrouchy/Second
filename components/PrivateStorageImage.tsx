@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, type ImageProps } from 'expo-image';
 import { useFirebaseUserId } from '@/hooks/useFirebaseUserId';
-import { usePrivateMediaSource } from '@/hooks/usePrivateMediaSource';
+import { usePrivateMediaSource, type PrivateChatMediaContext } from '@/hooks/usePrivateMediaSource';
 
 type PrivateStorageImageProps = Omit<ImageProps, 'source' | 'cachePolicy' | 'placeholder'> & {
   uri: string | undefined;
@@ -9,15 +9,17 @@ type PrivateStorageImageProps = Omit<ImageProps, 'source' | 'cachePolicy' | 'pla
   allowLocalSource?: boolean;
   /** Captured owner of local bytes, never derived anew after an account switch. */
   localSourceOwnerUid?: string;
+  /** Mandatory for chat object reads; no local/SDK/public fallback in this mode. */
+  chatContext?: PrivateChatMediaContext;
 };
 
 /** Authenticated private image. Bytes live in memory and are cleared on logout. */
 export const PrivateStorageImage = React.memo(function PrivateStorageImage({
-  uri, allowLocalSource = false, localSourceOwnerUid, ...props
+  uri, allowLocalSource = false, localSourceOwnerUid, chatContext, ...props
 }: PrivateStorageImageProps) {
-  const privateSource = usePrivateMediaSource(uri);
+  const privateSource = usePrivateMediaSource(uri, chatContext);
   const currentUid = useFirebaseUserId();
-  const localSource = allowLocalSource && localSourceOwnerUid && localSourceOwnerUid === currentUid && uri && /^(file:\/\/|content:\/\/|ph:\/\/|assets-library:\/\/|blob:|data:image\/)/.test(uri)
+  const localSource = !chatContext && allowLocalSource && localSourceOwnerUid && localSourceOwnerUid === currentUid && uri && /^(file:\/\/|content:\/\/|ph:\/\/|assets-library:\/\/|blob:|data:image\/)/.test(uri)
     ? { uri } : undefined;
   const source = localSource ?? privateSource;
   // Remount an empty native view when authorization disappears, so a previous

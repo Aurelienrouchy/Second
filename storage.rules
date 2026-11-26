@@ -3,7 +3,7 @@ service firebase.storage {
   match /b/{bucket}/o {
     // Reusable validators
     function isImage() {
-      return request.resource.contentType.matches('image/.*');
+      return request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
     }
     function isReasonableImageSize() {
       return request.resource.size < 10 * 1024 * 1024; // 10 MB
@@ -11,81 +11,145 @@ service firebase.storage {
     function isValidImageUpload() {
       return isImage() && isReasonableImageSize();
     }
-    function ownsArticle(articleId) {
-      return request.auth != null
-        && firestore.exists(/databases/(default)/documents/articles/$(articleId))
-        && firestore.get(/databases/(default)/documents/articles/$(articleId)).data.sellerId == request.auth.uid
-        && firestore.get(/databases/(default)/documents/articles/$(articleId)).data.isSold == false
-        && hasNoLiveArticleLink(firestore.get(/databases/(default)/documents/articles/$(articleId)).data);
+    // Only the server writes this marker. Missing is historical compatibility;
+    // present malformed/null markers remain closed. auth_time has second
+    // precision, so the entire containment second is refused.
+    function sessionAfterSecurityBarrier(profile) {
+      let barrier = profile.get('accountSecurityBarrier', null);
+      // A deleted account's native marker outlives users/{uid}; its mere
+      // presence also fences cached JWT uploads and private historical reads.
+      return !('accountErasureFence' in profile) && !('legacyDeletionFence' in profile) &&
+        (!('accountSecurityBarrier' in profile) ||
+        (barrier is map && barrier.schemaVersion == 1 &&
+         barrier.ownerId == request.auth.uid &&
+         barrier.source == 'owner_security_request' && barrier.accepted == true &&
+         barrier.statementVersion == 'account_security_containment_v1' &&
+         barrier.newEffectsBlocked == true &&
+         barrier.requestId is string && barrier.requestId.matches('[A-Za-z0-9_-]{1,128}') &&
+         barrier.commandId is string && barrier.commandId.matches('security_[a-f0-9]{64}') &&
+         barrier.inputHash is string && barrier.inputHash.matches('[a-f0-9]{64}') &&
+         barrier.recordedAt is timestamp && barrier.recordedAt.toMillis() > 0 &&
+         barrier.recordedAt <= request.time && request.auth.token.auth_time is int &&
+         request.auth.token.auth_time * 1000 > barrier.recordedAt.toMillis()));
     }
-    function hasNoLiveArticleLink(article) {
-      return !('activeTransactionId' in article) || article.activeTransactionId == null ||
-        (article.activeTransactionId is string && article.activeTransactionId != ''
-          && firestore.exists(/databases/(default)/documents/transactions/$(article.activeTransactionId))
-          && firestore.get(/databases/(default)/documents/transactions/$(article.activeTransactionId)).data.status
-            in ['cancelled', 'refunded', 'completed', 'meetup_completed']);
+    function hasCurrentPrivateSession() {
+      return request.auth != null &&
+        (!firestore.exists(/databases/(default)/documents/eligibility_profiles/$(request.auth.uid)) ||
+         sessionAfterSecurityBarrier(firestore.get(/databases/(default)/documents/eligibility_profiles/$(request.auth.uid)).data));
+    }
+    // One distinct Firestore document per request on UID-scoped folders. Rules
+    // reads of this private barrier do not grant client access to its contents.
+    function canWriteOwnerSource(userId) {
+      return !firestore.exists(/databases/(default)/documents/eligibility_profiles/$(userId)) ||
+        !('accountClosure' in firestore.get(/databases/(default)/documents/eligibility_profiles/$(userId)).data) ||
+        firestore.get(/databases/(default)/documents/eligibility_profiles/$(userId)).data.accountClosure == null ||
+        (firestore.get(/databases/(default)/documents/eligibility_profiles/$(userId)).data.accountClosure is map &&
+         firestore.get(/databases/(default)/documents/eligibility_profiles/$(userId)).data.accountClosure.schemaVersion == 1 &&
+         firestore.get(/databases/(default)/documents/eligibility_profiles/$(userId)).data.accountClosure.ownerId == userId &&
+         firestore.get(/databases/(default)/documents/eligibility_profiles/$(userId)).data.accountClosure.phase == 'paused');
     }
     function participatesInChat(chatId) {
       return request.auth != null
         && firestore.exists(/databases/(default)/documents/chats/$(chatId))
         && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.participants;
     }
+    function chatMediaVisible(chatId) {
+      return !firestore.exists(/databases/(default)/documents/chat_media_restrictions/$(chatId)) ||
+        (firestore.get(/databases/(default)/documents/chat_media_restrictions/$(chatId)).data.protocol == 'content_chat_restrictions_v1' &&
+         firestore.get(/databases/(default)/documents/chat_media_restrictions/$(chatId)).data.blockedPaths is list &&
+         !(resource.name in firestore.get(/databases/(default)/documents/chat_media_restrictions/$(chatId)).data.blockedPaths));
+    }
     function participatesInSwap(swapId) {
-      return request.auth != null
+      return hasCurrentPrivateSession()
         && firestore.exists(/databases/(default)/documents/swaps/$(swapId))
         && request.auth.uid in [
           firestore.get(/databases/(default)/documents/swaps/$(swapId)).data.initiatorId,
           firestore.get(/databases/(default)/documents/swaps/$(swapId)).data.receiverId
         ];
     }
+    function profilePhotoPublic(userId) {
+      return firestore.exists(/databases/(default)/documents/users/$(userId)) &&
+        firestore.get(/databases/(default)/documents/users/$(userId)).data.get('preferences', {}).get('privacy', {}).get('showProfilePhoto', false) == true;
+    }
 
-    // Allow authenticated users to upload images to their own folders
+    // Client originals are immutable. A replacement uses a fresh object name;
+    // an upload may be classified as CREATE even when its object exists.
     match /users/{userId}/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
+      allow read: if hasCurrentPrivateSession() && request.auth.uid == userId;
+      allow create: if resource == null && hasCurrentPrivateSession()
                    && request.auth.uid == userId
-                   && (request.resource == null || isValidImageUpload());
+                   && canWriteOwnerSource(userId)
+                   && isValidImageUpload();
+      allow update, delete: if false;
     }
 
     // Product images — uid-scoped path: products/{userId}/{productId}/...
     // This path is currently unused in the codebase but prepared for future use.
     match /products/{userId}/{productId}/{allPaths=**} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null
+      allow read: if hasCurrentPrivateSession() && request.auth.uid == userId;
+      allow create: if resource == null && hasCurrentPrivateSession()
                    && request.auth.uid == userId
-                   && (request.resource == null || isValidImageUpload());
+                   && canWriteOwnerSource(userId)
+                   && isValidImageUpload();
+      allow update, delete: if false;
     }
 
-    // Publication creates the article server-side; local images first stage in
-    // products/{uid}/... . Existing article edits use the authoritative owner.
+    // Creation and edits stage client images in drafts/{uid}/... . The server
+    // promotes them into this public namespace via Admin SDK. Clients cannot
+    // upload, replace or delete published files, including during account purge.
     match /articles/{articleId}/{allPaths=**} {
-      allow read: if true; // Public read for article images
-      allow write: if ownsArticle(articleId)
-                   && (request.resource == null || isValidImageUpload());
+      allow read: if !firestore.exists(/databases/(default)/documents/articles/$(articleId)) ||
+        !('privacyWithdrawal' in firestore.get(/databases/(default)/documents/articles/$(articleId)).data);
+      allow write: if false;
     }
 
-    // Draft images (for AI analysis) — scoped by userId
+    // Originals are copied without bearer tokens. Access is authenticated via
+    // callables that verify current order/swap relationships and generations.
+    match /article_privacy/{articleId}/{operationId}/{mediaId} {
+      allow read, write: if false;
+    }
+    match /profile_privacy/{userId}/{operationId}/{mediaId} {
+      allow read, write: if false;
+    }
+
+    // Draft/staged creation, edit and AI images — scoped by userId
     match /drafts/{userId}/{draftId}/{allPaths=**} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null
+      allow read: if hasCurrentPrivateSession() && request.auth.uid == userId;
+      allow create: if resource == null && hasCurrentPrivateSession()
                    && request.auth.uid == userId
-                   && (request.resource == null || isValidImageUpload());
+                   && canWriteOwnerSource(userId)
+                   && isValidImageUpload();
+      // Local edits/removal do not dispose of or replace the retained original.
+      allow update, delete: if false;
     }
 
-    // Allow authenticated users to upload avatars
+    // Legacy flat avatar objects remain readable; new profile versions use
+    // fresh names under users/{uid}/, without replacing this historical object.
     match /avatars/{userId} {
-      allow read: if true; // Public read for avatars
-      allow write: if request.auth != null
+      allow read: if (hasCurrentPrivateSession() && request.auth.uid == userId) || profilePhotoPublic(userId);
+      allow create: if resource == null && hasCurrentPrivateSession()
                    && request.auth.uid == userId
-                   && (request.resource == null || isValidImageUpload());
+                   && canWriteOwnerSource(userId)
+                   && isValidImageUpload();
+      allow update, delete: if false;
     }
 
     // Chat media is private to the authoritative participants and immutable.
     match /chat_images/{chatId}/{allPaths=**} {
-      allow read: if participatesInChat(chatId);
+      // Current-session participant reads use readChatMessageImage. Storage
+      // cannot join session, participants and moderation within its two-doc
+      // lookup budget. Old download tokens require separate live revocation.
+      allow read: if false;
       // An upload can be evaluated as create even when it replaces an object.
       // Explicitly check the existing resource to preserve immutable media.
-      allow create: if resource == null && participatesInChat(chatId) && isValidImageUpload();
+      allow create: if false;
+      allow update, delete: if false;
+    }
+    // New-version uploads bind the uploader in an immutable UID segment.
+    match /chat_images/{chatId}/{userId}/{fileName} {
+      allow read: if false;
+      allow create: if resource == null && hasCurrentPrivateSession()
+        && request.auth.uid == userId && participatesInChat(chatId) && isValidImageUpload();
       allow update, delete: if false;
     }
 

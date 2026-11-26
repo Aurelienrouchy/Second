@@ -23,6 +23,7 @@
     "jest.config.js",
     "functions",
     "tests/security",
+    "_audit-reports",
     ".claude",
     ".agents",
     "**/*.test.ts",

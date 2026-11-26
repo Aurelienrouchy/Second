@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ initializeApp: vi.fn(), apps: [] as { options: { projectId: string } }[] }));
+const mocks = vi.hoisted(() => ({ initializeApp: vi.fn(), apps: [] as { options: { projectId: string; storageBucket?: string } }[] }));
 vi.mock('firebase-admin', () => ({
   apps: mocks.apps,
   initializeApp: mocks.initializeApp,
-  firestore: vi.fn(), auth: vi.fn(), messaging: vi.fn(), storage: vi.fn(),
+  firestore: vi.fn(() => ({ runTransaction: vi.fn() })), auth: vi.fn(), messaging: vi.fn(), storage: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -12,7 +12,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.apps.length = 0;
   vi.unstubAllEnvs();
-  for (const name of ['GCLOUD_PROJECT', 'FIRESTORE_EMULATOR_HOST', 'FIREBASE_AUTH_EMULATOR_HOST', 'FIREBASE_STORAGE_EMULATOR_HOST']) {
+  for (const name of ['GCLOUD_PROJECT', 'FIREBASE_CONFIG', 'SECONDE_ENV', 'SECONDE_PROJECT_ID', 'FIRESTORE_EMULATOR_HOST', 'FIREBASE_AUTH_EMULATOR_HOST', 'FIREBASE_STORAGE_EMULATOR_HOST']) {
     vi.stubEnv(name, undefined);
   }
 });
@@ -48,5 +48,29 @@ describe('Admin test isolation', () => {
     mocks.apps.push({ options: { projectId: 'production-project' } });
     await expect(import('./firebase')).rejects.toThrow('Functions tests cannot reuse');
     expect(mocks.initializeApp).not.toHaveBeenCalled();
+  });
+
+  it('rejects a production default bucket on an otherwise valid dev project before any SDK client', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('GCLOUD_PROJECT', 'seconde-dev');
+    vi.stubEnv('SECONDE_ENV', 'development');
+    vi.stubEnv('FIREBASE_CONFIG', JSON.stringify({ projectId: 'seconde-dev', storageBucket: 'seconde-b47a6.firebasestorage.app' }));
+    await expect(import('./firebase')).rejects.toThrow('bucket does not match');
+    expect(mocks.initializeApp).not.toHaveBeenCalled();
+  });
+
+  it('rejects a reused app whose default bucket belongs to production', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('GCLOUD_PROJECT', 'seconde-dev');
+    mocks.apps.push({ options: { projectId: 'seconde-dev', storageBucket: 'seconde-b47a6.firebasestorage.app' } });
+    await expect(import('./firebase')).rejects.toThrow('cannot reuse');
+    expect(mocks.initializeApp).not.toHaveBeenCalled();
+  });
+
+  it('initializes the validated dev project and bucket explicitly', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('GCLOUD_PROJECT', 'seconde-dev');
+    await import('./firebase');
+    expect(mocks.initializeApp).toHaveBeenCalledWith({ projectId: 'seconde-dev', storageBucket: 'seconde-dev.firebasestorage.app' });
   });
 });

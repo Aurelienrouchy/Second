@@ -19,6 +19,22 @@
  * - /http         - HTTP endpoints (webhooks)
  */
 
+import { setGlobalOptions } from 'firebase-functions/v2/options';
+import { isProductionRuntime, requireRuntimeProjectId } from './config/runtimeEnvironment';
+
+// A phase-1 deployment uses its independently qualified runtime and control.
+// The isolated staging profile supplies this value only for selected functions;
+// ordinary Dev keeps its existing commerce-test runtime.
+const phase1Runtime = process.env.SECONDE_PHASE1_RUNTIME_SERVICE_ACCOUNT;
+const runtimeProject = requireRuntimeProjectId();
+if (phase1Runtime && !new RegExp(`^[a-z][a-z0-9-]{4,28}@${runtimeProject.split('.').join('\\.')}\\.iam\\.gserviceaccount\\.com$`).test(phase1Runtime)) {
+  throw new Error('Le compte de service phase 1 doit appartenir au projet Firebase exact.');
+}
+if (phase1Runtime || !isProductionRuntime()) setGlobalOptions({
+  ...(!isProductionRuntime() ? {maxInstances: 2} : {}),
+  serviceAccount: phase1Runtime ?? `seconde-dev-runtime@${runtimeProject}.iam.gserviceaccount.com`,
+});
+
 // ============================================================
 // CALLABLE FUNCTIONS (onCall)
 // ============================================================
@@ -28,6 +44,11 @@ export { analyzeProductImage } from './callable/ai';
 
 // Chat admin functions
 export { consolidateChatDuplicates } from './callable/chats';
+
+// Messages « système » d'une conversation — rendus serveur à partir d'un
+// catalogue fermé. La création cliente est fermée par les règles : un
+// participant pouvait sinon forger un message de la plateforme au contenu libre.
+export { postChatSystemMessage } from './callable/chatSystemMessage';
 
 // Visual Search & Similar Products
 export { visualSearch, getSimilarProducts, backfillEmbeddings } from './callable/search';
@@ -59,11 +80,18 @@ export {
 } from './callable/swaps';
 
 // Payment & Shipping Functions
+// Explicit participant tools for the isolated Dev transport simulation.
+export { devAdvanceShipping } from './callable/devCommerce';
 export {
+  getArticleShippingParcel,
+  quoteShippingPurchase,
+  setArticleShippingParcel,
   getShippingEstimate,
   getServiceFee,
   createTransaction,
   createStripeCheckout,
+  confirmStripeCheckout,
+  retireLegacyStripeCheckout,
   createStripeConnectAccount,
   addBankAccount,
   uploadStripeIdentityDocument,
@@ -77,6 +105,9 @@ export {
   completeMeetupTransaction,
   reportMeetupNoShow,
   adminRefundTransaction,
+  retryPurchaseRefund,
+  closeMeetupNoShow,
+  inspectPaymentCaptureAnomaly,
   resolveDispute,
 } from './callable/payments';
 
@@ -95,6 +126,14 @@ export { generateStyleProfile } from './callable/style';
 
 // Onboarding Functions
 export { saveOnboardingPreferences } from './callable/onboarding';
+// The inventory pilot and its Sandbox secret belong only to Seconde Dev.
+// Do not load the module during production discovery: defineSecret registers
+// its parameter at import time even for a narrowly selected deployment.
+const squarePilot = !isProductionRuntime() && !phase1Runtime
+  ? require('./callable/squareInventoryPilot') as typeof import('./callable/squareInventoryPilot')
+  : undefined;
+export const squareInventoryPilot = squarePilot?.squareInventoryPilot;
+export const squareInventoryOAuthCallback = squarePilot?.squareInventoryOAuthCallback;
 
 // Home Functions
 export {
@@ -125,6 +164,29 @@ export { deleteUserAccount } from './callable/users';
 // append-only (preuve Loi 25 art. 14 / LCAP) ET appliqué serveur (coupe les
 // prefs notifications marketing relues par les triggers).
 export { recordSignupConsent, setMarketingConsent } from './callable/consent';
+// Additive phase-1 contracts. Preserve deployed legacy names explicitly;
+// aliases do not by themselves certify coexistence on the same native data.
+export { createArticle as createArticleV2, updateArticle as updateArticleV2, toggleArticleSold as toggleArticleSoldV2, incrementProductView as incrementProductViewV2, toggleProductLike as toggleProductLikeV2, markSavedSearchViewed as markSavedSearchViewedV2 } from './callable/products';
+export { recordSignupConsent as recordSignupConsentV2, setMarketingConsent as setMarketingConsentV2 } from './callable/consent';
+export { declareSellerActivity as declareSellerActivityV2 } from './callable/eligibility';
+export { sendMeetupProposal as sendMeetupProposalV2, rejectMeetupProposal as rejectMeetupProposalV2 } from './callable/offers';
+export { acceptMeetupOffer as acceptMeetupOfferV2, confirmMeetupTransaction as confirmMeetupTransactionV2, completeMeetupTransaction as completeMeetupTransactionV2, reportMeetupNoShow as reportMeetupNoShowV2, closeMeetupNoShow as closeMeetupNoShowV2, cancelPendingTransaction as cancelPendingTransactionV2, sellerCancelTransaction as sellerCancelTransactionV2 } from './callable/payments';
+export { setSwapExchangeMode as setSwapExchangeModeV2, uploadSwapPhotos as uploadSwapPhotosV2, confirmSwapShipping as confirmSwapShippingV2, ensureGeneralistZone as ensureGeneralistZoneV2, getActiveSwapPartyInfo as getActiveSwapPartyInfoV2, proposeMultiSwap as proposeMultiSwapV2, acceptSwap as acceptSwapV2, declineSwap as declineSwapV2, cancelSwap as cancelSwapV2, confirmSwapReception as confirmSwapReceptionV2, rateSwap as rateSwapV2, addItemToPartySecure as addItemToPartySecureV2, removeItemFromPartySecure as removeItemFromPartySecureV2 } from './callable/swaps';
+export { createReview as createReviewV2 } from './callable/reviews';
+export { deleteUserAccount as deleteUserAccountV2 } from './callable/users';
+export {startAccountErasureAppleWeb,prepareAccountErasureAppleWeb,completeAccountErasureAppleWeb,
+  accountErasureAppleWebCallback} from './callable/accountErasureAppleWeb';
+export {manageAccountErasure} from './callable/accountErasureOperations';
+export {continueAccountErasure} from './triggers/accountErasure';
+export {eraseLateAccountStorage} from './triggers/accountErasureStorage';
+export {resumeAccountErasures} from './scheduled/accountErasure';
+export {getStripeAccountStatusPhase1,checkTrackingStatusPhase1} from './callable/phase1ReadPorts';
+export { submitReport as submitReportV2, triageReport as triageReportV2, getPendingReports as getPendingReportsV2 } from './callable/shopModeration';
+export {expirePhase1LocalProposals} from './scheduled/swaps';
+export {expirePhase1LocalOffers} from './scheduled/phase1Offers';
+export { getMyEligibility, declareSellerActivity, requestEligibilityReview, addEligibilityReviewDetails,
+  getEligibilityReview, listMyEligibilityReviews, listAdminEligibilityReviews, getAdminEligibilityReview,
+  flagEligibilityForReview, decideEligibilityReview } from './callable/eligibility';
 
 // Username assignment — génère + réserve + persiste le @handle unique, immuable,
 // dérivé du displayName, atomiquement (runTransaction). Idempotent: appelable
@@ -145,6 +207,19 @@ export {
   escalatePrivacyIncidentToCAI,
   notifyAffectedUsers,
 } from './callable/privacyIncidents';
+
+export { deliverOperationalNotices } from './utils/notifications';
+export { dispatchOperationalNoticeOnCreate } from './utils/notifications';
+export { notifyReturnDelivered } from './utils/notifications';
+
+// Authenticated privacy withdrawal and private evidence readers.
+export { withdrawArticlePrivacy, readPrivateArticleEvidence, readPrivateArticleMedia } from './callable/articlePrivacy';
+export { readPrivateProfileMedia } from './callable/profilePrivacy';
+
+export { commandSupportRequest, readSupportRequests, administerSupportRequest } from './callable/supportRequests';
+export { secureMyAccount } from './callable/accountSecurity';
+export { accountAccessIntake } from './callable/accountAccessIntake';
+export { declareShippingReceipt } from './callable/shippingReceiptDeclaration';
 
 // Automated-decision transparency & contestation (Loi 25, art. 12.1)
 // contestAutomatedDecision: party opens a human-review request (reverses NOTHING).
@@ -280,3 +355,5 @@ export { shipEngineWebhook } from './http/shipEngineWebhook';
 
 // Server-authoritative, atomic meetup negotiation.
 export { sendMeetupProposal, rejectMeetupProposal } from './callable/offers';
+export { sendShippingOffer, respondShippingOffer } from './callable/shippingOffers';
+export { registerDevPushDestination } from './callable/devPush';

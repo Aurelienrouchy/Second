@@ -11,7 +11,7 @@
  * - vec() and style objects memoized to avoid per-render allocations
  */
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -36,6 +36,7 @@ import { OVERLAY_COLORS } from './constants';
 interface GradientProps {
   progress: SharedValue<number>;
   breathe: SharedValue<number>;
+  onSceneReady: () => void;
 }
 
 // ─── ExpandingCircle ────────────────────────────────────────────────────────
@@ -45,12 +46,17 @@ const ExpandingCircle = React.memo(function ExpandingCircle({
   cx,
   cy,
   r,
+  onReady,
 }: {
   progress: SharedValue<number>;
   cx: number;
   cy: number;
   r: number;
+  onReady: () => void;
 }) {
+  // This effect belongs to the Skia reconciler, whose root is committed
+  // separately from the surrounding native View/Canvas component.
+  useEffect(onReady, [onReady]);
   const origin = useMemo(() => vec(cx, cy), [cx, cy]);
   const center = origin;
 
@@ -158,6 +164,7 @@ const BG_POSITIONS = [0, 1];
 const Gradient: React.FC<GradientProps> = React.memo(function Gradient({
   progress,
   breathe,
+  onSceneReady,
 }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -196,6 +203,7 @@ const Gradient: React.FC<GradientProps> = React.memo(function Gradient({
         cx={expandCx}
         cy={buttonCenterY}
         r={expandR}
+        onReady={onSceneReady}
       />
     </Canvas>
   );

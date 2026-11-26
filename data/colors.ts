@@ -66,3 +66,16 @@ export const getColorName = (id: string): string => {
   const color = findColorById(id);
   return color?.name || id;
 };
+
+/**
+ * Libellé affichable d'une couleur : par id, puis par nom, puis par la valeur
+ * du sélecteur. Partagé par la mise en vente et la modification d'annonce.
+ */
+export const resolveColorLabel = (colorId: string): string => {
+  const colorData = colors.find(
+    (c) => c.id === colorId || c.name.toLowerCase() === colorId.toLowerCase(),
+  );
+  if (colorData) return colorData.name;
+  const colorItem = getColorItems().find((c) => c.value === colorId);
+  return colorItem?.label || colorId;
+};

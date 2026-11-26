@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ---------------------------------------------------------------------------
 
 interface WriteOp {
-  method: 'set' | 'update';
+  method: 'set' | 'update' | 'create';
   path: string;
   data: Record<string, unknown>;
 }
@@ -31,6 +31,7 @@ const {
   mockDocRef: _mockDocRef,
   mockCollectionRef,
   createMockTransaction,
+  applyMockWrite,
   setDoc,
   setQuery,
 } = vi.hoisted(() => {
@@ -119,6 +120,7 @@ const {
         if (ref.path) return state.docSnapshots[ref.path] ?? mockSnap(ref.path, null);
         return ref.get!();
       },
+      create: (ref: { path: string }, data: Record<string, unknown>) => { state.writeOps.push({ method: 'create', path: ref.path, data }); },
       set: (ref: { path: string }, data: Record<string, unknown>) => {
         state.writeOps.push({ method: 'set', path: ref.path, data });
       },
@@ -128,11 +130,32 @@ const {
     };
   }
 
+  // Refund now spans reserve and settlement transactions. Apply buffered writes
+  // after commit; a write-only spy cannot represent the durable intention.
+  function applyWrite(op: WriteOp) {
+    const existing = state.docSnapshots[op.path]?.data() ?? {};
+    const next = op.method === 'set' ? { ...existing } : { ...existing };
+    for (const [path, value] of Object.entries(op.data)) {
+      const keys = path.split('.');
+      let target: Record<string, any> = next;
+      for (const key of keys.slice(0, -1)) target = target[key] = { ...(target[key] ?? {}) };
+      const key = keys[keys.length - 1];
+      const fv = value as any;
+      if (fv?._type === 'delete') delete target[key];
+      else if (fv?._type === 'increment') target[key] = (target[key] ?? 0) + fv.value;
+      else target[key] = value;
+    }
+    setDoc(op.path, next);
+  }
+
   const mockDb = {
     collection: (name: string) => mockCollectionRef(name),
     runTransaction: async (fn: (tx: ReturnType<typeof createMockTransaction>) => Promise<unknown>) => {
+      const start = state.writeOps.length;
       const tx = createMockTransaction();
-      return fn(tx);
+      const result = await fn(tx);
+      state.writeOps.slice(start).forEach(applyWrite);
+      return result;
     },
   };
 
@@ -147,6 +170,7 @@ const {
   const mockStripePayoutsCreate = { fn: null as unknown };
 
   return {
+    applyMockWrite: applyWrite,
     writeOps: state.writeOps,
     docSnapshots: state.docSnapshots,
     queryResults: state.queryResults,
@@ -168,13 +192,14 @@ const {
 // vi.mock — these are hoisted above imports by vitest
 // ---------------------------------------------------------------------------
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   db: mockDb,
   FieldValue: mockFieldValue,
 }));
 
 vi.mock('../config/stripe', () => ({
   getStripe: () => ({
+    accounts: { retrieve: async () => purchaseAccount('seller1') },
     transfers: {
       create: (...args: unknown[]) =>
         (mockStripeTransfersCreate.fn as (...a: unknown[]) => unknown)(...args),
@@ -185,6 +210,11 @@ vi.mock('../config/stripe', () => ({
     },
   }),
 }));
+
+vi.mock('../config/shipEngine', () => ({ getShipEngine: () => ({
+  getPurchaseRates: async () => walletRates(), getPurchaseRatesForShipment: async () => walletRates(),
+  createLabel: async () => ({ labelId: 'se_wallet_label', trackingNumber: '', trackingUrl: '', carrierCode: 'canada_post',
+    labelDownload: { href: 'https://example.invalid/label' }, shipmentCost: walletRates().rates[0].shippingCents / 100, insuranceCost: 0 }) }) }));
 
 vi.mock('firebase-functions/logger', () => ({
   info: () => {},
@@ -225,6 +255,33 @@ type CallableHandler = (request: {
   data?: Record<string, unknown>;
 }) => Promise<Record<string, unknown>>;
 
+import { quotePurchase, reservePurchase } from '../utils/shippingPurchase';
+import { purchaseAccount, purchaseAddress, purchaseParcel, purchaseRawRates, personalProfile } from '../utils/testHelpers/shippingPurchaseFixture';
+import { parsePurchaseRates } from '../utils/shippingPurchaseRate';
+import { calculateServiceFee } from '../utils/fees';
+let walletShippingCents = 125;
+function walletRates() { const raw = purchaseRawRates(); raw.rate_response.rates[0].shipping_amount.amount = walletShippingCents / 100;
+  for (const k of ['insurance_amount', 'confirmation_amount', 'other_amount'] as const) raw.rate_response.rates[0][k].amount = 0; return parsePurchaseRates(raw); }
+async function canonicalPayable(opts: { buyerBalance?: number; totalAmount?: number; sellerPayout?: number; sellerHasWallet?: boolean; status?: string; articleId?: string } = {}) {
+  const total = opts.totalAmount ?? 50, payout = opts.sellerPayout ?? total - 5, articleId = opts.articleId ?? 'article1';
+  walletShippingCents = Math.round((total - payout - calculateServiceFee(payout, 0)) * 100);
+  setDoc('users/buyer1', { dateOfBirth: '2000-01-01', isActive: true });
+  setDoc('users/seller1', { dateOfBirth: '2000-01-01', isActive: true, displayName: 'Seller', stripeAccountId: 'acct_purchase', stripeChargesEnabled: true, addresses: [{ ...purchaseAddress, isDefault: true }] });
+  setDoc('eligibility_profiles/seller1', personalProfile('seller1'));
+  setDoc(`articles/${articleId}`, { sellerId: 'seller1', price: payout, title: 'Manteau', isActive: true, isShipping: true, isSold: false });
+  setDoc(`shipping_packages/${articleId}`, { schemaVersion: 1, articleId, ownerId: 'seller1', version: 1, source: 'seller_declared', measurementVerified: false, parcel: purchaseParcel });
+  setDoc('wallets/buyer1', { balance: opts.buyerBalance ?? 10000, status: 'active', currency: 'cad', pendingBalance: 0 });
+  if (opts.sellerHasWallet !== false) setDoc('wallets/seller1', { balance: 2000, pendingBalance: 0, status: 'active', currency: 'cad' });
+  const q = await quotePurchase('buyer1', { articleId, shippingAddress: purchaseAddress });
+  const r = await reservePurchase('buyer1', { deliveryType: 'shipping', quoteId: q.quoteId, rateId: q.rates[0].rateId, expectedTotal: q.rates[0].totalAmount });
+  const old = docSnapshots[`transactions/${r.transactionId}`].data()!;
+  setDoc('transactions/tx1', { ...old, status: opts.status ?? 'pending_payment' });
+  setDoc(`transactions/${r.transactionId}`, null);
+  setDoc(`shipping_quotes/${q.quoteId}`, { ...docSnapshots[`shipping_quotes/${q.quoteId}`].data()!, transactionId: 'tx1' });
+  setDoc(`articles/${articleId}`, { ...docSnapshots[`articles/${articleId}`].data()!, activeTransactionId: 'tx1' });
+  writeOps.length = 0;
+}
+
 const callActivateWallet = activateWallet as unknown as CallableHandler;
 const callGetWalletInfo = getWalletInfo as unknown as CallableHandler;
 const callWalletWithdraw = walletWithdraw as unknown as CallableHandler;
@@ -245,11 +302,11 @@ beforeEach(() => {
 
   // Reset mockDb methods to use fresh closures over cleared state
   mockDb.collection = (name: string) => mockCollectionRef(name);
-  mockDb.runTransaction = async (
-    fn: (tx: ReturnType<typeof createMockTransaction>) => Promise<unknown>
-  ) => {
-    const tx = createMockTransaction();
-    return fn(tx);
+  mockDb.runTransaction = async (fn: (tx: ReturnType<typeof createMockTransaction>) => Promise<unknown>) => {
+    const start = writeOps.length;
+    const result = await fn(createMockTransaction());
+    writeOps.slice(start).forEach(applyMockWrite);
+    return result;
   };
 
   // Default Stripe mocks
@@ -272,7 +329,7 @@ describe('activateWallet', () => {
   });
 
   it('creates wallet doc when none exists', async () => {
-    const result = await callActivateWallet({ auth: { uid: 'user1' } });
+    const result = await callActivateWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' } });
 
     expect(result.success).toBe(true);
     expect(result.balance).toBe(0);
@@ -297,7 +354,7 @@ describe('activateWallet', () => {
       currency: 'cad',
     });
 
-    const result = await callActivateWallet({ auth: { uid: 'user1' } });
+    const result = await callActivateWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' } });
 
     expect(result.success).toBe(true);
     expect(result.balance).toBe(5000);
@@ -312,7 +369,7 @@ describe('activateWallet', () => {
   });
 
   it('sets correct initial wallet fields including timestamps', async () => {
-    await callActivateWallet({ auth: { uid: 'newuser' } });
+    await callActivateWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'newuser' } });
 
     const walletWrite = writeOps.find(
       (w) => w.path === 'wallets/newuser' && w.method === 'set'
@@ -344,7 +401,7 @@ describe('getWalletInfo', () => {
   });
 
   it('returns hasWallet: false when no wallet exists', async () => {
-    const result = await callGetWalletInfo({ auth: { uid: 'user1' } });
+    const result = await callGetWalletInfo({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' } });
     expect(result).toEqual({ hasWallet: false });
   });
 
@@ -385,7 +442,7 @@ describe('getWalletInfo', () => {
       },
     ]);
 
-    const result = await callGetWalletInfo({ auth: { uid: 'user1' } });
+    const result = await callGetWalletInfo({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' } });
 
     expect(result.hasWallet).toBe(true);
     expect(result.balance).toBe(12000);
@@ -436,31 +493,31 @@ describe('walletWithdraw', () => {
   it('rejects non-integer amounts', async () => {
     setupWithdrawable();
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 10.5 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 10.5 } })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
   it('rejects zero amount', async () => {
     setupWithdrawable();
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 0 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 0 } })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
   it('rejects negative amount', async () => {
     setupWithdrawable();
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: -500 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: -500 } })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
   it('rejects if amount < 1000 (min $10)', async () => {
     setupWithdrawable();
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 999 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 999 } })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 999 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 999 } })
     ).rejects.toThrow('retrait minimum');
   });
 
@@ -469,10 +526,10 @@ describe('walletWithdraw', () => {
     setDoc('wallets/user1', { balance: 5000, status: 'active' });
 
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 1000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 1000 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 1000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 1000 } })
     ).rejects.toThrow('compte de paiement');
   });
 
@@ -484,10 +541,10 @@ describe('walletWithdraw', () => {
     setDoc('wallets/user1', { balance: 5000, status: 'active' });
 
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 1000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 1000 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 1000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 1000 } })
     ).rejects.toThrow('pas encore actif');
   });
 
@@ -502,10 +559,10 @@ describe('walletWithdraw', () => {
     });
 
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 1000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 1000 } })
     ).rejects.toMatchObject({ code: 'not-found' });
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 1000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 1000 } })
     ).rejects.toThrow('porte-monnaie');
   });
 
@@ -513,10 +570,10 @@ describe('walletWithdraw', () => {
     setupWithdrawable(2000);
 
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 3000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 3000 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 3000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 3000 } })
     ).rejects.toThrow('Solde insuffisant');
   });
 
@@ -524,8 +581,8 @@ describe('walletWithdraw', () => {
     setupWithdrawable(5000);
 
     const result = await callWalletWithdraw({
-      auth: { uid: 'user1' },
-      data: { amount: 2000 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' },
+      data: { expectedUid: 'user1', amount: 2000 },
     });
 
     expect(result.success).toBe(true);
@@ -565,8 +622,8 @@ describe('walletWithdraw', () => {
     setupWithdrawable(1000);
 
     const result = await callWalletWithdraw({
-      auth: { uid: 'user1' },
-      data: { amount: 1000 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' },
+      data: { expectedUid: 'user1', amount: 1000 },
     });
 
     expect(result.success).toBe(true);
@@ -588,8 +645,8 @@ describe('walletWithdraw', () => {
     };
 
     const result = await callWalletWithdraw({
-      auth: { uid: 'user1' },
-      data: { amount: 2000 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' },
+      data: { expectedUid: 'user1', amount: 2000 },
     });
 
     expect(result.transferId).toBe('tr_456');
@@ -635,8 +692,11 @@ describe('walletWithdraw', () => {
     const origRunTransaction = mockDb.runTransaction;
     mockDb.runTransaction = async (fn: (tx: ReturnType<typeof createMockTransaction>) => Promise<unknown>) => {
       txCallCount++;
+      const start = writeOps.length;
       const tx = createMockTransaction();
-      return fn(tx);
+      const result = await fn(tx);
+      writeOps.slice(start).forEach(applyMockWrite);
+      return result;
     };
 
     mockStripeTransfersCreate.fn = async () => {
@@ -644,7 +704,7 @@ describe('walletWithdraw', () => {
     };
 
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 2000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 2000 } })
     ).rejects.toMatchObject({ code: 'unavailable' });
 
     // Network failure is not a confirmed rejection: no compensation.
@@ -666,8 +726,11 @@ describe('walletWithdraw', () => {
     let txCallCount = 0;
     mockDb.runTransaction = async (fn: (tx: ReturnType<typeof createMockTransaction>) => Promise<unknown>) => {
       txCallCount++;
+      const start = writeOps.length;
       const tx = createMockTransaction();
-      return fn(tx);
+      const result = await fn(tx);
+      writeOps.slice(start).forEach(applyMockWrite);
+      return result;
     };
 
     mockStripePayoutsCreate.fn = async () => {
@@ -675,7 +738,7 @@ describe('walletWithdraw', () => {
     };
 
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 2000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 2000 } })
     ).rejects.toMatchObject({ code: 'unavailable' });
 
     // Unknown payout is retained for reconciliation, never compensated blindly.
@@ -685,14 +748,14 @@ describe('walletWithdraw', () => {
   it('rejects string amounts', async () => {
     setupWithdrawable();
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: '1000' } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: '1000' } })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
   it('rejects when data is undefined', async () => {
     setupWithdrawable();
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: undefined })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: undefined })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
@@ -706,10 +769,10 @@ describe('walletWithdraw', () => {
     setDoc('wallets/user1', { balance: 5000, pendingBalance: 0, status: 'suspended' });
 
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 1000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 1000 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callWalletWithdraw({ auth: { uid: 'user1' }, data: { amount: 1000 } })
+      callWalletWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' }, data: { expectedUid: 'user1', amount: 1000 } })
     ).rejects.toThrow('pas actif');
   });
 
@@ -724,8 +787,8 @@ describe('walletWithdraw', () => {
     setDoc('wallets/user1', { balance: 1000, pendingBalance: 0, status: 'active' });
 
     const result = await callWalletWithdraw({
-      auth: { uid: 'user1' },
-      data: { amount: 1000 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' },
+      data: { expectedUid: 'user1', amount: 1000 },
     });
 
     expect(result.success).toBe(true);
@@ -738,52 +801,9 @@ describe('walletWithdraw', () => {
 // ===========================================================================
 
 describe('payWithWallet', () => {
-  function setupPayable(opts?: {
-    buyerBalance?: number;
-    totalAmount?: number;
-    sellerPayout?: number;
-    sellerId?: string;
-    status?: string;
-    sellerHasWallet?: boolean;
-    articleId?: string;
-  }) {
-    const {
-      buyerBalance = 10000,
-      totalAmount = 50,
-      sellerPayout = 45,
-      sellerId = 'seller1',
-      status = 'pending_payment',
-      sellerHasWallet = true,
-      articleId = 'article1',
-    } = opts ?? {};
-
-    setDoc('transactions/tx1', {
-      buyerId: 'buyer1',
-      sellerId,
-      status,
-      totalAmount,
-      sellerPayout,
-      amount: sellerPayout,
-      articleId,
-      chatId: 'chat1',
-    });
-
-    setDoc('wallets/buyer1', {
-      balance: buyerBalance,
-      pendingBalance: 0,
-      status: 'active',
-      currency: 'cad',
-    });
-
-    if (sellerHasWallet) {
-      setDoc(`wallets/${sellerId}`, {
-        balance: 2000,
-        pendingBalance: 0,
-        status: 'active',
-        currency: 'cad',
-      });
-    }
-  }
+  // Explicit new shipping fixtures from real quote/claim producers. Historical
+  // non-shipping/accrual assertions are now exercised via the label commit.
+  const setupPayable = canonicalPayable;
 
   it('requires authentication', async () => {
     await expect(
@@ -793,19 +813,19 @@ describe('payWithWallet', () => {
 
   it('rejects if transactionId is missing', async () => {
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: {} })
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1',} })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
   it('rejects if transactionId is empty string', async () => {
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: '' } })
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: '' } })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
   it('rejects if transactionId is non-string type', async () => {
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 12345 } })
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 12345 } })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
@@ -814,26 +834,26 @@ describe('payWithWallet', () => {
 
     await expect(
       callPayWithWallet({
-        auth: { uid: 'buyer1' },
-        data: { transactionId: 'tx_nonexistent' },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+        data: { expectedUid: 'buyer1', transactionId: 'tx_nonexistent' },
       })
     ).rejects.toMatchObject({ code: 'not-found' });
   });
 
   it('rejects if caller is not the buyer', async () => {
-    setupPayable();
+    await setupPayable();
 
     await expect(
-      callPayWithWallet({ auth: { uid: 'intruder' }, data: { transactionId: 'tx1' } })
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'intruder' }, data: { expectedUid: 'intruder', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
   it('rejects if transaction not in pending_payment status', async () => {
-    setupPayable({ status: 'paid' });
+    await setupPayable({ status: 'paid' });
 
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
-    ).rejects.toThrow('Cannot pay for transaction in status paid');
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
 
   it('rejects various non-payable statuses', async () => {
@@ -842,49 +862,43 @@ describe('payWithWallet', () => {
       writeOps.length = 0;
       for (const key of Object.keys(docSnapshots)) delete docSnapshots[key];
 
-      setupPayable({ status });
+      await setupPayable({ status });
 
       await expect(
-        callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
-      ).rejects.toThrow(`Cannot pay for transaction in status ${status}`);
+        callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
+      ).rejects.toMatchObject({ code: 'failed-precondition' });
     }
   });
 
   it('rejects if buyer has no wallet', async () => {
-    setDoc('transactions/tx1', {
-      buyerId: 'buyer1',
-      sellerId: 'seller1',
-      status: 'pending_payment',
-      totalAmount: 50,
-      sellerPayout: 45,
-      articleId: 'article1',
-    });
+    await setupPayable();
+    setDoc('wallets/buyer1', null);
 
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
-    ).rejects.toThrow('porte-monnaie');
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
 
   it('rejects if buyer wallet balance < total amount', async () => {
-    setupPayable({ buyerBalance: 4999, totalAmount: 50 });
+    await setupPayable({ buyerBalance: 4999, totalAmount: 50 });
 
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
     ).rejects.toThrow('Solde insuffisant');
   });
 
   it('correctly debits buyer wallet', async () => {
-    setupPayable({ buyerBalance: 10000, totalAmount: 50 });
+    await setupPayable({ buyerBalance: 10000, totalAmount: 50 });
 
     const result = await callPayWithWallet({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
 
     expect(result.success).toBe(true);
@@ -897,11 +911,11 @@ describe('payWithWallet', () => {
   });
 
   it('correctly credits seller pendingBalance when seller has wallet', async () => {
-    setupPayable({ sellerHasWallet: true, sellerPayout: 45 });
+    await setupPayable({ sellerHasWallet: true, sellerPayout: 45 });
 
     await callPayWithWallet({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
 
     const sellerWalletUpdate = writeOps.find(
@@ -911,11 +925,11 @@ describe('payWithWallet', () => {
   });
 
   it('marks transaction as paid with paidVia wallet', async () => {
-    setupPayable();
+    await setupPayable();
 
     await callPayWithWallet({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
 
     // For a non-shipping sale the transaction is written TWICE inside the same
@@ -934,11 +948,11 @@ describe('payWithWallet', () => {
   });
 
   it('marks article as isSold: true', async () => {
-    setupPayable({ articleId: 'article1' });
+    await setupPayable({ articleId: 'article1' });
 
     await callPayWithWallet({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
 
     const articleUpdate = writeOps.find(
@@ -949,11 +963,11 @@ describe('payWithWallet', () => {
   });
 
   it('creates ledger entry for buyer with correct type and balanceAfter', async () => {
-    setupPayable({ buyerBalance: 8000, totalAmount: 30 });
+    await setupPayable({ buyerBalance: 8000, totalAmount: 30 });
 
     await callPayWithWallet({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
 
     const ledgerEntry = writeOps.find(
@@ -971,11 +985,11 @@ describe('payWithWallet', () => {
     // calls creditSellerForSale -> getOrCreateSellerWallet, which CREATES the
     // seller wallet on the fly and credits pendingBalance immediately. The old
     // "skip credit if no wallet" behavior is gone — the seller must be paid.
-    setupPayable({ sellerHasWallet: false, totalAmount: 50, sellerPayout: 45 });
+    await setupPayable({ sellerHasWallet: false, totalAmount: 50, sellerPayout: 45 });
 
     const result = await callPayWithWallet({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
 
     expect(result.success).toBe(true);
@@ -998,11 +1012,11 @@ describe('payWithWallet', () => {
   });
 
   it('handles exact balance match (balance === totalAmount in cents)', async () => {
-    setupPayable({ buyerBalance: 5000, totalAmount: 50 });
+    await setupPayable({ buyerBalance: 5000, totalAmount: 50 });
 
     const result = await callPayWithWallet({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
 
     expect(result.success).toBe(true);
@@ -1010,19 +1024,19 @@ describe('payWithWallet', () => {
   });
 
   it('rejects zero balance wallet trying to pay', async () => {
-    setupPayable({ buyerBalance: 0, totalAmount: 50 });
+    await setupPayable({ buyerBalance: 0, totalAmount: 50 });
 
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
 
   it('stores walletAmountUsed on transaction', async () => {
-    setupPayable({ totalAmount: 25 });
+    await setupPayable({ totalAmount: 25 });
 
     await callPayWithWallet({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
 
     // Two updates to transactions/tx1 (creditSellerForSale + status update);
@@ -1038,41 +1052,28 @@ describe('payWithWallet', () => {
   });
 
   it('handles inactive buyer wallet', async () => {
-    setDoc('transactions/tx1', {
-      buyerId: 'buyer1',
-      sellerId: 'seller1',
-      status: 'pending_payment',
-      totalAmount: 10,
-      sellerPayout: 9,
-      articleId: 'a1',
-    });
-    setDoc('wallets/buyer1', { balance: 5000, pendingBalance: 0, status: 'suspended' });
+    await setupPayable();
+    setDoc('wallets/buyer1', { balance: 5000, currency: 'cad', status: 'suspended' });
 
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
-    ).rejects.toThrow('pas actif');
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
 
   it('rejects transaction with zero totalAmount', async () => {
-    setDoc('transactions/tx1', {
-      buyerId: 'buyer1',
-      sellerId: 'seller1',
-      status: 'pending_payment',
-      totalAmount: 0,
-      sellerPayout: 0,
-      articleId: 'a1',
-    });
-    setDoc('wallets/buyer1', { balance: 5000, pendingBalance: 0, status: 'active' });
+    await setupPayable();
+    setDoc('transactions/tx1', { ...docSnapshots['transactions/tx1'].data()!, totalAmount: 0 });
 
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
-    ).rejects.toMatchObject({ code: 'failed-precondition' });
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
+    ).rejects.toMatchObject({ code: 'aborted' });
     await expect(
-      callPayWithWallet({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
-    ).rejects.toThrow('Transaction amount is invalid');
+      callPayWithWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
+    ).rejects.toMatchObject({ code: 'aborted' });
+    expect(writeOps.filter(w => /^(wallets|transactions|articles)\//.test(w.path))).toHaveLength(0);
   });
 });
 
@@ -1122,8 +1123,8 @@ describe('refundWalletPayment', () => {
     // any refund logic runs.
     await expect(
       callRefundWalletPayment({
-        auth: { uid: 'buyer1', token: {} },
-        data: { transactionId: 'tx1' },
+        auth: { uid: 'buyer1', token: { auth_time: Math.floor(Date.now() / 1000),} },
+        data: { expectedUid: 'buyer1', transactionId: 'tx1' },
       })
     ).rejects.toMatchObject({ code: 'permission-denied' });
 
@@ -1138,8 +1139,8 @@ describe('refundWalletPayment', () => {
     setupRefundable();
     await expect(
       callRefundWalletPayment({
-        auth: { uid: 'randomUser', token: {} },
-        data: { transactionId: 'tx1' },
+        auth: { uid: 'randomUser', token: { auth_time: Math.floor(Date.now() / 1000),} },
+        data: { expectedUid: 'randomUser', transactionId: 'tx1' },
       })
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
@@ -1149,8 +1150,8 @@ describe('refundWalletPayment', () => {
     setDoc('users/buyer1', { isAdmin: false });
     await expect(
       callRefundWalletPayment({
-        auth: { uid: 'buyer1', token: {} },
-        data: { transactionId: 'tx1' },
+        auth: { uid: 'buyer1', token: { auth_time: Math.floor(Date.now() / 1000),} },
+        data: { expectedUid: 'buyer1', transactionId: 'tx1' },
       })
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
@@ -1159,8 +1160,8 @@ describe('refundWalletPayment', () => {
     setupRefundable({ status: 'delivered', sellerCreditedCents: 4500 });
 
     const result = await callRefundWalletPayment({
-      auth: { uid: 'adminUser', token: { admin: true } },
-      data: { transactionId: 'tx1' },
+      auth: { uid: 'adminUser', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } },
+      data: { expectedUid: 'adminUser', transactionId: 'tx1' },
     });
 
     expect(result.success).toBe(true);
@@ -1186,8 +1187,8 @@ describe('refundWalletPayment', () => {
     setDoc('users/adminUser', { isAdmin: true });
 
     const result = await callRefundWalletPayment({
-      auth: { uid: 'adminUser', token: {} },
-      data: { transactionId: 'tx1' },
+      auth: { uid: 'adminUser', token: { auth_time: Math.floor(Date.now() / 1000),} },
+      data: { expectedUid: 'adminUser', transactionId: 'tx1' },
     });
 
     expect(result.success).toBe(true);
@@ -1203,11 +1204,14 @@ describe('atomicity guarantees', () => {
     let txCalled = false;
     mockDb.runTransaction = async (fn: (tx: ReturnType<typeof createMockTransaction>) => Promise<unknown>) => {
       txCalled = true;
+      const start = writeOps.length;
       const tx = createMockTransaction();
-      return fn(tx);
+      const result = await fn(tx);
+      writeOps.slice(start).forEach(applyMockWrite);
+      return result;
     };
 
-    await callActivateWallet({ auth: { uid: 'user1' } });
+    await callActivateWallet({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' } });
     expect(txCalled).toBe(true);
   });
 
@@ -1215,24 +1219,18 @@ describe('atomicity guarantees', () => {
     let txCalled = false;
     mockDb.runTransaction = async (fn: (tx: ReturnType<typeof createMockTransaction>) => Promise<unknown>) => {
       txCalled = true;
+      const start = writeOps.length;
       const tx = createMockTransaction();
-      return fn(tx);
+      const result = await fn(tx);
+      writeOps.slice(start).forEach(applyMockWrite);
+      return result;
     };
 
-    setDoc('transactions/tx1', {
-      buyerId: 'buyer1',
-      sellerId: 'seller1',
-      status: 'pending_payment',
-      totalAmount: 10,
-      sellerPayout: 9,
-      articleId: 'a1',
-    });
-    setDoc('wallets/buyer1', { balance: 5000, pendingBalance: 0, status: 'active' });
-    setDoc('wallets/seller1', { balance: 0, pendingBalance: 0, status: 'active' });
+    await canonicalPayable({ totalAmount: 30 });
 
     await callPayWithWallet({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
 
     expect(txCalled).toBe(true);
@@ -1242,8 +1240,11 @@ describe('atomicity guarantees', () => {
     let txCalled = false;
     mockDb.runTransaction = async (fn: (tx: ReturnType<typeof createMockTransaction>) => Promise<unknown>) => {
       txCalled = true;
+      const start = writeOps.length;
       const tx = createMockTransaction();
-      return fn(tx);
+      const result = await fn(tx);
+      writeOps.slice(start).forEach(applyMockWrite);
+      return result;
     };
 
     setDoc('users/user1', {
@@ -1256,8 +1257,8 @@ describe('atomicity guarantees', () => {
     setDoc('wallets/user1', { balance: 5000, pendingBalance: 0, status: 'active' });
 
     await callWalletWithdraw({
-      auth: { uid: 'user1' },
-      data: { amount: 1000 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'user1' },
+      data: { expectedUid: 'user1', amount: 1000 },
     });
 
     expect(txCalled).toBe(true);

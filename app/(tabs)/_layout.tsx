@@ -1,3 +1,4 @@
+import { serializeRouteParam } from '@/features/sell/utils/routeParams';
 /**
  * Tab Layout — Seconde UI Kit
  *
@@ -6,7 +7,7 @@
  */
 
 import { Tabs, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -20,17 +21,21 @@ import {
 } from '@/components/ui/TabBarIcons';
 import { ImmersiveOverlay, useImmersiveOverlay } from '@/components/ui/ImmersiveOverlay';
 import { SellOverlayCapture } from '@/features/sell';
-import DraftResumeModal from '@/components/DraftResumeModal';
-import draftService, { ArticleDraft } from '@/services/draftService';
+import DraftResumeModal from '@/features/sell/components/shared/DraftResumeModal';
+import draftService, { ArticleDraft, hasDraftProgress } from '@/features/sell/services/draftService';
 import { AuthService } from '@/services/authService';
 import { track } from '@/lib/analytics';
 import { colors, fonts, radius } from '@/constants/theme';
-import { useUser } from '@/hooks/useAuth';
+import { useAuthenticatedUid, useUser } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { useAuthSheetStore } from '@/store/authSheetStore';
-import { AUTH_MESSAGES, COPY_SELL_GATE } from '@/constants/authMessages';
+import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { useChatStore, selectUnreadChatCount } from '@/store/chatStore';
-import { canSell } from '@/utils/age';
+import { assertSalePreparationAdmission, eligibilityReadUnavailable } from '@/services/newSaleAdmission';
+import { useTradeAdmissionError } from '@/hooks/useTradeAdmissionError';
+import { useTradeOperation, type TradeOperation } from '@/hooks/useTradeOperation';
+import { staleTradeOperation } from '@/services/tradeOperation';
+import type { ImmersiveOpening } from '@/store/immersiveOverlayStore';
 
 const sellPlatform = Platform.OS === 'ios' ? 'ios' : 'android';
 
@@ -73,8 +78,11 @@ function SellTabIcon() {
 
 export default function TabLayout() {
   const user = useUser();
+  const uid = useAuthenticatedUid();
+  const sellEntry = useTradeOperation('sell-tab-entry', uid);
+  const showAdmissionError = useTradeAdmissionError();
   const router = useRouter();
-  const { immerse, dismiss } = useImmersiveOverlay();
+  const { immerse } = useImmersiveOverlay();
   // Pre-computed in the store (chatStore.setChats), so this subscription
   // only re-renders when *this user's* unread total actually changes.
   const unreadMessageCount = useChatStore(
@@ -84,80 +92,215 @@ export default function TabLayout() {
   // ── iOS draft resume ──
   // On iOS the sell flow lives inside the immersive overlay, so the step-aware
   // resume logic that Android gets for free via app/(tabs)/sell.tsx is wired
-  // here: detect an in-progress draft before opening the overlay and offer to
-  // resume at the saved step instead of restarting the camera.
-  const [resumeDraft, setResumeDraft] = useState<ArticleDraft | null>(null);
+  // here: detect an in-progress draft behind the entering shell and offer to
+  // resume at the saved step before mounting the camera.
+  const [resumeContext, setResumeContext] = useState<{
+    draft: ArticleDraft;
+    opening: ImmersiveOpening;
+  } | null>(null);
+  const activeResumeContext = useRef<typeof resumeContext>(null);
+  const pendingDraftAction = useRef<{ opening: ImmersiveOpening; operation: TradeOperation } | null>(null);
+  const [draftOwnerFrame, setDraftOwnerFrame] = useState(sellEntry.frame);
+  if (draftOwnerFrame !== sellEntry.frame) { setDraftOwnerFrame(sellEntry.frame); setResumeContext(null); }
 
-  // Open the camera capture overlay (fresh capture, no draft progression).
-  const openCaptureOverlay = useCallback(() => {
-    immerse({
-      component: (
+  // Fill the already entering shell only after admission and draft selection.
+  const showCapture = useCallback((opening: ImmersiveOpening) => {
+    opening.prepareContent((presentation) => (
         <SellOverlayCapture
-          onClose={() => dismiss()}
+          presentation={presentation}
+          onClose={() => opening.dismiss()}
           onContinue={(photos) => {
             // Couple navigation to the real end of the dismiss animation
             // (onDismissed) instead of a magic timer — the push fires exactly
             // when the overlay has fully collapsed, never racing it.
-            dismiss({
+            opening.dismiss({
               onDismissed: () => {
                 router.push({
                   pathname: '/sell/photos-review',
-                  params: { photos: JSON.stringify(photos) },
+                  params: { photos: serializeRouteParam(photos) },
                 });
               },
             });
           }}
         />
-      ),
-    });
-  }, [immerse, dismiss, router]);
+    ));
+  }, [router]);
+
+  const reportEntryFailure = useCallback((
+    error: unknown,
+    operation: TradeOperation,
+    opening: ImmersiveOpening | null,
+    retry: () => void,
+  ) => {
+    const showError = () => {
+      if (!sellEntry.isCurrent(operation)) return;
+      if (!showAdmissionError(error, { isCurrent: () => sellEntry.isCurrent(operation), retry, publication: {uid: operation.session.uid} })) {
+        Alert.alert('Vérification impossible', 'Impossible d’ouvrir la vente pour le moment. Votre brouillon est conservé.');
+      }
+    };
+    if (opening) {
+      if (opening.isCurrent()) opening.dismiss({ onDismissed: showError });
+    } else showError();
+  }, [sellEntry, showAdmissionError]);
+
+  const enterSell = useCallback(async function enter(navigateAndroid: () => void) {
+    if (!sellEntry.isOriginCurrent()) return;
+    let operation: TradeOperation | undefined;
+    let opening: ImmersiveOpening | null = null;
+    try {
+      operation = sellEntry.start() ?? undefined;
+      if (!operation) return;
+      if (Platform.OS === 'ios') {
+        // The visual response starts before either network/draft read. This
+        // shell conveys no admission and cannot mount the camera on its own.
+        opening = immerse({
+          isCurrent: sellEntry.isOriginCurrent,
+          onDismiss: () => {
+            if (operation) sellEntry.finish(operation);
+            const pendingDraft = pendingDraftAction.current;
+            if (pendingDraft?.opening === opening) {
+              sellEntry.finish(pendingDraft.operation);
+              pendingDraftAction.current = null;
+            }
+            const modal = activeResumeContext.current;
+            if (modal?.opening === opening) {
+              activeResumeContext.current = null;
+              if (sellEntry.isOriginCurrent()) setResumeContext(current => current === modal ? null : current);
+            }
+          },
+        });
+        if (!opening) throw eligibilityReadUnavailable();
+      }
+      const assertCurrent = () => {
+        sellEntry.assertCurrent(operation!);
+        if (opening && !opening.isCurrent()) throw staleTradeOperation();
+      };
+      await assertSalePreparationAdmission(operation.session.uid, assertCurrent);
+      assertCurrent();
+      if (AuthService.hasPasswordProvider() && !AuthService.isEmailVerified()) {
+        const showEmail = () => {
+          if (sellEntry.isCurrent(operation!)) router.push('/settings/verify-email');
+        };
+        if (opening) opening.dismiss({ onDismissed: showEmail });
+        else showEmail();
+        return;
+      }
+      if (Platform.OS !== 'ios') { navigateAndroid(); return; }
+      const existingDraft = await draftService.loadDraft();
+      assertCurrent();
+      const hasDraft = hasDraftProgress(existingDraft);
+      track('sell_entry_tapped', { outcome: 'opened', platform: sellPlatform, has_existing_draft: hasDraft, source: 'tab' });
+      if (hasDraft && existingDraft && opening) {
+        const modal = { draft: existingDraft, opening };
+        activeResumeContext.current = modal;
+        setResumeContext(modal);
+      } else if (opening) showCapture(opening);
+    } catch (error) {
+      if (!operation) {
+        if (sellEntry.isOriginCurrent()) showAdmissionError(eligibilityReadUnavailable(), {
+          isCurrent: () => sellEntry.isOriginCurrent(), retry: () => { void enter(navigateAndroid); },
+        });
+        return;
+      }
+      if (!sellEntry.isCurrent(operation)) { opening?.dismiss(); return; }
+      reportEntryFailure(error, operation, opening, () => { void enter(navigateAndroid); });
+    } finally { if (operation) sellEntry.finish(operation); }
+  }, [sellEntry, immerse, router, showCapture, showAdmissionError, reportEntryFailure]);
 
   // Resume an in-progress draft at its saved step (mirrors Android sell.tsx).
-  const handleResumeDraft = useCallback(() => {
-    const draft = resumeDraft;
-    setResumeDraft(null);
-    if (!draft) return;
-    const step = draft.currentStep;
-    if (__DEV__) console.log('[TabLayout] Resuming draft at step:', step);
+  const handleResumeDraft = useCallback(async function resumeCurrentDraft() {
+    const opening = resumeContext?.opening;
+    if (!resumeContext || activeResumeContext.current !== resumeContext || !opening?.isCurrent()) return;
+    let operation;
+    try {
+      operation = sellEntry.start('draft');
+      if (!operation) return;
+      pendingDraftAction.current = { opening, operation };
+      const assertCurrent = () => {
+        sellEntry.assertCurrent(operation!);
+        if (activeResumeContext.current !== resumeContext || !opening.isCurrent()) throw staleTradeOperation();
+      };
+      await assertSalePreparationAdmission(operation.session.uid, assertCurrent);
+      assertCurrent();
+      const draft = resumeContext?.draft;
+      activeResumeContext.current = null;
+      setResumeContext(null);
+      if (!draft) return;
+      const step = draft.currentStep;
+      if (__DEV__) console.log('[TabLayout] Resuming draft at step:', step);
 
-    track('sell_draft_resumed', {
-      draft_step: draftStepLabel(step),
-      photo_count: draft.photos.length,
-      has_ai_result: !!draft.aiResult,
-      platform: 'ios',
-    });
-
-    if (step >= 4) {
-      router.push({ pathname: '/sell/preview', params: { resumeDraft: 'true' } });
-    } else if (step >= 3) {
-      router.push({ pathname: '/sell/pricing', params: { resumeDraft: 'true' } });
-    } else if (step >= 2) {
-      router.push({
-        pathname: '/sell/details',
-        params: {
-          resumeDraft: 'true',
-          photos: JSON.stringify(draft.photos),
-          ...(draft.aiResult ? { aiResult: JSON.stringify(draft.aiResult) } : {}),
-        },
-      });
-    } else {
-      // Step 1: only photos captured — re-open the capture overlay to continue.
-      openCaptureOverlay();
-    }
-  }, [resumeDraft, router, openCaptureOverlay]);
-
-  const handleDiscardDraft = useCallback(async () => {
-    if (resumeDraft) {
-      track('sell_draft_discarded', {
-        draft_step: draftStepLabel(resumeDraft.currentStep),
-        photo_count: resumeDraft.photos.length,
+      track('sell_draft_resumed', {
+        draft_step: draftStepLabel(step),
+        photo_count: draft.photos.length,
+        has_ai_result: !!draft.aiResult,
         platform: 'ios',
       });
+
+      if (step >= 2) {
+        opening.dismiss({ onDismissed: () => {
+          if (!sellEntry.isCurrent(operation!)) return;
+          if (step >= 4) {
+            router.push({ pathname: '/sell/preview', params: { resumeDraft: 'true' } });
+          } else if (step >= 3) {
+            router.push({ pathname: '/sell/pricing', params: { resumeDraft: 'true' } });
+          } else {
+            router.push({
+              pathname: '/sell/details',
+              params: {
+                resumeDraft: 'true',
+                photos: serializeRouteParam(draft.photos),
+                ...(draft.aiResult ? { aiResult: serializeRouteParam(draft.aiResult) } : {}),
+              },
+            });
+          }
+        } });
+      } else {
+        // Step 1: fill this same shell to continue with the saved photos.
+        showCapture(opening);
+      }
+    } catch (error) {
+      if (operation && sellEntry.isCurrent(operation)) reportEntryFailure(error, operation, opening, () => { void enterSell(() => undefined); });
     }
-    setResumeDraft(null);
-    await draftService.deleteDraft();
-    openCaptureOverlay();
-  }, [resumeDraft, openCaptureOverlay]);
+    finally {
+      if (pendingDraftAction.current?.operation === operation) pendingDraftAction.current = null;
+      if (operation) sellEntry.finish(operation);
+    }
+  }, [resumeContext, router, showCapture, sellEntry, reportEntryFailure, enterSell]);
+
+  const handleDiscardDraft = useCallback(async () => {
+    const opening = resumeContext?.opening;
+    if (!resumeContext || activeResumeContext.current !== resumeContext || !opening?.isCurrent()) return;
+    let operation;
+    try {
+      operation = sellEntry.start('draft');
+      if (!operation) return;
+      pendingDraftAction.current = { opening, operation };
+      const assertCurrent = () => {
+        sellEntry.assertCurrent(operation!);
+        if (!opening.isCurrent()) throw staleTradeOperation();
+      };
+      await assertSalePreparationAdmission(operation.session.uid, assertCurrent);
+      assertCurrent();
+      if (resumeContext) {
+        track('sell_draft_discarded', {
+          draft_step: draftStepLabel(resumeContext.draft.currentStep),
+          photo_count: resumeContext.draft.photos.length,
+          platform: 'ios',
+        });
+      }
+      activeResumeContext.current = null;
+      setResumeContext(null);
+      await draftService.deleteDraft();
+      assertCurrent();
+      showCapture(opening);
+    } catch (error) {
+      if (operation && sellEntry.isCurrent(operation)) reportEntryFailure(error, operation, opening, () => { void enterSell(() => undefined); });
+    }
+    finally {
+      if (pendingDraftAction.current?.operation === operation) pendingDraftAction.current = null;
+      if (operation) sellEntry.finish(operation);
+    }
+  }, [resumeContext, showCapture, sellEntry, reportEntryFailure, enterSell]);
 
   return (
     <ImmersiveOverlay>
@@ -220,78 +363,12 @@ export default function TabLayout() {
         }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
-            const currentUser = useAuthStore.getState().user;
-            if (!currentUser) {
-              e.preventDefault();
-              track('sell_entry_tapped', {
-                outcome: 'auth_gated',
-                platform: sellPlatform,
-                has_existing_draft: false,
-                source: 'tab',
-              });
-              useAuthSheetStore.getState().show(
-                AUTH_MESSAGES.sell,
-                () => navigation.navigate('sell')
-              );
-            } else if (!canSell(currentUser.dateOfBirth)) {
-              // 16-17 ans : achat/navigation OK, mais vente bloquée (18+ Stripe).
-              e.preventDefault();
-              track('sell_entry_tapped', {
-                outcome: 'age_gated',
-                platform: sellPlatform,
-                has_existing_draft: false,
-                source: 'tab',
-              });
-              Alert.alert('Vente non disponible', COPY_SELL_GATE);
-            } else if (AuthService.hasPasswordProvider() && !AuthService.isEmailVerified()) {
-              // Gate email_verified appliqué côté serveur dans createArticle :
-              // pré-check ici pour éviter de remplir tout le formulaire de vente
-              // (capture, IA, upload images) avant un refus en fin de flow. Ne
-              // concerne que les comptes email — Google/Apple sont toujours
-              // email_verified. Redirige vers l'écran de vérification.
-              e.preventDefault();
-              track('sell_entry_tapped', {
-                outcome: 'email_gate',
-                platform: sellPlatform,
-                has_existing_draft: false,
-                source: 'tab',
-              });
-              router.push('/settings/verify-email');
-            } else if (Platform.OS === 'ios') {
-              e.preventDefault();
-              // Detect an in-progress draft first. If one exists, surface the
-              // resume modal (step-aware) instead of restarting the camera;
-              // otherwise open the capture overlay directly.
-              (async () => {
-                try {
-                  const existingDraft = await draftService.loadDraft();
-                  const hasDraft = !!existingDraft && existingDraft.photos.length > 0;
-                  track('sell_entry_tapped', {
-                    outcome: 'opened',
-                    platform: 'ios',
-                    has_existing_draft: hasDraft,
-                    source: 'tab',
-                  });
-                  if (hasDraft) {
-                    setResumeDraft(existingDraft);
-                    return;
-                  }
-                } catch (err) {
-                  if (__DEV__) console.error('[TabLayout] Draft check failed:', err);
-                }
-                openCaptureOverlay();
-              })();
-            } else {
-              // Android: default tab navigation (sell.tsx → /sell/capture).
-              void draftService.hasDraft().then((hasExistingDraft) => {
-                track('sell_entry_tapped', {
-                  outcome: 'opened',
-                  platform: 'android',
-                  has_existing_draft: hasExistingDraft,
-                  source: 'tab',
-                });
-              });
+            e.preventDefault();
+            if (!useAuthStore.getState().authenticatedUid) {
+              useAuthSheetStore.getState().show(AUTH_MESSAGES.sell, () => router.push('/(tabs)/sell'));
+              return;
             }
+            void enterSell(() => navigation.navigate('sell'));
           },
         })}
       />
@@ -318,10 +395,17 @@ export default function TabLayout() {
     </Tabs>
     {Platform.OS === 'ios' && (
       <DraftResumeModal
-        visible={resumeDraft !== null}
-        draft={resumeDraft}
+        visible={resumeContext !== null}
+        draft={resumeContext?.draft ?? null}
         onResume={handleResumeDraft}
         onDiscard={handleDiscardDraft}
+        onDismiss={() => {
+          const opening = resumeContext?.opening;
+          if (!resumeContext || activeResumeContext.current !== resumeContext || !opening?.isCurrent()) return;
+          activeResumeContext.current = null;
+          setResumeContext(null);
+          opening?.dismiss();
+        }}
       />
     )}
     </ImmersiveOverlay>

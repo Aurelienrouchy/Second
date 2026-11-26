@@ -1,0 +1,5 @@
+import {SupportConfidentialOriginalReview} from '@/components/SupportConfidentialOriginalReview';
+import {SupportConfidentialityPanel} from '@/components/SupportConfidentialityPanel';
+import {AdminFinancialReauthentication} from './AdminFinancialReauthentication';
+import type {SupportJournalEntry} from '@/types/supportRequest';
+export function AdminSupportConfidentialityReview({uid,supportRequestId,sourceKey,pending,assertSelection}:{uid:string;supportRequestId:string|null;sourceKey:string;pending?:SupportJournalEntry|null;assertSelection?:()=>void}){return <><SupportConfidentialityPanel uid={uid} scope="admin" supportRequestId={supportRequestId} sourceKey={sourceKey} pending={pending} assertSelection={assertSelection} ReauthenticationComponent={AdminFinancialReauthentication}/><SupportConfidentialOriginalReview uid={uid} supportRequestId={supportRequestId} sourceKey={sourceKey} pending={pending} assertSelection={assertSelection} renderReauthentication={props => <AdminFinancialReauthentication {...props} purpose="legal_review"/>}/></>;}

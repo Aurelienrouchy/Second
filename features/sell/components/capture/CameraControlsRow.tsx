@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Pressable, ActivityIndicator, StyleSheet, type ViewProps } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,6 +20,8 @@ interface CameraControlsRowProps {
   hasPhotos: boolean;
   onCapture: () => void;
   onContinue: () => void;
+  onLayout?: ViewProps['onLayout'];
+  onPrivacyOpen?: () => void;
 }
 
 export const CameraControlsRow = React.memo(function CameraControlsRow({
@@ -28,6 +30,7 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
   hasPhotos,
   onCapture,
   onContinue,
+  onLayout,
 }: CameraControlsRowProps) {
   const continueProgress = useSharedValue(0);
 
@@ -49,7 +52,7 @@ export const CameraControlsRow = React.memo(function CameraControlsRow({
   }));
 
   return (
-    <View style={styles.controlsRow}>
+    <View style={styles.controlsRow} onLayout={onLayout}>
       <View style={styles.buttonGroup}>
         <Pressable
           testID="sell-capture-button"

@@ -4,6 +4,8 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Pressable,
+  Text,
 } from 'react-native';
 import Animated, {
   useAnimatedKeyboard,
@@ -13,11 +15,13 @@ import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
-import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/search/BrandSelectionSheet';
-import ConditionSelector, { ConditionValue } from '@/components/ConditionSelector';
-import FormSectionTitle from '@/components/sell/FormSectionTitle';
-import FormFieldGroup from '@/components/sell/FormFieldGroup';
+import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/BrandSelectionSheet';
+import ConditionSelector, { ConditionValue } from '@/features/sell/components/details/ConditionSelector';
+import FormSectionTitle from '@/features/sell/components/shared/FormSectionTitle';
+import FormFieldGroup from '@/features/sell/components/shared/FormFieldGroup';
 import { ScreenHeader } from '@/components/ui';
+import { ArticleChildSafetyFields } from '@/components/ArticleChildSafetyFields';
+import type { ArticleChildSafetyDraft } from '@/types/articleChildSafety';
 import {
   PhotoStripPreview,
   TextareaField,
@@ -28,12 +32,17 @@ import {
 import { AIAnalysisResult, CONDITION_DISPLAY, ConditionId } from '@/types/ai';
 import { colors as dataColors, getColorItems } from '@/data/colors';
 import { getMaterialItems } from '@/data/materials';
-import { getSizesForCategory } from '@/data/sizes';
+import { articleRequiresSize, getSizesForCategory } from '@/data/sizes';
 import { getCategoryInfoFromIds } from '@/data/categories-v2';
-import draftService, { ArticleDraft, DraftFields } from '@/services/draftService';
+import draftService, { ArticleDraft, DraftFields } from '@/features/sell/services/draftService';
+import { aiFilledFields } from '@/features/sell/utils/aiBadges';
+import { isObject, isStringArray, parseRouteParam, serializeRouteParam } from '@/features/sell/utils/routeParams';
+import { getListingDeclarationErrors } from '@/features/sell/utils/listingValidation';
+import type { SizeSystem } from '@/types/article';
+import { articleHygieneRequirement, evaluateArticleHygieneInput, type ArticleHygieneDeclarationInput } from '@/functions/src/shared/articleHygiene';
 import { track } from '@/lib/analytics';
 import { auth } from '@/config/firebaseConfig';
-import { colors, spacing } from '@/constants/theme';
+import { colors, fonts, radius, spacing, typography } from '@/constants/theme';
 
 // Lift the sticky footer to sit spacing.md (16) above the keyboard when open;
 // keyboard.height is bottom-anchored, so blending against the safe-area inset
@@ -44,11 +53,16 @@ interface EditedFields {
   description: string;
   categoryIds: string[];
   categoryDisplay: { icon: string; name: string; context: string };
-  condition: ConditionValue;
+  condition: ConditionValue | '';
+  conditionConfirmed: boolean;
+  childSafetyDeclaration?: ArticleChildSafetyDraft | null;
+  hygieneDeclaration?: ArticleHygieneDeclarationInput | null;
+  hygieneKind?: ArticleHygieneDeclarationInput['kind'] | null;
   colors: string[];
   materials: string[];
   size: string | null;
-  brand: string;
+  sizeSystem: SizeSystem;
+  brand: string | null;
 }
 
 export default function DetailsScreen() {
@@ -67,20 +81,17 @@ export default function DetailsScreen() {
 
   // Parse params
   const isResuming = params.resumeDraft === 'true';
-  const photosFromParams: string[] = params.photos ? JSON.parse(params.photos as string) : [];
-  const aiResult: AIAnalysisResult | null = params.aiResult
-    ? JSON.parse(params.aiResult as string)
-    : null;
-  const storageUrlsFromParams: string[] = params.storageUrls
-    ? JSON.parse(params.storageUrls as string)
-    : [];
+  const photosFromParams = parseRouteParam(params.photos, [] as string[], isStringArray);
+  const aiResult = parseRouteParam<AIAnalysisResult | null>(params.aiResult, null, isObject);
+  const aiFilled = aiFilledFields(aiResult);
+  const storageUrlsFromParams = parseRouteParam(params.storageUrls, [] as string[], isStringArray);
 
   const [photos, setPhotos] = useState<string[]>(photosFromParams);
   const [storageUrls, setStorageUrls] = useState<string[]>(storageUrlsFromParams);
 
-  const getConditionDisplay = (conditionId?: ConditionId): ConditionValue => {
-    if (!conditionId) return 'très bon état';
-    return (CONDITION_DISPLAY[conditionId] || 'très bon état') as ConditionValue;
+  const getConditionDisplay = (conditionId?: ConditionId): ConditionValue | null => {
+    if (!conditionId) return null;
+    return (CONDITION_DISPLAY[conditionId] || null) as ConditionValue | null;
   };
 
   const [fields, setFields] = useState<EditedFields>({
@@ -92,11 +103,15 @@ export default function DetailsScreen() {
       name: aiResult?.category?.displayName || '',
       context: aiResult?.category?.fullLabel?.split(' > ').slice(0, -1).join(' · ') || '',
     },
-    condition: getConditionDisplay(aiResult?.condition?.conditionId),
+    condition: '',
+    conditionConfirmed: false,
+    hygieneDeclaration: null,
+    hygieneKind: null,
     colors: aiResult?.colors?.colorIds || (aiResult?.colors?.primaryColorId ? [aiResult.colors.primaryColorId] : []),
     materials: aiResult?.materials?.materialIds || (aiResult?.materials?.primaryMaterialId ? [aiResult.materials.primaryMaterialId] : []),
     size: aiResult?.size?.normalized || aiResult?.size?.detected || null,
-    brand: aiResult?.brand?.detected || '',
+    sizeSystem: 'EU',
+    brand: aiResult?.brand?.detected || null,
   });
 
   const [isInitialized, setIsInitialized] = useState(!isResuming);
@@ -110,18 +125,28 @@ export default function DetailsScreen() {
       draftService.assertCurrentOwner(photoOwnerUid);
       if (existingDraft) {
         setDraft(existingDraft);
-        if (isResuming && existingDraft.fields) {
+        // The draft's fields win over the analysis passed in params: they are
+        // the seller's own edits, which the exit alert promises to keep.
+        // Hydrating only on resume lost them on a back-and-forth.
+        if (existingDraft.fields) {
           setFields({
             title: existingDraft.fields.title,
             description: existingDraft.fields.description,
             categoryIds: existingDraft.fields.categoryIds,
             categoryDisplay: existingDraft.fields.categoryDisplay,
-            condition: existingDraft.fields.condition as ConditionValue,
+            condition: existingDraft.fields.conditionConfirmed === true ? existingDraft.fields.condition as ConditionValue : '',
+            conditionConfirmed: existingDraft.fields.conditionConfirmed === true,
+            childSafetyDeclaration: existingDraft.fields.childSafetyDeclaration ?? null,
+            hygieneDeclaration: existingDraft.fields.hygieneDeclaration ?? null,
+            hygieneKind: existingDraft.fields.hygieneKind ?? existingDraft.fields.hygieneDeclaration?.kind ?? null,
             colors: existingDraft.fields.colors ?? (existingDraft.fields.color ? [existingDraft.fields.color] : []),
             materials: existingDraft.fields.materials ?? (existingDraft.fields.material ? [existingDraft.fields.material] : []),
             size: existingDraft.fields.size ?? null,
-            brand: existingDraft.fields.brand ?? '',
+            sizeSystem: existingDraft.fields.sizeSystem ?? 'EU',
+            brand: existingDraft.fields.brand ?? null,
           });
+        }
+        if (isResuming) {
           if (existingDraft.photos.length > 0) setPhotos(existingDraft.photos);
           if (existingDraft.storageUrls?.length) setStorageUrls(existingDraft.storageUrls);
         }
@@ -150,6 +175,11 @@ export default function DetailsScreen() {
       categoryIds: fields.categoryIds, categoryDisplay: fields.categoryDisplay,
       condition: fields.condition, colors: fields.colors, materials: fields.materials,
       brands: fields.brand ? [fields.brand] : [], size: fields.size, brand: fields.brand,
+      conditionConfirmed: fields.conditionConfirmed,
+      childSafetyDeclaration: fields.childSafetyDeclaration,
+      hygieneDeclaration: fields.hygieneDeclaration ?? null,
+      hygieneKind: fields.hygieneKind ?? null,
+      sizeSystem: fields.sizeSystem,
     };
     const updated = await draftService.updateDraftFields(latest, draftFields);
     setDraft(updated);
@@ -191,6 +221,9 @@ export default function DetailsScreen() {
     setFields((prev) => ({
       ...prev,
       categoryIds,
+      hygieneDeclaration: null,
+      hygieneKind: null,
+      childSafetyDeclaration: null,
       categoryDisplay: {
         icon: info?.icon || '',
         name: info?.displayName || 'Article',
@@ -259,9 +292,14 @@ export default function DetailsScreen() {
     // so the footer's disabled state and the action never diverge.
     const missing: string[] = [];
     const missingKeys: string[] = [];
-    if (!fields.title.trim()) { missing.push('Le titre'); missingKeys.push('title'); }
-    if (!fields.description.trim()) { missing.push('La description'); missingKeys.push('description'); }
+    // 3 characters, like the preview and the server: a shorter title passed
+    // here and was only refused at publish time.
+    if (fields.title.trim().length < 3) { missing.push('Le titre (3 caractères minimum)'); missingKeys.push('title'); }
     if (fields.categoryIds.length === 0) { missing.push('La catégorie'); missingKeys.push('category'); }
+    for (const error of getListingDeclarationErrors(fields)) {
+      missing.push(error.message);
+      missingKeys.push(error.key);
+    }
     if (missing.length > 0) {
       track('sell_validation_failed', {
         step: 'details',
@@ -277,6 +315,7 @@ export default function DetailsScreen() {
       Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de continuer.');
       return;
     }
+    if (!navigation.isFocused()) {advancingRef.current = false; return;}
     track('sell_step_completed', {
       step: 'details',
       category_ids: fields.categoryIds,
@@ -289,10 +328,10 @@ export default function DetailsScreen() {
     router.push({
       pathname: '/sell/pricing',
       params: {
-        photos: JSON.stringify(photos),
-        fields: JSON.stringify(fields),
-        aiResult: params.aiResult,
-        storageUrls: JSON.stringify(storageUrls),
+        photos: serializeRouteParam(photos),
+        fields: serializeRouteParam(fields),
+        aiResult: aiResult ? serializeRouteParam(aiResult) : undefined,
+        storageUrls: serializeRouteParam(storageUrls),
       },
     });
   };
@@ -312,7 +351,7 @@ export default function DetailsScreen() {
       value: colorId,
       selected_count_after: countAfter,
     });
-  }, []);
+  }, [setFields]);
 
   const handleMaterialToggle = useCallback((matId: string) => {
     let countAfter = 0;
@@ -329,14 +368,24 @@ export default function DetailsScreen() {
       value: matId,
       selected_count_after: countAfter,
     });
-  }, []);
+  }, [setFields]);
 
-  const isFormValid = fields.title.trim() !== '' && fields.description.trim() !== '' && fields.categoryIds.length > 0;
+  const isFormValid = fields.title.trim().length >= 3 && fields.categoryIds.length > 0 && getListingDeclarationErrors(fields).length === 0;
+  const requiresSize = articleRequiresSize(fields.categoryIds);
+  const hygieneRequirement = articleHygieneRequirement(fields.categoryIds);
+  const hygieneDecision = evaluateArticleHygieneInput(fields.categoryIds, fields.condition, fields.hygieneDeclaration);
+  const hygieneIsMixed = hygieneRequirement === 'mixed_underwear' || hygieneRequirement === 'mixed_cosmetic';
+  const hygieneKind = hygieneRequirement === 'underwear' || hygieneRequirement === 'cosmetic'
+    ? hygieneRequirement : fields.hygieneKind;
+  const hygieneConfirmation = hygieneKind === 'underwear'
+    ? 'Je confirme que ce sous-vêtement n’a jamais été porté.'
+    : 'Je confirme que ce cosmétique est neuf, encore scellé et n’a jamais été ouvert.';
+  const brandLabel = fields.brand || null;
 
   // Chip data
   const allColorItems = getColorItems();
   const allMaterialItems = getMaterialItems();
-  const allSizeItems = getSizesForCategory(fields.categoryIds).map((s) => ({
+  const allSizeItems = getSizesForCategory(fields.categoryIds, fields.sizeSystem).map((s) => ({
     value: s,
     label: s,
   }));
@@ -370,6 +419,7 @@ export default function DetailsScreen() {
       >
         <PhotoStripPreview ownerUid={draft?.ownerUid ?? photoOwnerUid} photos={storageUrls.length === photos.length && storageUrls.length > 0 ? storageUrls : photos} />
 
+        <ArticleChildSafetyFields categoryIds={fields.categoryIds} value={fields.childSafetyDeclaration} disabled={!isInitialized} onChange={childSafetyDeclaration => {if (advancingRef.current) return; try {draftService.assertCurrentOwner(photoOwnerUid); setFields(previous => ({...previous, childSafetyDeclaration}));} catch { /* No choice from an old draft session. */ }}} />
         <FormSectionTitle title="Essentiel" />
 
         <TextareaField
@@ -379,7 +429,7 @@ export default function DetailsScreen() {
           onChangeText={(text) => updateField('title', text)}
           placeholder="Ex: Robe d'été fleurie Zara"
           maxLength={80}
-          hasAiConfidence={!!aiResult?.titleConfidence}
+          hasAiConfidence={aiFilled.title}
         />
 
         <TextareaField
@@ -387,9 +437,9 @@ export default function DetailsScreen() {
           label="Description"
           value={fields.description}
           onChangeText={(text) => updateField('description', text)}
-          placeholder="Décrivez votre article en détail..."
+          placeholder="Coupe, matière, mesures utiles et particularités de votre article..."
           maxLength={500}
-          hasAiConfidence={!!aiResult?.descriptionConfidence}
+          hasAiConfidence={aiFilled.description}
           multiline
           numberOfLines={4}
         />
@@ -399,13 +449,13 @@ export default function DetailsScreen() {
             testID="sell-category-selector"
             label="CATÉGORIE"
             value={fields.categoryDisplay.name || null}
-            hasAiConfidence={!!aiResult?.category?.confidence?.level}
+            hasAiConfidence={aiFilled.category}
             onPress={() => categorySheetRef.current?.show()}
           />
           <ConditionSelector
-            value={fields.condition}
+            value={fields.condition || null}
             onChange={(value) => {
-              updateField('condition', value);
+              setFields(prev => ({ ...prev, condition: value, conditionConfirmed: true }));
               track('sell_field_edited', {
                 screen: 'sell',
                 field: 'condition',
@@ -414,9 +464,43 @@ export default function DetailsScreen() {
                 ai_confidence: aiResult?.condition?.confidence?.level,
               });
             }}
-            confidenceLevel={aiResult?.condition?.confidence?.level}
           />
         </FormFieldGroup>
+
+        {hygieneRequirement !== 'none' && hygieneRequirement !== 'invalid' && (
+          <>
+            <FormSectionTitle title="Règle d’hygiène" />
+            <Text style={styles.guidance}>Seuls les sous-vêtements jamais portés et les cosmétiques neufs encore scellés sont admis. Votre déclaration sera visible par les acheteurs.</Text>
+            {hygieneIsMixed && (
+              <View style={styles.declarationChoices} accessibilityRole="radiogroup" accessibilityLabel="Nature de l’article">
+                {([
+                  { kind: hygieneRequirement === 'mixed_underwear' ? 'underwear' : 'cosmetic', label: hygieneRequirement === 'mixed_underwear' ? 'C’est un sous-vêtement' : 'C’est un cosmétique' },
+                  { kind: 'not_applicable', label: hygieneRequirement === 'mixed_underwear' ? 'C’est un autre article, pas un sous-vêtement' : 'C’est un accessoire ou un autre article, pas un cosmétique' },
+                ] as const).map(choice => (
+                  <Pressable key={choice.kind} accessibilityRole="radio"
+                    accessibilityState={{ checked: fields.hygieneKind === choice.kind }}
+                    style={[styles.declarationChoice, fields.hygieneKind === choice.kind && styles.declarationChoiceSelected]}
+                    onPress={() => setFields(prev => ({ ...prev, hygieneKind: choice.kind,
+                      hygieneDeclaration: choice.kind === 'not_applicable' ? { schemaVersion: 1, kind: 'not_applicable' } : null }))}>
+                    <Text style={styles.declarationChoiceText}>{choice.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            {(hygieneKind === 'underwear' || hygieneKind === 'cosmetic') && (
+              <Pressable accessibilityRole="checkbox" accessibilityLabel={hygieneConfirmation}
+                accessibilityState={{ checked: fields.hygieneDeclaration?.kind === hygieneKind }}
+                style={[styles.declarationChoice, fields.hygieneDeclaration?.kind === hygieneKind && styles.declarationChoiceSelected]}
+                onPress={() => setFields(prev => ({ ...prev,
+                  hygieneDeclaration: prev.hygieneDeclaration?.kind === hygieneKind ? null
+                    : hygieneKind === 'underwear' ? { schemaVersion: 1, kind: 'underwear', neverWorn: true }
+                      : { schemaVersion: 1, kind: 'cosmetic', isNew: true, isSealed: true } }))}>
+                <Text style={styles.declarationChoiceText}>{hygieneConfirmation}</Text>
+              </Pressable>
+            )}
+            {!hygieneDecision.allowed && <Text accessibilityRole="alert" style={styles.guidance}>{hygieneDecision.message}</Text>}
+          </>
+        )}
 
         <View style={{ marginTop: spacing.lg }}>
           <FormSectionTitle title="Caractéristiques" />
@@ -425,24 +509,28 @@ export default function DetailsScreen() {
         <FormFieldGroup>
           <FieldRow
             label="MARQUE"
-            value={fields.brand || null}
-            hasAiConfidence={!!aiResult?.brand?.confidence?.level}
-            onPress={() => brandSheetRef.current?.show(aiResult?.brand?.detected || undefined)}
+            value={brandLabel}
+            onPress={() => brandSheetRef.current?.show()}
           />
           <FieldRow
-            label="TAILLE"
-            value={fields.size}
-            hasAiConfidence={!!aiResult?.size?.confidence?.level}
+            label={requiresSize ? 'TAILLE' : 'TAILLE (FACULTATIVE)'}
+            value={fields.size ? `${fields.size} ${fields.sizeSystem}` : null}
+            hasAiConfidence={aiFilled.size}
             onPress={() => sizeSheetRef.current?.show()}
           />
         </FormFieldGroup>
+        {!requiresSize && (
+          <Pressable testID="sell-size-not-applicable" style={styles.declarationChoice} onPress={() => updateField('size', null)} accessibilityRole="button">
+            <Text style={styles.declarationChoiceText}>Taille inconnue ou non applicable</Text>
+          </Pressable>
+        )}
 
         <ChipSelector
           label="Couleur"
           selectedValues={fields.colors}
           aiSuggestedIds={aiColorIds}
           allItems={allColorItems}
-          hasAiConfidence={!!aiResult?.colors?.confidence?.level}
+          hasAiConfidence={aiFilled.colors}
           onToggle={handleColorToggle}
           onViewAll={() => colorSheetRef.current?.show()}
           resolveLabel={resolveColorLabel}
@@ -453,7 +541,7 @@ export default function DetailsScreen() {
           selectedValues={fields.materials}
           aiSuggestedIds={aiMaterialIds}
           allItems={allMaterialItems}
-          hasAiConfidence={!!aiResult?.materials?.confidence?.level}
+          hasAiConfidence={aiFilled.materials}
           onToggle={handleMaterialToggle}
           onViewAll={() => materialSheetRef.current?.show()}
         />
@@ -464,6 +552,7 @@ export default function DetailsScreen() {
           testID="sell-details-footer-cta"
           label="CONTINUER"
           onPress={handleContinue}
+          onInvalidPress={handleContinue}
           isValid={isFormValid}
           bottomInset={0}
         />
@@ -510,12 +599,14 @@ export default function DetailsScreen() {
           });
         }}
         type="size"
+        sizeSystem={fields.sizeSystem}
+        onSizeSystemChange={sizeSystem => setFields(prev => prev.sizeSystem === sizeSystem ? prev : {...prev, sizeSystem, size: null})}
       />
       <BrandSelectionSheet
         ref={brandSheetRef}
         selectedBrand={fields.brand}
         onSelectSingle={(brand) => {
-          updateField('brand', brand);
+          setFields(prev => ({ ...prev, brand }));
           track('sell_field_edited', {
             screen: 'sell',
             field: 'brand',
@@ -523,7 +614,7 @@ export default function DetailsScreen() {
             matched_ai_suggestion: !!aiResult?.brand?.detected && brand === aiResult.brand.detected,
           });
         }}
-        initialSearchQuery={aiResult?.brand?.detected || ''}
+        onSelectNoBrand={() => setFields(prev => ({...prev, brand: null}))}
         singleSelect
       />
     </View>
@@ -546,5 +637,29 @@ const styles = StyleSheet.create({
   // paddingBottom region matches the footer rather than the screen background.
   footerWrapper: {
     backgroundColor: colors.cream,
+  },
+  guidance: {
+    ...typography.bodySmall,
+    color: colors.muted,
+    marginVertical: spacing.sm,
+  },
+  declarationChoices: {
+    gap: spacing.sm,
+    marginVertical: spacing.sm,
+  },
+  declarationChoice: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+  },
+  declarationChoiceSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  declarationChoiceText: {
+    ...typography.bodySmall,
+    fontFamily: fonts.sansMedium,
+    color: colors.foreground,
   },
 });

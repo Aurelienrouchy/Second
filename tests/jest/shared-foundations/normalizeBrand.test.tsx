@@ -9,7 +9,7 @@
  * traitement des apostrophes / traits d'union, entrées vides.
  */
 
-import { brandDisplay, brandKey } from '@/utils/normalizeBrand';
+import { brandDisplay, brandDocId, brandKey } from '@/utils/normalizeBrand';
 
 describe('utils/normalizeBrand', () => {
   describe('brandKey', () => {
@@ -71,6 +71,32 @@ describe('utils/normalizeBrand', () => {
       // Le segment après "-" est recapitalisé ; après "'" il reste tel quel.
       expect(brandDisplay("o'neill")).toBe("O'neill");
       expect(brandDisplay('saint-laurent')).toBe('Saint-Laurent');
+    });
+  });
+
+  describe('brandDocId — identifiant du document Firestore', () => {
+    // scripts/import-brands.js : `searchKey.replace(/\//g, '_').replace(/\s/g, '-')`.
+    it('remplace les espaces par des tirets, comme le catalogue importé', () => {
+      expect(brandDocId('Louis Vuitton')).toBe('louis-vuitton');
+      expect(brandDocId('Maison Margiela')).toBe('maison-margiela');
+    });
+
+    it('remplace les barres obliques par un souligné', () => {
+      expect(brandDocId('A/X Armani')).toBe('a_x-armani');
+    });
+
+    it('rend le même identifiant quelle que soit la casse saisie (dédoublonnage)', () => {
+      expect(brandDocId('  ZaRa ')).toBe(brandDocId('zara'));
+    });
+
+    it('laisse intacts les caractères signature des marques', () => {
+      expect(brandDocId('H&M')).toBe('h&m');
+      expect(brandDocId("Levi's")).toBe("levi's");
+    });
+
+    it('retourne une chaîne vide pour une marque absente', () => {
+      expect(brandDocId(null)).toBe('');
+      expect(brandDocId('   ')).toBe('');
     });
   });
 

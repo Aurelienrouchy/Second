@@ -14,11 +14,12 @@
  * file only lays the foundations.
  */
 import { AppState } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@/utils/environmentStorage';
 import type { PostHogEventProperties } from '@posthog/core';
 import PostHog from 'posthog-react-native';
 
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
+import { runtimeEnvironment } from '@/config/firebaseEnvironment';
 import { POSTHOG_API_KEY, POSTHOG_HOST } from '@/config/posthogConfig';
 import type { AnalyticsEvents, UserTraits } from '@/types/analytics';
 
@@ -65,6 +66,9 @@ function applyConsent(): void {
   if (!client && POSTHOG_API_KEY) {
     client = new PostHog(POSTHOG_API_KEY, {
       host: POSTHOG_HOST,
+      // The SDK otherwise reuses its global on-device event queue, including
+      // identities and unsent production events from the same installed client.
+      ...(runtimeEnvironment.name === 'development' ? { customStorage: AsyncStorage } : {}),
       // SDK autocapture bypasses our synchronous gate during async optOut.
       captureAppLifecycleEvents: false,
       // Always explicitly apply our persisted preference, including SDK state.

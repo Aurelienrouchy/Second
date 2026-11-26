@@ -19,6 +19,7 @@ export interface ArticleCTABarProps {
    * mais la vente n'est pas encore confirmée. Distinct de `isSold` (confirmed/paid).
    */
   isReserved?: boolean;
+  isUnavailable?: boolean;
   isSwapContext: boolean;
   /** Reflète `SHIPPING_ENABLED` : sans expédition, l'achat est une proposition meetup. */
   shippingEnabled: boolean;
@@ -33,6 +34,7 @@ function ArticleCTABarComponent({
   isOwnArticle,
   isSold,
   isReserved = false,
+  isUnavailable = false,
   isSwapContext,
   shippingEnabled,
   price,
@@ -41,7 +43,7 @@ function ArticleCTABarComponent({
   onMakeOffer,
   onProposeSwap,
 }: ArticleCTABarProps) {
-  if (isSold || isReserved) {
+  if (isSold || isReserved || isUnavailable) {
     return (
       <View style={[styles.bottomBar, { paddingBottom: Math.max(bottomInset, 16) }]}>
         <View style={styles.ownArticleBar}>
@@ -51,7 +53,7 @@ function ArticleCTABarComponent({
             color={colors.muted}
           />
           <Text style={styles.ownArticleText}>
-            {isSold ? 'Article vendu' : 'Réservé temporairement'}
+            {isSold ? 'Article vendu' : isReserved ? 'Réservé temporairement' : 'Article indisponible'}
           </Text>
         </View>
       </View>
@@ -71,8 +73,8 @@ function ArticleCTABarComponent({
           style={styles.swapButton}
           onPress={onProposeSwap}
         >
-          <Ionicons name="swap-horizontal" size={18} color={colors.white} />
-          <Text style={styles.swapButtonText}>PROPOSER UN ÉCHANGE</Text>
+          <Ionicons name="swap-horizontal" size={18} color={colors.foreground} />
+          <Text style={styles.swapButtonText}>Proposer un échange</Text>
         </Pressable>
       ) : (
         <View style={styles.ctaRow}>
@@ -81,14 +83,14 @@ function ArticleCTABarComponent({
             style={styles.offerOutlineButton}
             onPress={onMakeOffer}
           >
-            <Text style={styles.offerOutlineText}>OFFRE</Text>
+            <Text style={styles.offerOutlineText}>Faire une offre</Text>
           </Pressable>
           <Pressable testID="article-buy-button" style={styles.buyButton} onPress={onBuy}>
-            <Ionicons name="bag-handle-outline" size={16} color={colors.cream} />
+            <Ionicons name="bag-handle-outline" size={16} color={colors.foreground} />
             <Text style={styles.buyButtonText}>
               {shippingEnabled
-                ? `ACHETER · ${formatPrice(price)}`
-                : 'PROPOSER UN ACHAT'}
+                ? `Acheter · ${formatPrice(price)}`
+                : 'Proposer un achat'}
             </Text>
           </Pressable>
         </View>

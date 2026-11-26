@@ -3,8 +3,10 @@
  * Firebase Functions v7 - using onCall
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
-import { getGenAI } from '../services/ai';
+import { getGenAI, GEMINI_FLASH_MODEL } from '../services/ai';
+import { assertPrivateAccountSession, withPrivateAccountSession } from '../utils/privateAccountSession';
 
 /**
  * StyleProfile interface for Gemini response
@@ -53,62 +55,56 @@ export const generateStyleProfile = onCall(
     region: 'northamerica-northeast1',
     timeoutSeconds: 30,
     memory: '512MiB',
+    secrets: ['GEMINI_API_KEY'],
   },
-  async (request) => {
+  async (request) => withPrivateAccountSession(request, async () => {
     // Verify authentication
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
     const userId = request.auth.uid;
+    const userRef = db.collection('users').doc(userId);
 
     // Loi 25 — Gate de consentement au profilage par IA (vérification serveur).
     // Le seul garde client n'est pas suffisant : on relit le consentement
     // explicite dans Firestore avant tout traitement ou écriture de styleProfile.
-    const consentSnap = await db.collection('users').doc(userId).get();
-    const aiProfilingConsent = consentSnap.data()?.preferences?.aiProfilingConsent;
-    if (aiProfilingConsent !== true) {
-      throw new HttpsError(
-        'failed-precondition',
-        'Le profilage par IA requiert votre consentement (Réglages > Confidentialité).'
-      );
-    }
+    const qualifyProfiling = async (tx: FirebaseFirestore.Transaction) => {
+      await assertPrivateAccountSession(request, tx);
+      const current = await tx.get(userRef);
+      if (current.data()?.preferences?.aiProfilingConsent !== true) {
+        throw new HttpsError('failed-precondition',
+          'Le profilage par IA requiert votre consentement (Réglages > Confidentialité).');
+      }
+    };
+    const storeProfile = async (profile: StyleProfile) => db.runTransaction(async tx => {
+      await qualifyProfiling(tx);
+      // The consent-bearing user must still exist. Never recreate a deleted
+      // profile from an AI response or a default generated before withdrawal.
+      tx.update(userRef, { styleProfile: { ...profile, generatedAt: FieldValue.serverTimestamp() } });
+    });
+    await db.runTransaction(qualifyProfiling);
 
-    const { likedArticles = [], viewedArticles = [], searches = [] } = request.data;
+    const { likedArticles = [], viewedArticles = [], searches = [] } = request.data ?? {};
 
     // Check if we have enough data
     const totalInteractions = likedArticles.length + viewedArticles.length + searches.length;
     if (totalInteractions < 5) {
-      console.log(`Insufficient data for style profile: ${totalInteractions} interactions`);
+      logger.info('style_profile_insufficient_data', { userId, totalInteractions });
       // Store default profile and return
-      await db.collection('users').doc(userId).set(
-        {
-          styleProfile: {
-            ...DEFAULT_STYLE_PROFILE,
-            generatedAt: FieldValue.serverTimestamp(),
-          },
-        },
-        { merge: true }
-      );
+      await storeProfile(DEFAULT_STYLE_PROFILE);
       return { success: true, profile: DEFAULT_STYLE_PROFILE };
     }
 
     // Get Gemini client
     const ai = getGenAI();
     if (!ai) {
-      console.error('Gemini API not configured, using default profile');
-      await db.collection('users').doc(userId).set(
-        {
-          styleProfile: {
-            ...DEFAULT_STYLE_PROFILE,
-            generatedAt: FieldValue.serverTimestamp(),
-          },
-        },
-        { merge: true }
-      );
+      logger.warn('style_profile_ai_unavailable', { userId });
+      await storeProfile(DEFAULT_STYLE_PROFILE);
       return { success: true, profile: DEFAULT_STYLE_PROFILE };
     }
 
+    let profile: StyleProfile;
     try {
       // Build context for Gemini
       // article.size is an ArticleSize object { value, system } (or null) —
@@ -150,14 +146,16 @@ RECHERCHES RÉCENTES:
 ${searchContext || 'Aucune'}
 `;
 
+      // Recheck immediately before disclosure. Withdrawal after a request has
+      // left cannot recall it; it does prevent every subsequent local write.
+      await db.runTransaction(qualifyProfiling);
       const result = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: GEMINI_FLASH_MODEL,
         contents: STYLE_PROFILE_PROMPT + '\n\n' + userDataPrompt,
       });
       const responseText = result.text || '';
 
       // Parse JSON response
-      let profile: StyleProfile;
       try {
         // Clean response (remove potential markdown code blocks)
         const cleanedResponse = responseText
@@ -183,36 +181,18 @@ ${searchContext || 'Aucune'}
           profile.confidence = 0.5;
         }
       } catch (parseError) {
-        console.error('Failed to parse Gemini response:', parseError, responseText);
+        logger.warn('style_profile_invalid_ai_response', { userId, error: parseError instanceof Error ? parseError.message : 'unknown' });
         profile = DEFAULT_STYLE_PROFILE;
       }
-
-      // Store profile in Firestore
-      await db.collection('users').doc(userId).set(
-        {
-          styleProfile: {
-            ...profile,
-            generatedAt: FieldValue.serverTimestamp(),
-          },
-        },
-        { merge: true }
-      );
-
-      console.log(`Generated style profile for user ${userId}:`, profile.styleTags);
-      return { success: true, profile };
     } catch (error: unknown) {
-      console.error('Error generating style profile:', error);
-      // Store default profile on error
-      await db.collection('users').doc(userId).set(
-        {
-          styleProfile: {
-            ...DEFAULT_STYLE_PROFILE,
-            generatedAt: FieldValue.serverTimestamp(),
-          },
-        },
-        { merge: true }
-      );
-      return { success: true, profile: DEFAULT_STYLE_PROFILE };
+      // Session/consent refusals are final. They must never become a default
+      // profile or a successful response through this provider fallback.
+      if (error instanceof HttpsError) throw error;
+      logger.error('style_profile_generation_failed', { userId, error: error instanceof Error ? error.message : 'unknown' });
+      profile = DEFAULT_STYLE_PROFILE;
     }
-  }
+    await storeProfile(profile);
+    logger.info('style_profile_generated', { userId });
+    return { success: true, profile };
+  })
 );

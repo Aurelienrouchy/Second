@@ -54,7 +54,7 @@
  */
 import * as admin from 'firebase-admin';
 import { encodeGeohash } from '../utils/geohash';
-import {
+import { isIndexableArticle,
   generateSearchKeywords,
   calculatePopularityScore,
 } from '../utils/search';
@@ -81,16 +81,8 @@ function log(...parts: unknown[]): void {
   console.log('[backfillSearchIndex]', ...parts);
 }
 
-/**
- * Mirror of the indexability guard in updateSearchIndex (R3-safe):
- * absent moderationStatus === approved/legacy.
- */
-function isIndexable(article: FirebaseFirestore.DocumentData): boolean {
-  const moderationStatus = article.moderationStatus;
-  const blocked =
-    moderationStatus === 'pending' || moderationStatus === 'rejected';
-  return article.isActive === true && !blocked;
-}
+/** Same guard as the search index trigger — sold articles excluded (utils/search). */
+const isIndexable = isIndexableArticle;
 
 /**
  * Build the search_index document for an article, byte-for-byte aligned with

@@ -31,43 +31,64 @@ cd functions && npm install && cd ..
 
 ### 2. Environment Configuration
 
-Create `.env` in project root:
+Development and production use separate Firebase projects:
+
+| Launch | Firebase project | Native app |
+|--------|------------------|------------|
+| Local, EAS development / preview | `seconde-dev` | `com.seconde.app.dev` / Seconde Dev |
+| EAS production | `seconde-b47a6` | `com.seconde.app` / Seconde |
+| Explicit emulator run | `demo-second` | Development only |
+
+Public SDK configurations are complete tuples in `config/firebaseProjects.json`.
+Local runs cannot select production. Sessions, drafts, private files and journals
+are partitioned. Restart the app completely after changing project or transport.
+
+The root `.env.example` lists optional **dedicated dev** OAuth, Maps and analytics
+settings. Google dev login remains unavailable until its own OAuth clients exist.
+Do not reuse production accounts, secrets or device tokens.
+
+Server configuration is selected by project, without a shared `functions/.env`:
 
 ```env
-# Facebook Login
-FB_APP_ID=your_facebook_app_id
-
-# Stripe (publishable key for mobile)
-STRIPE_PUBLISHABLE_KEY=pk_test_...
-
-# Optional: API URLs
-API_URL=https://your-project.cloudfunctions.net
+# functions/.env.seconde-dev
+SECONDE_ENV=development
+SECONDE_PROJECT_ID=seconde-dev
+PAYMENTS_ENABLED=false
+SHIPPING_ENABLED=false
 ```
 
-Create `functions/.env`:
-
-```env
-# Stripe
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-
-# Intelcom
-INTELCOM_API_KEY=your_intelcom_api_key
-INTELCOM_CLIENT_CODE=your_client_code
-```
+Production values belong only in `functions/.env.seconde-b47a6`; credentials
+belong in each project's Secret Manager. Both per-project local files are ignored
+by Git. Dev rejects live Stripe credentials and disables external push/analytics.
 
 ### 3. Firebase Setup
 
-```bash
-# Login to Firebase
-firebase login
+The cloud dev project uses a Standard Firestore database and Storage in
+`northamerica-northeast1` (Montréal). On 2026-10-25, the founder authorized its
+billing and deployment. Email/password Auth, Firestore/Storage rules, 97 indexes
+and the 30 functions of `catalogue_account_and_photo_ai` are deployed. The runtime
+uses its own service account and at most two instances per function.
+Cross-service Storage rules use the Firebase Storage service agent with
+`roles/firebaserules.firestoreServiceAgent` on the dev project; granting this
+server role does not open client rules.
 
-# Select project
-firebase use your-project-id
+`npm run deploy:dev` redeploys that exact package from `functions/dev-deploy.json`
+using `firebase.dev.json`, always on `seconde-dev`. The second package remains
+undeployed. No Stripe/ShipEngine credentials, payment/shipping rail or scheduled
+job is enabled. Without a financial provider, the independent operational control
+permits only its bounded catalogue operations; it does not qualify funds or
+authorize meetup/swap financial mutations. Gemini has a new dedicated dev secret;
+photo search uses Vertex on the dev project. Google/Apple dev sign-in and a new
+native dev binary require their own setup; use email/password in the existing
+development client. Any further deployment still follows `AGENTS.md`.
 
-# Deploy security rules
-firebase deploy --only firestore:rules,storage:rules
-```
+Live dev verification passed on 2026-10-25: client signup/profile, consent,
+adult Québec personal-seller admission, synthetic verified email, Storage draft
+upload/read, Vertex photo search, article publication and published-image read.
+The synthetic account, documents and files were cleaned up. Financial operations
+and the still-undeployed second package were not qualified by this verification.
+Always specify `--project dev` or `--project prod` in Firebase CLI commands.
+`.firebaserc` defaults to dev. Never use `--force` on production functions.
 
 ---
 
@@ -79,8 +100,11 @@ firebase deploy --only firestore:rules,storage:rules
 # Start Expo
 npm start
 
-# Or with tunnel (for physical devices)
-npx expo start --tunnel
+# Development client, including a physical device on the same network
+npm run start:dev-client
+
+# Optional tunnel, still forced to cloud dev
+npm start -- --tunnel
 ```
 
 ### Platform-Specific
@@ -92,8 +116,8 @@ npm run ios
 # Android Emulator
 npm run android
 
-# Web (limited support)
-npm run web
+# Native dev identity requires a new dev build after changing app.config.js.
+# EAS excludes checked-in ios/android and generates the selected variant.
 ```
 
 ---
@@ -103,11 +127,10 @@ npm run web
 ### Start Emulators
 
 ```bash
-# All emulators
-firebase emulators:start
+npx -y firebase-tools@latest emulators:start --project demo-second --only auth,firestore,functions,storage
 
-# Specific emulators
-firebase emulators:start --only auth,firestore,functions,storage
+# In another terminal: use demo-second, with no cloud fallback
+npm run start:emulators
 ```
 
 ### Emulator Ports

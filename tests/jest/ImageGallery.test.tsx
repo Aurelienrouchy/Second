@@ -9,7 +9,7 @@ jest.mock('react-native-worklets', () => ({
   scheduleOnRN: (callback: (...args: unknown[]) => void, ...args: unknown[]) => callback(...args),
 }));
 
-import ImageGallery from '@/components/ImageGallery';
+import ImageGallery from '@/features/article/components/ImageGallery';
 import { ZoomableGalleryImage } from '@/components/ZoomableGalleryImage';
 
 const images = [{ url: 'https://example.com/one.jpg' }, { url: 'https://example.com/two.jpg' }, { url: 'https://example.com/three.jpg' }];

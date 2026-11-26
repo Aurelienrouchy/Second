@@ -1,115 +1,68 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, fonts } from '@/constants/theme';
-
-type PackageSize = 'small' | 'medium' | 'large';
-
-interface PackageSizeOption {
-  value: PackageSize;
-  label: string;
-  weight: string;
-  description: string;
-}
-
-const PACKAGE_SIZES: PackageSizeOption[] = [
-  { value: 'small', label: 'Petit', weight: '<500g', description: 'T-shirt, accessoires' },
-  { value: 'medium', label: 'Moyen', weight: '<1kg', description: 'Pull, jean, robe' },
-  { value: 'large', label: 'Grand', weight: '<2kg', description: 'Manteau, bottes, lot' },
-];
+import { Ionicons } from '@expo/vector-icons';
+import { colors, components, radius, sizing, spacing, typography } from '@/constants/theme';
+import type { automaticShippingEstimate } from '@/functions/src/shared/automaticShippingEstimate';
 
 interface ShippingCardProps {
   isActive: boolean;
   onToggle: () => void;
-  packageSize: PackageSize | null;
-  onPackageSizeSelect: (size: PackageSize) => void;
-  aiSuggestedSize?: PackageSize | null;
+  estimate: ReturnType<typeof automaticShippingEstimate>;
 }
 
 export const ShippingCard = React.memo(function ShippingCard({
   isActive,
   onToggle,
-  packageSize,
-  onPackageSizeSelect,
-  aiSuggestedSize,
+  estimate,
 }: ShippingCardProps) {
   return (
-    <Pressable
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.deliveryCard,
         isActive && styles.deliveryCardActive,
-        pressed && { opacity: 0.7 },
       ]}
-      onPress={onToggle}
     >
-      <View style={styles.deliveryCardHeader}>
-        <View
-          style={[
-            styles.radioOuter,
-            isActive && styles.radioOuterActive,
-          ]}
-        >
-          {isActive && <View style={styles.radioInner} />}
-        </View>
+      <Pressable
+        style={({ pressed }) => [
+          styles.deliveryCardHeader,
+          pressed && styles.pressed,
+        ]}
+        onPress={onToggle}
+        accessibilityRole="checkbox"
+        accessibilityLabel="Expédition postale"
+        accessibilityState={{ checked: isActive }}
+      >
+        <Ionicons
+          name={isActive ? 'checkbox' : 'square-outline'}
+          size={sizing.iconMD}
+          color={isActive ? colors.charcoal : colors.borderStrong}
+          style={styles.checkbox}
+        />
         <View style={styles.deliveryCardContent}>
           <Text style={styles.deliveryCardTitle}>Expédition postale</Text>
           <Text style={styles.deliveryCardSubtitle}>
-            Envoi par Postes Canada
+            Livraison à l’adresse de l’acheteur
           </Text>
         </View>
-      </View>
+      </Pressable>
 
       {isActive && (
         <View style={styles.deliveryBody}>
-          <Text style={styles.deliveryBodyLabel}>Format du colis</Text>
-          <View style={styles.packageSizeCards}>
-            {PACKAGE_SIZES.map((size) => {
-              const isSelected = packageSize === size.value;
-              return (
-                <Pressable
-                  key={size.value}
-                  style={({ pressed }) => [
-                    styles.packageCard,
-                    isSelected && styles.packageCardSelected,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={() => onPackageSizeSelect(size.value)}
-                >
-                  <Text
-                    style={[
-                      styles.packageName,
-                      isSelected && styles.packageNameSelected,
-                    ]}
-                  >
-                    {size.label}
-                  </Text>
-                  <Text style={styles.packageWeight}>{size.weight}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          {aiSuggestedSize && (
-            <View style={styles.aiSuggestRow}>
-              <View style={styles.aiBadge}>
-                <Text style={styles.aiBadgeText}>IA</Text>
-              </View>
-              <Text style={styles.aiSuggestText}>
-                Format suggéré selon l&apos;article
-              </Text>
-            </View>
-          )}
+          <Text style={styles.deliveryBodyLabel}>Colis estimé</Text>
+          <Text testID="sell-parcel-estimate" style={styles.estimate}>{estimate.label}</Text>
         </View>
       )}
-    </Pressable>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
   deliveryCard: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderWidth: components.button.borderWidth,
     borderColor: colors.borderStrong,
-    borderRadius: 4,
-    marginBottom: 10,
+    borderRadius: radius.sm,
+    marginBottom: spacing.sm,
     overflow: 'hidden',
   },
   deliveryCardActive: {
@@ -118,111 +71,36 @@ const styles = StyleSheet.create({
   deliveryCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    gap: spacing.sm + spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
-  radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.borderStrong,
-    justifyContent: 'center',
-    alignItems: 'center',
+  checkbox: {
     flexShrink: 0,
-  },
-  radioOuterActive: {
-    borderColor: colors.charcoal,
-  },
-  radioInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.charcoal,
   },
   deliveryCardContent: {
     flex: 1,
   },
   deliveryCardTitle: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    ...typography.label,
     color: colors.charcoal,
   },
   deliveryCardSubtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
+    ...typography.caption,
     color: colors.muted,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   deliveryBody: {
-    paddingLeft: 48,
-    paddingRight: 16,
-    paddingBottom: 14,
+    paddingLeft: spacing.md + sizing.iconMD + spacing.sm + spacing.xs,
+    paddingRight: spacing.md,
+    paddingBottom: spacing.md,
   },
   deliveryBodyLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1,
+    ...typography.labelUppercase,
     textTransform: 'uppercase',
     color: colors.muted,
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
-  packageSizeCards: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 0,
-  },
-  packageCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-    backgroundColor: colors.white,
-  },
-  packageCardSelected: {
-    borderColor: colors.charcoal,
-    backgroundColor: 'rgba(26,24,20,0.03)',
-  },
-  packageName: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    color: colors.charcoal,
-    marginBottom: 2,
-  },
-  packageNameSelected: {
-    color: colors.charcoal,
-  },
-  packageWeight: {
-    fontFamily: fonts.sans,
-    fontSize: 9,
-    color: colors.muted,
-    letterSpacing: 0.36,
-  },
-  aiSuggestRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
-  },
-  aiBadge: {
-    backgroundColor: colors.sageLight,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 100,
-  },
-  aiBadgeText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    color: colors.sage,
-    letterSpacing: 0.72,
-  },
-  aiSuggestText: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    color: colors.muted,
-  },
+  estimate: {...typography.bodySmall, color: colors.foreground},
+  pressed: {backgroundColor: colors.surfaceWarm},
 });

@@ -19,3 +19,23 @@ export interface StatItemData {
   label: string;
   delay?: number;
 }
+
+// =============================================================================
+// PROFIL PUBLIC (vendeur consulté) — ex-feature user-profile
+// =============================================================================
+
+export type ProfileTab = 'articles' | 'avis';
+
+/**
+ * Review as displayed in the user-profile UI.
+ * Mapped from ReviewService's Review type in app/user/[id].tsx.
+ */
+export interface ProfileReview {
+  id: string;
+  reviewerName: string;
+  reviewerImage?: string;
+  reviewerId?: string;
+  date: string;
+  text: string;
+  note: number;
+}

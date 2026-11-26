@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, radius } from '@/constants/theme';
+import { colors, components, sizing, spacing, typography } from '@/constants/theme';
+import { PHOTO_GRID_GUTTER } from '../../utils/photosReview';
+import { Button } from '@/components/ui/Button';
 
 type ScreenState = 'loading' | 'complete' | 'error';
 
@@ -11,8 +13,13 @@ interface AnalysisFooterProps {
   onContinue: () => void;
   onRetry: () => void;
   onManualEntry: () => void;
-  /** When true, shows "Redirection automatique..." hint below the continue button */
-  autoRedirect?: boolean;
+  /** The model succeeded; only local saving/opening needs to be retried. */
+  handoffError?: boolean;
+  /** Qualified details are being saved/opened; no intermediate action is required. */
+  opening?: boolean;
+  disabled?: boolean;
+  /** False when retrying would fail again (quota reached): manual entry only. */
+  canRetry?: boolean;
 }
 
 export const AnalysisFooter = React.memo(function AnalysisFooter({
@@ -21,44 +28,42 @@ export const AnalysisFooter = React.memo(function AnalysisFooter({
   onContinue,
   onRetry,
   onManualEntry,
-  autoRedirect = false,
+  handoffError = false,
+  opening = false,
+  disabled = false,
+  canRetry = true,
 }: AnalysisFooterProps) {
   return (
-    <View style={[styles.footer, { paddingBottom: bottomInset + 16 }]}>
-      {screenState === 'complete' && (
+    <View style={[styles.footer, { paddingBottom: bottomInset + spacing.md }]}>
+      {screenState === 'complete' && !opening && (
         <>
-          <Pressable
-            testID="sell-analysis-continue"
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && { opacity: 0.7 },
-            ]}
-            onPress={onContinue}
-          >
-            <Text style={styles.primaryButtonText}>MODIFIER LES DÉTAILS</Text>
-            <Ionicons name="arrow-forward" size={18} color={colors.cream} />
-          </Pressable>
-          {autoRedirect && (
-            <Text style={styles.autoRedirectHint}>
-              Redirection automatique...
-            </Text>
-          )}
+          {handoffError && <Text style={styles.handoffMessage}>Les détails sont prêts. Réessayez pour les ouvrir.</Text>}
+          <Button variant="primary" size="default" fullWidth onPress={onContinue} disabled={disabled}
+            testID="sell-photos-review-continue"
+            rightIcon={<Ionicons name="arrow-forward" size={sizing.iconSM} color={colors.foreground} />}>
+            {handoffError ? 'Réessayer' : 'Voir les détails'}
+          </Button>
+          {!handoffError && <Pressable style={styles.manualLink} onPress={onRetry} disabled={disabled} testID="sell-analysis-relaunch">
+            <Text style={styles.manualLinkText}>Relancer l&apos;analyse</Text>
+          </Pressable>}
         </>
       )}
 
       {screenState === 'error' && (
         <>
-          <Pressable
-            testID="sell-analysis-retry"
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && { opacity: 0.7 },
-            ]}
-            onPress={onRetry}
-          >
-            <Ionicons name="refresh-outline" size={18} color={colors.cream} />
-            <Text style={styles.primaryButtonText}>RÉESSAYER</Text>
-          </Pressable>
+          {canRetry && (
+            <Pressable
+              testID="sell-analysis-retry"
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={onRetry}
+            >
+              <Ionicons name="refresh-outline" size={18} color={colors.foreground} />
+              <Text style={styles.primaryButtonText}>RÉESSAYER</Text>
+            </Pressable>
+          )}
           <Pressable
             testID="sell-analysis-manual"
             style={({ pressed }) => [
@@ -67,7 +72,7 @@ export const AnalysisFooter = React.memo(function AnalysisFooter({
             ]}
             onPress={onManualEntry}
           >
-            <Text style={styles.manualLinkText}>ou remplir manuellement</Text>
+            <Text style={styles.manualLinkText}>Remplir manuellement</Text>
           </Pressable>
         </>
       )}
@@ -82,7 +87,7 @@ export const AnalysisFooter = React.memo(function AnalysisFooter({
           onPress={onManualEntry}
         >
           <Text style={styles.manualLinkText}>
-            Passer et remplir manuellement
+            Remplir manuellement
           </Text>
         </Pressable>
       )}
@@ -93,43 +98,33 @@ export const AnalysisFooter = React.memo(function AnalysisFooter({
 const styles = StyleSheet.create({
   footer: {
     backgroundColor: colors.cream,
-    paddingTop: 16,
-    paddingHorizontal: 24,
-    borderTopWidth: 1,
+    paddingTop: spacing.md,
+    paddingHorizontal: PHOTO_GRID_GUTTER,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
   primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.charcoal,
-    paddingVertical: 16,
-    borderRadius: radius.md,
-    gap: 10,
+    ...components.button.container,
+    ...components.button.primary,
   },
   primaryButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    letterSpacing: 2.16,
-    color: colors.cream,
-    textTransform: 'uppercase',
+    ...components.button.label,
+    ...components.button.primaryLabel,
   },
-  autoRedirectHint: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
+  handoffMessage: {
+    ...typography.caption,
     color: colors.muted,
     textAlign: 'center',
-    marginTop: 8,
-    letterSpacing: 0.4,
+    marginBottom: spacing.sm,
   },
   manualLink: {
-    paddingVertical: 14,
+    minHeight: sizing.minTouchTarget,
+    paddingVertical: spacing.sm,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   manualLinkText: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
+    ...typography.caption,
     color: colors.muted,
-    letterSpacing: 0.72,
   },
 });

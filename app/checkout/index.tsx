@@ -1,3 +1,8 @@
+import { chatIdForPair } from '@/services/chat/primitives';
+import { useMeetupProposalRecovery } from '@/hooks/useMeetupProposalRecovery';
+import { assertNewSaleAdmission } from '@/services/newSaleAdmission';
+import { useTradeOperation } from '@/hooks/useTradeOperation';
+import { useTradeAdmissionError } from '@/hooks/useTradeAdmissionError';
 /**
  * Checkout — Delivery Type Selection
  * Design System: Editorial Luxe — Cream, Charcoal, Rust, Sage
@@ -10,6 +15,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
+  Alert,
   View,
   Text,
   StyleSheet,
@@ -22,7 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useQuery } from '@tanstack/react-query';
 
-import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { colors, components, fonts, spacing, radius } from '@/constants/theme';
 import { Button, ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ArticlesService } from '@/services/articlesService';
@@ -44,6 +50,9 @@ export default function CheckoutScreen() {
   const articleId = params.articleId as string;
 
   const user = useAuthStore(selectUser);
+  const admission = useTradeOperation(JSON.stringify([articleId, params.negotiatedPrice]), user?.id ?? null);
+  const showAdmissionError = useTradeAdmissionError();
+  const offerPreviousAttempt = useMeetupProposalRecovery();
 
   const {
     data: article = null,
@@ -59,9 +68,8 @@ export default function CheckoutScreen() {
 
   // Auto-select delivery when only one option exists
   const autoDelivery: TransactionDeliveryType | null = (() => {
-    // Shipping désactivé : tout passe par le main-à-main (articles legacy inclus).
-    if (!SHIPPING_ENABLED) return 'meetup';
     if (!article) return null;
+    if (!SHIPPING_ENABLED) return article.isHandDelivery === false ? null : 'meetup';
     const meetup = article.isHandDelivery !== false;
     const shipping = article.isShipping === true;
     if (meetup && !shipping) return 'meetup';
@@ -70,9 +78,16 @@ export default function CheckoutScreen() {
   })();
 
   const [selectedDelivery, setSelectedDelivery] = useState<TransactionDeliveryType | null>(null);
-  const effectiveDelivery = selectedDelivery ?? autoDelivery;
+  const [preparing, setPreparing] = useState(false);
+  const [preparationOwner, setPreparationOwner] = useState({frame: admission.frame, focus: admission.focusRevision});
+  if (preparationOwner.frame !== admission.frame || preparationOwner.focus !== admission.focusRevision) {
+    setPreparationOwner({frame: admission.frame, focus: admission.focusRevision}); setPreparing(false);
+  }
+  const acceptedOfferReference = typeof params.chatId === 'string' && typeof params.offerMessageId === 'string'
+    ? {chatId: params.chatId, offerMessageId: params.offerMessageId} : null;
+  const effectiveDelivery = acceptedOfferReference ? 'shipping' : selectedDelivery ?? autoDelivery;
 
-  const hasNegotiatedPrice = params.negotiatedPrice != null;
+  const hasNegotiatedPrice = params.negotiatedPrice != null || !!acceptedOfferReference;
 
   // Emit checkout_started once article loads, or checkout_blocked on a guard.
   const lastEventRef = useRef<string | null>(null);
@@ -126,27 +141,57 @@ export default function CheckoutScreen() {
     });
   };
 
-  const handleContinue = () => {
-    if (!effectiveDelivery || !article) return;
-
-    if (effectiveDelivery === 'meetup') {
-      router.push({
-        pathname: '/checkout/meetup' as any,
-        params: { articleId: article.id },
-      });
-    } else {
-      router.push({
-        pathname: '/checkout/shipping' as any,
-        params: { articleId: article.id },
-      });
+  const handleContinue = async () => {
+    if (!effectiveDelivery || !article || preparing) return;
+    if (params.negotiatedPrice != null && !acceptedOfferReference) {
+      if (admission.isOriginCurrent()) Alert.alert('Offre à retrouver', 'Revenez à l’offre acceptée dans votre conversation pour commander à ce prix.');
+      return;
     }
+    if (effectiveDelivery === 'meetup' && article.isHandDelivery === false ||
+        effectiveDelivery === 'shipping' && (!SHIPPING_ENABLED || article.isShipping !== true)) return;
+    let operation;
+    try {
+      operation = admission.start();
+      if (!operation) return;
+      setPreparing(true);
+      if (await offerPreviousAttempt(operation.session.uid, chatIdForPair(operation.session.uid, article.sellerId, article.id), () => admission.assertCurrent(operation!))) return;
+      await assertNewSaleAdmission(operation.session.uid, 'buy', () => admission.assertCurrent(operation!));
+      admission.assertCurrent(operation);
+
+      if (effectiveDelivery === 'meetup') {
+        router.push({
+          pathname: '/checkout/meetup' as any,
+          params: { articleId: article.id },
+        });
+      } else {
+        router.push({
+          pathname: '/checkout/shipping' as any,
+          params: { articleId: article.id, ...(acceptedOfferReference ?? {}) },
+        });
+      }
+
+    } catch (error) {
+      if (operation && admission.isCurrent(operation) && !showAdmissionError(error, { isCurrent: () => admission.isCurrent(operation!), retry: () => { void handleContinue(); } })) {
+        Alert.alert('Commande indisponible', error instanceof Error ? error.message : 'Impossible de préparer cette commande pour le moment.');
+      }
+    } finally { if (operation) {if (admission.isCurrent(operation)) setPreparing(false); admission.finish(operation);} }
   };
+
+  useEffect(() => {
+    if (!user || !article || !admission.isOriginCurrent()) return;
+    const operation = admission.capture();
+    void (async () => {
+      if (await offerPreviousAttempt(user.id, chatIdForPair(user.id, article.sellerId, article.id), () => admission.assertCurrent(operation))) return;
+    })().catch(error => {
+      if (admission.isCurrent(operation)) showAdmissionError(error, { isCurrent: () => admission.isCurrent(operation), retry: () => { void handleContinue(); } });
+    });
+  }, [admission.frame, admission.focusRevision, user?.id, article?.id, article?.sellerId]);
 
   // =============================================================================
   // DERIVED
   // =============================================================================
 
-  const hasMeetup = article?.isHandDelivery !== false;
+  const hasMeetup = article?.isHandDelivery !== false && !acceptedOfferReference;
   const hasShipping = SHIPPING_ENABLED && article?.isShipping === true;
 
   // =============================================================================
@@ -241,6 +286,20 @@ export default function CheckoutScreen() {
     );
   }
 
+  if (!hasMeetup && !hasShipping) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Commander" onBack={handleBack} />
+        <View style={styles.guardContainer}>
+          <Text style={styles.guardTitle}>La remise en main propre n’est pas proposée pour cet article.</Text>
+          <Pressable style={styles.backButton} onPress={handleBack}>
+            <Text style={styles.backButtonText}>Retour</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container} testID="checkout-screen">
       <ScreenHeader title="Commander" onBack={handleBack} />
@@ -278,6 +337,7 @@ export default function CheckoutScreen() {
         {hasMeetup && (
           <Pressable
             testID="checkout-delivery-meetup"
+            disabled={preparing}
             style={[
               styles.deliveryOption,
               effectiveDelivery === 'meetup' && styles.deliveryOptionSelected,
@@ -308,6 +368,7 @@ export default function CheckoutScreen() {
         {SHIPPING_ENABLED && hasShipping && (
           <Pressable
             testID="checkout-delivery-shipping"
+            disabled={preparing}
             style={[
               styles.deliveryOption,
               effectiveDelivery === 'shipping' && styles.deliveryOptionSelected,
@@ -325,9 +386,9 @@ export default function CheckoutScreen() {
             <View style={styles.optionContent}>
               <Text style={styles.optionTitle}>Expédition postale</Text>
               <Text style={styles.optionDesc}>
-                Livraison à votre adresse en 3-5 jours ouvrables
+                Livraison à votre adresse
               </Text>
-              <Text style={styles.optionPrice}>À partir de {formatPrice(8.50)}</Text>
+              <Text style={styles.optionPrice}>Tarif calculé à l’étape suivante</Text>
             </View>
             <View style={[styles.optionIcon, styles.optionIconShipping]}>
               <Ionicons name="cube-outline" size={20} color={colors.rust} />
@@ -346,15 +407,6 @@ export default function CheckoutScreen() {
           </View>
         )}
 
-        {effectiveDelivery === 'shipping' && (
-          <View style={styles.infoBox}>
-            <Ionicons name="information-circle-outline" size={16} color={colors.sage} />
-            <Text style={styles.infoText}>
-              <Text style={styles.infoTextBold}>Paiement sécurisé</Text>
-              {'\n'}Votre paiement est protégé. Le vendeur est payé après la livraison confirmée.
-            </Text>
-          </View>
-        )}
       </ScrollView>
 
       {/* Footer */}
@@ -363,13 +415,14 @@ export default function CheckoutScreen() {
           testID="checkout-continue"
           variant="primary"
           fullWidth
-          disabled={!effectiveDelivery}
+          disabled={!effectiveDelivery || preparing}
+          loading={preparing}
           onPress={handleContinue}
           rightIcon={
             <Ionicons
               name="arrow-forward"
               size={16}
-              color={effectiveDelivery ? colors.cream : colors.muted}
+              color={effectiveDelivery ? colors.foreground : colors.muted}
             />
           }
         >
@@ -418,18 +471,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   backButton: {
-    marginTop: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: colors.charcoal,
-    borderRadius: radius.md,
+    ...components.button.container,
+    ...components.button.primary,
+    marginTop: spacing.sm,
   },
   backButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    letterSpacing: 1.5,
-    color: colors.cream,
-    textTransform: 'uppercase',
+    ...components.button.label,
+    ...components.button.primaryLabel,
   },
 
 

@@ -1,17 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const state = vi.hoisted(() => ({ copy: vi.fn(), metadata: vi.fn(), getMetadata: vi.fn(), articles: [] as Array<{ images: Array<{ url: string } | string> }>, contentType: 'image/jpeg', size: 100 as number | string | undefined, exists: true }));
+const state = await vi.hoisted(async () => {
+  const { createFirestoreMock } = await import('./testHelpers/firestoreMock');
+  return { fs: createFirestoreMock({ enforceReadBeforeWrite: true }), files: new Map<string, any>(), copy: vi.fn(), metadata: vi.fn(), getMetadata: vi.fn(), articles: [] as Array<{ images: Array<{ url: string } | string> }>, contentType: 'image/jpeg', size: 100 as number | string | undefined, exists: true };
+});
 vi.mock('../config/firebase', () => ({
-  db: { collection: () => ({ select: () => ({ get: async () => ({ docs: state.articles.map((a) => ({ data: () => a })) }) }) }) },
-  storage: { bucket: () => ({ name: 'test-bucket', file: (path: string) => ({ name: path, getMetadata: () => state.getMetadata(path), copy: state.copy, setMetadata: state.metadata }) }) },
+  db: new Proxy({}, { get: (_target, key) => state.fs.db[key as keyof typeof state.fs.db] }),
+  storage: { bucket: () => ({ name: 'test-bucket', file: (path: string) => ({
+    name: path,
+    getMetadata: () => state.getMetadata(path),
+    copy: async (destination: { name: string }, options: unknown) => {
+      state.copy(destination, options);
+      state.files.set(destination.name, { ...state.files.get(path), generation: '200', metageneration: '1' });
+    },
+    setMetadata: async (patch: any, precondition: any) => {
+      state.metadata(patch, precondition);
+      const old = state.files.get(path);
+      if (String(precondition.ifGenerationMatch) !== old.generation || String(precondition.ifMetagenerationMatch) !== old.metageneration) throw { code: 412 };
+      state.files.set(path, { ...old, ...patch, metadata: { ...old.metadata, ...patch.metadata }, metageneration: String(Number(old.metageneration) + 1) });
+    },
+  }) }) },
 }));
 import { promoteArticleImages, publishedDraftPaths, storageObjectPath } from './articleMedia';
 const url = (path: string, bucket = 'test-bucket') => `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media&token=test`;
 describe('published media ownership and promotion', () => {
   beforeEach(() => {
-    vi.clearAllMocks(); state.articles = []; state.contentType = 'image/jpeg'; state.size = 100; state.exists = true;
-    state.getMetadata.mockImplementation(async () => {
+    vi.clearAllMocks(); state.fs.reset(); state.files.clear(); state.articles = []; state.contentType = 'image/jpeg'; state.size = 100; state.exists = true;
+    state.getMetadata.mockImplementation(async (path: string) => {
       if (!state.exists) throw { code: 404 };
-      return [{ contentType: state.contentType, size: state.size, cacheControl: 'private, no-store, max-age=0' }];
+      if (!state.files.has(path)) state.files.set(path, { generation: '100', metageneration: '1', crc32c: 'synthetic-checksum', contentType: state.contentType, size: state.size, cacheControl: 'private, no-store' });
+      return [state.files.get(path)];
     });
   });
   it('decodes a canonical object path, rejecting external hosts and traversal', () => {
@@ -40,7 +57,7 @@ describe('published media ownership and promotion', () => {
     expect(photos[0].blurhash).toBe('blur');
     expect(state.copy).toHaveBeenCalledTimes(2);
     expect(state.metadata).toHaveBeenCalledTimes(2);
-    expect(state.metadata).toHaveBeenCalledWith({ cacheControl: 'public, max-age=3600', metadata: { firebaseStorageDownloadTokens: expect.any(String) } });
+    expect(state.metadata).toHaveBeenCalledWith({ cacheControl: 'public, max-age=3600', metadata: { firebaseStorageDownloadTokens: expect.any(String) } }, { ifGenerationMatch: '200', ifMetagenerationMatch: '1' });
   });
   it('promotes an owned tokenless draft with Admin copy rather than an anonymous download', async () => {
     const privateDraft = url('drafts/alice/d1/0.jpg').replace('&token=test', '');
@@ -82,7 +99,7 @@ describe('published media ownership and promotion', () => {
     expect(state.metadata).not.toHaveBeenCalled();
   });
   it('retains legacy draft media referenced by published, sold or inactive articles', async () => {
-    state.articles = [{ images: [{ url: url('drafts/alice/old/0.jpg') }, url('drafts/alice/old/legacy.jpg'), { url: url('articles/a/1.jpg') }] }];
+    state.fs.setDoc('articles/legacy', { images: [{ url: url('drafts/alice/old/0.jpg') }, url('drafts/alice/old/legacy.jpg'), { url: url('articles/a/1.jpg') }] });
     expect([...await publishedDraftPaths()]).toEqual(['drafts/alice/old/0.jpg', 'drafts/alice/old/legacy.jpg']);
   });
 });

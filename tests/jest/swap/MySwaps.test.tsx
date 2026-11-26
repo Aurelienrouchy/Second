@@ -1,5 +1,9 @@
+import { establishIdentityFixture, clearIdentityFixture } from '@/tests/jest/helpers/identityFixture';
+import { renderWithQuery as render } from '@/tests/jest/helpers/queryRender';
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+let mockFocused = true;
+jest.mock('expo-router', () => { const React = require('react'); const router = {push: jest.fn(), back: jest.fn(), replace: jest.fn()}; return {router, useRouter: () => router, useFocusEffect: jest.fn((effect: () => void | (() => void)) => React.useEffect(() => mockFocused ? effect() : undefined, [effect, mockFocused]))}; });
 
 jest.mock('@/components/ui', () => {
   const React = require('react');
@@ -23,15 +27,19 @@ jest.mock('@shopify/flash-list', () => {
     FlashList: ({ data, renderItem, ListEmptyComponent }: { data: { id: string }[]; renderItem: (item: unknown) => React.ReactNode; ListEmptyComponent: React.ReactNode }) => React.createElement(View, {}, data.length ? data.map(item => React.createElement(View, { key: item.id }, renderItem({ item }))) : ListEmptyComponent),
   };
 });
-jest.mock('@tanstack/react-query', () => ({ useQuery: jest.fn() }));
-jest.mock('@/hooks/useAuth', () => ({ useUser: jest.fn(), useIsLoading: () => false }));
+jest.mock('@/hooks/useAuth', () => ({
+  useAuthenticatedUid: () => require('@/config/firebaseConfig').auth.currentUser?.uid ?? null,
+  useAuthenticatedIdentity: () => { const user = require('@/hooks/useAuth').useUser(); return user?.id === require('@/config/firebaseConfig').auth.currentUser?.uid ? user : null; },
+  useAuthenticatedSession: () => ({ uid: require('@/config/firebaseConfig').auth.currentUser?.uid ?? null, identity: require('@/hooks/useAuth').useAuthenticatedIdentity() }),
+  useAuthGuardSession: () => ({ normalUser: require('@/hooks/useAuth').useUser(), identity: require('@/hooks/useAuth').useAuthenticatedIdentity(), isAuthLoading: false }),
+ useUser: jest.fn(), useIsLoading: () => false }));
 jest.mock('@/store/authSheetStore', () => ({ useAuthSheetStore: (selector: (state: unknown) => unknown) => selector({ show: jest.fn() }) }));
 jest.mock('@/services/swapService', () => ({ getUserSwaps: jest.fn(), getSwapItems: (swap: { initiatorItems: unknown[]; receiverItems: unknown[] }, side: string) => side === 'initiator' ? swap.initiatorItems : swap.receiverItems }));
-jest.mock('@/features/swap', () => jest.requireActual('@/features/swap/presentation'));
+jest.mock('@/features/swap', () => ({ ...jest.requireActual('@/features/swap/presentation'), SwapListCard: jest.requireActual('@/features/swap/components/list/SwapListCard').SwapListCard }));
 
 import MySwapsScreen from '@/app/my-swaps';
-import { useQuery } from '@tanstack/react-query';
 import { useUser } from '@/hooks/useAuth';
+import { getUserSwaps } from '@/services/swapService';
 import type { Swap } from '@/types';
 
 const base = {
@@ -40,64 +48,46 @@ const base = {
   receiverItems: [{ articleId: 'dress', title: 'Robe reçue', price: 30 }],
   createdAt: new Date('2026-10-05'),
 } as Swap;
-const retry = jest.fn();
+const readSwaps = jest.mocked(getUserSwaps);
 beforeEach(() => {
-  jest.clearAllMocks();
-  (useUser as jest.Mock).mockReturnValue({ id: 'me' });
-  (useQuery as jest.Mock).mockReturnValue({ data: [], isLoading: false, isError: false, refetch: retry, isRefetching: false });
+ jest.clearAllMocks(); mockFocused = true;
+ (useUser as jest.Mock).mockReturnValue({id: 'me'}); establishIdentityFixture('me'); readSwaps.mockResolvedValue([]);
 });
-
-it('le visiteur peut se connecter et les données privées restent désactivées', () => {
-  (useUser as jest.Mock).mockReturnValue(null);
-  render(<MySwapsScreen />);
-  expect(screen.getByText('Se connecter')).toBeOnTheScreen();
-  expect((useQuery as jest.Mock).mock.calls[0][0].enabled).toBe(false);
+it('le visiteur ne lit aucune donnée privée', () => {
+ (useUser as jest.Mock).mockReturnValue(null); clearIdentityFixture(); render(<MySwapsScreen />);
+ expect(screen.getByText('Se connecter')).toBeOnTheScreen(); expect(readSwaps).not.toHaveBeenCalled();
 });
-
-it('affiche une reprise possible après un chargement en erreur', () => {
-  (useQuery as jest.Mock).mockReturnValue({ data: [], isError: true, refetch: retry });
-  render(<MySwapsScreen />);
-  fireEvent.press(screen.getByText('Réessayer'));
-  expect(retry).toHaveBeenCalledTimes(1);
+it('permet une nouvelle lecture après un refus du serveur', async () => {
+ readSwaps.mockRejectedValueOnce(new Error('Lecture refusée'));
+ render(<MySwapsScreen />); fireEvent.press(await screen.findByText('Réessayer'));
+ await screen.findByText('Votre premier échange commence ici'); expect(readSwaps).toHaveBeenCalledTimes(2);
 });
-
-it('sépare propositions, échanges actifs et historique avec une action pour revenir à Tous', () => {
-  (useQuery as jest.Mock).mockReturnValue({ data: [{ ...base, id: 'sent', status: 'proposed' }, { ...base, id: 'active', status: 'shipping' }, { ...base, id: 'history', status: 'completed' }], refetch: retry });
-  render(<MySwapsScreen />);
-  expect(screen.getByText('Proposition envoyée')).toBeOnTheScreen();
-  expect(screen.getByText('Échange en cours')).toBeOnTheScreen();
-  fireEvent.press(screen.getByText('En attente'));
-  expect(screen.getByText('Proposition envoyée')).toBeOnTheScreen();
-  expect(screen.queryByText('Échange en cours')).toBeNull();
-  fireEvent.press(screen.getByText('Historique'));
-  expect(screen.getByText('Échange terminé')).toBeOnTheScreen();
-  expect(screen.queryByText('Proposition envoyée')).toBeNull();
+it('sépare les propositions, échanges en cours et historiques après une vraie lecture courante', async () => {
+ readSwaps.mockResolvedValue([{...base,id:'sent',status:'proposed'},{...base,id:'active',status:'shipping'},{...base,id:'history',status:'completed'}]);
+ render(<MySwapsScreen />); await screen.findByText(/^Proposition envoyée/); expect(screen.getByText(/^Échange en cours/)).toBeOnTheScreen();
+ fireEvent.press(screen.getByText('En attente')); expect(screen.queryByText(/^Échange en cours/)).toBeNull();
+ fireEvent.press(screen.getByText('Historique')); expect(screen.getByText(/^Échange terminé/)).toBeOnTheScreen(); expect(screen.queryByText(/^Proposition envoyée/)).toBeNull();
 });
-
-it('le receveur voit une proposition reçue et le payeur historique réel', () => {
-  (useUser as jest.Mock).mockReturnValue({ id: 'alice' });
-  (useQuery as jest.Mock).mockReturnValue({ data: [{ ...base, id: 'received', status: 'proposed', cashTopUp: { amount: 4500, payerId: 'alice' } }], refetch: retry });
-  render(<MySwapsScreen />);
-  expect(screen.getByText('Proposition reçue')).toBeOnTheScreen();
-  expect(screen.getByText('Vous donnez')).toBeOnTheScreen();
-  expect(screen.getByText('Vous recevez')).toBeOnTheScreen();
-  expect(screen.getByText('Complément historique : 45,00 $ CA · Payeur prévu : Vous.')).toBeOnTheScreen();
+it('préserve le rôle du receveur et le payeur historique exact', async () => {
+ (useUser as jest.Mock).mockReturnValue({id:'alice'}); establishIdentityFixture('alice'); readSwaps.mockResolvedValue([{...base,id:'received',status:'proposed',cashTopUp:{amount:4500,payerId:'alice'}}]);
+ render(<MySwapsScreen />); await screen.findByText(/^Proposition reçue/); expect(screen.getByText('Vous proposez')).toBeOnTheScreen(); expect(screen.getByText('Vous recevez')).toBeOnTheScreen();
+ expect(screen.getByText('Complément historique : 45,00 $ CA · Payeur prévu : Vous.')).toBeOnTheScreen();
 });
-
-it('une catégorie vide permet de revenir à tous les échanges', () => {
-  render(<MySwapsScreen />);
-  fireEvent.press(screen.getByText('En cours'));
-  expect(screen.getByText('Aucun échange dans cette catégorie')).toBeOnTheScreen();
-  fireEvent.press(screen.getByText('Voir tous mes échanges'));
-  expect(screen.getByText('Votre premier échange commence ici')).toBeOnTheScreen();
+it('permet de quitter une catégorie vide après le chargement', async () => {
+ render(<MySwapsScreen />); await screen.findByText('Votre premier échange commence ici'); fireEvent.press(screen.getByText('En cours'));
+ expect(screen.getByText('Aucun échange dans cette catégorie')).toBeOnTheScreen(); fireEvent.press(screen.getByText('Voir tous mes échanges')); expect(screen.getByText('Votre premier échange commence ici')).toBeOnTheScreen();
 });
-
-
-it('présente les filtres sur une ligne défilante et évite la ponctuation doublée', () => {
-  (useQuery as jest.Mock).mockReturnValue({ data: [{ ...base, receiverName: 'Lou Martin', id: 'one', status: 'proposed', cashTopUp: { amount: 4500, payerId: 'alice' } }], refetch: retry });
-  render(<MySwapsScreen />);
-  expect(screen.getByTestId('swap-filters').props.horizontal).toBe(true);
-  expect(screen.getByRole('button', { name: /Échange avec Lou M\./ }).props.accessibilityLabel).not.toContain('Lou M..');
-  const legacy = screen.getByText('Complément historique : 45,00 $ CA · Payeur prévu : Lou M.');
-  expect(React.Children.toArray(legacy.props.children).join('')).toContain('45,00\u00A0$\u00A0CA');
+it('garde les filtres défilants et le montant CAD sans ponctuation doublée', async () => {
+ readSwaps.mockResolvedValue([{...base,receiverName:'Lou Martin',id:'one',status:'proposed',cashTopUp:{amount:4500,payerId:'alice'}}]); render(<MySwapsScreen />);
+ await screen.findByText(/^Proposition envoyée/); expect(screen.getByTestId('swap-filters').props.horizontal).toBe(true);
+ expect(screen.getByRole('button',{name:/Échange avec Lou M\./}).props.accessibilityLabel).not.toContain('Lou M..');
+ expect(screen.getByText('Complément historique : 45,00 $ CA · Payeur prévu : Lou M.')).toBeOnTheScreen();
+});
+it('relit le serveur au retour du détail et ne conserve pas la proposition annulée', async () => {
+ let server: Swap = {...base,id:'changed',status:'proposed'}; readSwaps.mockImplementation(async()=>[server]);
+ const view=render(<MySwapsScreen />); await screen.findByText(/^Proposition envoyée/); expect(readSwaps).toHaveBeenCalledTimes(1);
+ mockFocused=false; view.rerender(<MySwapsScreen />); expect(screen.queryByText(/^Proposition envoyée/)).toBeNull();
+ server={...server,status:'cancelled'}; mockFocused=true; view.rerender(<MySwapsScreen />);
+ await screen.findByText(/^Échange annulé/); expect(readSwaps).toHaveBeenCalledTimes(2); expect(screen.queryByText(/^Proposition envoyée/)).toBeNull();
+ expect(screen.getByRole('button',{name:'En attente, 0 échange'})).toBeOnTheScreen(); expect(screen.getByRole('button',{name:'Historique, 1 échange'})).toBeOnTheScreen();
 });

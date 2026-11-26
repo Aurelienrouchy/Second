@@ -77,3 +77,13 @@ describe('fixStorageUrl', () => {
     expect(fixStorageUrl(url)).toBe(url);
   });
 });
+
+describe('isStorageUrl — une valeur qui n’est pas une chaîne', () => {
+  it('rend false sans lever', () => {
+    // Une URL d'image numérique ou absente, écrite en direct dans un
+    // article, faisait lever `url.includes` et vider le parcours.
+    expect(() => isStorageUrl(123 as unknown as string)).not.toThrow();
+    expect(isStorageUrl(123 as unknown as string)).toBe(false);
+    expect(isStorageUrl(undefined as unknown as string)).toBe(false);
+  });
+});

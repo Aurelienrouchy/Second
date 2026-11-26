@@ -6,7 +6,9 @@
 export const AI_CONFIG = {
   // Timeout settings
   timeouts: {
-    client: 90_000, // 90 seconds - aligned with server
+    // Au-dessus des 120 s du serveur : le client abandonnait (70 s par défaut
+    // dans le SDK) pendant que le serveur finissait une analyse facturée.
+    client: 130_000,
     server: 120_000, // 120 seconds (Firebase Function timeout)
   },
 
@@ -16,7 +18,6 @@ export const AI_CONFIG = {
     maxSizeBytes: 5 * 1024 * 1024, // 5MB
     targetSizeBytes: 2 * 1024 * 1024, // 2MB - compress if larger
     maxDimension: 1600, // Borne dimensionnelle avant upload/analyse (fidélité IA > affichage)
-    supportedFormats: ['jpeg', 'jpg', 'png', 'webp', 'heic', 'heif'] as const,
     compressionQuality: 0.8,
   },
 
@@ -115,7 +116,6 @@ export const AI_CONFIG = {
 export type AIErrorCode = keyof typeof AI_CONFIG.errors;
 export type RecoveryOption = 'retry' | 'manual_entry' | 'change_photos';
 export type AnalysisPhase = keyof typeof AI_CONFIG.phases;
-export type SupportedImageFormat = (typeof AI_CONFIG.image.supportedFormats)[number];
 
 // Helper to get error info by code
 export function getErrorInfo(code: AIErrorCode) {
@@ -125,12 +125,6 @@ export function getErrorInfo(code: AIErrorCode) {
 // Helper to get recovery options for an error
 export function getRecoveryOptions(code: AIErrorCode): readonly RecoveryOption[] {
   return AI_CONFIG.recoveryOptions[code] || (['retry', 'manual_entry'] as const);
-}
-
-// Helper to check if format is supported
-export function isSupportedFormat(format: string): format is SupportedImageFormat {
-  const normalizedFormat = format.toLowerCase().replace('image/', '');
-  return AI_CONFIG.image.supportedFormats.includes(normalizedFormat as SupportedImageFormat);
 }
 
 // Helper to get phase progress percentage

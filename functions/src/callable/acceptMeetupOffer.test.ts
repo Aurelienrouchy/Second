@@ -17,7 +17,7 @@ const holder = vi.hoisted(() => ({ fs: null as MockFirestore | null }));
 const fs: MockFirestore = createFirestoreMock();
 holder.fs = fs;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -65,6 +65,7 @@ vi.mock('firebase-functions/v2/https', () => {
 });
 
 import { acceptMeetupOffer, confirmMeetupTransaction, completeMeetupTransaction } from './payments';
+import { SELLER_ACTIVITY_STATEMENTS, SELLER_ACTIVITY_STATEMENT_VERSION } from '../shared/eligibility';
 
 type CallableHandler = (request: {
   auth?: { uid: string } | null;
@@ -79,6 +80,11 @@ const BUYER = 'buyer1';
 const LOCATION = { name: 'Café X', category: 'cafe', neighborhood: { id: 'n1', name: 'Plateau', borough: 'Plateau' } };
 
 function seedChatArticle(opts?: { isSold?: boolean }) {
+  fs.setDoc(`users/${SELLER}`, { isActive: true, dateOfBirth: '2000-01-01' });
+  fs.setDoc(`users/${BUYER}`, { isActive: true, dateOfBirth: '2000-01-01' });
+  fs.setDoc('users/buyer2', { isActive: true, dateOfBirth: '2000-01-01' });
+  fs.setDoc(`eligibility_profiles/${SELLER}`, { version: 1, activityDeclaration: { kind: 'personal', actorUid: SELLER,
+    recordedAt: new Date(), declarationVersion: 1, statement: SELLER_ACTIVITY_STATEMENTS.personal, statementVersion: SELLER_ACTIVITY_STATEMENT_VERSION } });
   fs.setDoc(`chats/${CHAT}`, {
     participants: [SELLER, BUYER],
     articleId: ARTICLE,
@@ -121,7 +127,7 @@ it('accepts the full price of a sub-dollar article and preserves its exact amoun
   seedChatArticle();
   fs.setDoc(`articles/${ARTICLE}`, { sellerId: SELLER, price: 0.5, isSold: false, isActive: true });
   seedOffer('cheap', BUYER, 0.5);
-  const result = await callAccept({ auth: { uid: SELLER }, data: { chatId: CHAT, messageId: 'cheap' } });
+  const result = await callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'cheap' } });
   expect(fs.getDoc(`transactions/${result.transactionId}`)?.amount).toBe(0.5);
   expect(fs.getDoc(`articles/${ARTICLE}`)?.isSold).toBe(true);
 });
@@ -136,8 +142,8 @@ describe('acceptMeetupOffer — F9 derivation', () => {
     seedOffer('m1', BUYER, 80);
 
     const res = await callAccept({
-      auth: { uid: SELLER },
-      data: { chatId: CHAT, messageId: 'm1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER },
+      data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' },
     });
     expect(res.success).toBe(true);
 
@@ -159,8 +165,8 @@ describe('acceptMeetupOffer — F9 derivation', () => {
     seedOffer('m2', SELLER, 90);
 
     const res = await callAccept({
-      auth: { uid: BUYER },
-      data: { chatId: CHAT, messageId: 'm2' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: BUYER },
+      data: { expectedUid: BUYER, chatId: CHAT, messageId: 'm2' },
     });
     expect(res.success).toBe(true);
 
@@ -176,7 +182,7 @@ describe('acceptMeetupOffer — F9 derivation', () => {
     seedChatArticle();
     seedOffer('m1', BUYER, 80);
     await expect(
-      callAccept({ auth: { uid: BUYER }, data: { chatId: CHAT, messageId: 'm1' } })
+      callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: BUYER }, data: { expectedUid: BUYER, chatId: CHAT, messageId: 'm1' } })
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 });
@@ -202,8 +208,8 @@ describe('acceptMeetupOffer — F8 idempotency (pre-created tx)', () => {
     });
 
     const res = await callAccept({
-      auth: { uid: SELLER },
-      data: { chatId: CHAT, messageId: 'm1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER },
+      data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' },
     });
 
     expect(res.success).toBe(true);
@@ -217,7 +223,7 @@ describe('acceptMeetupOffer — F8 idempotency (pre-created tx)', () => {
     expect(newTxWrites.length).toBe(0);
 
     // The offer was still accepted.
-    expect((fs.getDoc('messages/m1') as Record<string, unknown>)['offer.status']).toBe('accepted');
+    expect((fs.getDoc('messages/m1') as any).offer.status).toBe('accepted');
   });
 
   it('ignores a CANCELLED pre-existing tx and proceeds with a fresh one', async () => {
@@ -233,8 +239,8 @@ describe('acceptMeetupOffer — F8 idempotency (pre-created tx)', () => {
     });
 
     const res = await callAccept({
-      auth: { uid: SELLER },
-      data: { chatId: CHAT, messageId: 'm1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER },
+      data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' },
     });
     expect(res.success).toBe(true);
     expect(res.reused).toBe(false);
@@ -246,7 +252,7 @@ describe('acceptMeetupOffer — F8 idempotency (pre-created tx)', () => {
     seedOffer('m1', BUYER, 80);
 
     await expect(
-      callAccept({ auth: { uid: SELLER }, data: { chatId: CHAT, messageId: 'm1' } })
+      callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
 });
@@ -255,7 +261,7 @@ describe('acceptMeetupOffer — F8 idempotency (pre-created tx)', () => {
 describe('acceptMeetupOffer — commitment safety', () => {
   it('double acceptance returns one exactly linked transaction', async () => {
     seedChatArticle(); seedOffer('m1', BUYER);
-    const request = { auth: { uid: SELLER }, data: { chatId: CHAT, messageId: 'm1' } };
+    const request = { auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' } };
     const [first, second] = await Promise.all([callAccept(request), callAccept(request)]);
     expect(first.transactionId).toBe(second.transactionId);
     expect(second.reused).toBe(true);
@@ -270,8 +276,8 @@ describe('acceptMeetupOffer — commitment safety', () => {
       amount: 80, status: 'pending', meetup: { location: LOCATION },
     } });
     const responses = await Promise.allSettled([
-      callAccept({ auth: { uid: SELLER }, data: { chatId: CHAT, messageId: 'm1' } }),
-      callAccept({ auth: { uid: SELLER }, data: { chatId: 'chat2', messageId: 'm2' } }),
+      callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' } }),
+      callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: 'chat2', messageId: 'm2' } }),
     ]);
     expect(responses.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     expect(fs.writeOps.filter((w) => w.path.startsWith('transactions/') && w.method === 'set')).toHaveLength(1);
@@ -285,7 +291,7 @@ describe('acceptMeetupOffer — commitment safety', () => {
   ])('never reuses differing or already accepted agreement %j', async (terms) => {
     seedChatArticle({ isSold: true }); seedOffer('m1', BUYER);
     fs.setDoc('transactions/existing', { chatId: CHAT, buyerId: BUYER, sellerId: SELLER, articleId: ARTICLE, deliveryType: 'meetup', ...terms });
-    await expect(callAccept({ auth: { uid: SELLER }, data: { chatId: CHAT, messageId: 'm1' } })).rejects.toMatchObject({ code: 'failed-precondition' });
+    await expect(callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' } })).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(fs.getDoc('transactions/existing')?.amount).toBe(terms.amount);
     expect(fs.writeOps).toEqual([]);
   });
@@ -297,8 +303,8 @@ describe('meetup follow-up transitions preserve the exact agreement', () => {
   const complete = completeMeetupTransaction as unknown as CallableHandler;
   it('confirm and complete update only the bound offer atomically and replay safely', async () => {
     seedChatArticle(); seedOffer('m1', BUYER);
-    const accepted = await callAccept({ auth: { uid: SELLER }, data: { chatId: CHAT, messageId: 'm1' } });
-    const request = { auth: { uid: SELLER }, data: { transactionId: accepted.transactionId, messageId: 'm1' } };
+    const accepted = await callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' } });
+    const request = { auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, transactionId: accepted.transactionId, messageId: 'm1' } };
     await confirm(request); await confirm(request);
     expect(fs.getDoc(`transactions/${accepted.transactionId}`)?.status).toBe('meetup_confirmed');
     expect((fs.getDoc('messages/m1')?.offer as Record<string, unknown>).status).toBe('accepted');
@@ -308,13 +314,13 @@ describe('meetup follow-up transitions preserve the exact agreement', () => {
   });
   it('an older message in the same chat cannot confirm or complete a different agreement', async () => {
     seedChatArticle(); seedOffer('m1', BUYER);
-    const accepted = await callAccept({ auth: { uid: SELLER }, data: { chatId: CHAT, messageId: 'm1' } });
+    const accepted = await callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' } });
     seedOffer('old', BUYER, 70);
     await fs.db.collection('messages').doc('old').update({ 'offer.status': 'accepted' });
-    const request = { auth: { uid: SELLER }, data: { transactionId: accepted.transactionId, messageId: 'old' } };
+    const request = { auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, transactionId: accepted.transactionId, messageId: 'old' } };
     await expect(confirm(request)).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(fs.getDoc(`transactions/${accepted.transactionId}`)?.status).toBe('meetup_pending');
-    await confirm({ auth: { uid: SELLER }, data: { transactionId: accepted.transactionId, messageId: 'm1' } });
+    await confirm({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, transactionId: accepted.transactionId, messageId: 'm1' } });
     await expect(complete(request)).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(fs.getDoc(`transactions/${accepted.transactionId}`)?.status).toBe('meetup_confirmed');
     expect((fs.getDoc('messages/old')?.offer as Record<string, unknown>).status).toBe('accepted');
@@ -325,7 +331,7 @@ describe('meetup follow-up transitions preserve the exact agreement', () => {
 it('expired proposals cannot create a meetup reservation', async () => {
   seedChatArticle(); seedOffer('expired', BUYER);
   await fs.db.collection('messages').doc('expired').update({ 'offer.expiresAt': new Date(Date.now() - 1000) });
-  await expect(callAccept({ auth: { uid: SELLER }, data: { chatId: CHAT, messageId: 'expired' } })).rejects.toMatchObject({ code: 'failed-precondition' });
+  await expect(callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'expired' } })).rejects.toMatchObject({ code: 'failed-precondition' });
   expect(fs.getDoc('articles/article1')?.isSold).toBe(false);
   expect(fs.writeOps.filter((w) => w.path.startsWith('transactions/'))).toEqual([]);
 });
@@ -333,7 +339,48 @@ it('expired proposals cannot create a meetup reservation', async () => {
 
 it('ambiguous legacy pending proposals must be explicitly replaced before acceptance', async () => {
   seedChatArticle(); seedOffer('older', BUYER); seedOffer('newer', BUYER, 70);
-  await expect(callAccept({ auth: { uid: SELLER }, data: { chatId: CHAT, messageId: 'older' } })).rejects.toMatchObject({ code: 'failed-precondition' });
+  await expect(callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'older' } })).rejects.toMatchObject({ code: 'failed-precondition' });
   expect(fs.getDoc('articles/article1')?.isSold).toBe(false);
   expect(fs.writeOps).toEqual([]);
+});
+
+describe('acceptMeetupOffer — offre expirée', () => {
+  // Le marquage « expirée » était posé DANS la runTransaction, juste avant le
+  // throw qui l'abandonne : il n'était donc jamais persisté et l'offre restait
+  // `pending` jusqu'au balayage horaire. Il s'écrit maintenant après l'abandon.
+  it("marque réellement l'offre comme expirée avant de refuser", async () => {
+    seedChatArticle();
+    fs.setDoc('messages/m1', {
+      type: 'offer',
+      chatId: CHAT,
+      senderId: BUYER,
+      offer: {
+        status: 'pending',
+        amount: 80,
+        expiresAt: new Date(Date.now() - 60 * 60 * 1000),
+        meetup: { location: LOCATION },
+      },
+    });
+
+    await expect(
+      callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' } })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
+
+    expect((fs.getDoc('messages/m1') as any).offer.status).toBe('expired');
+    expect((fs.getDoc(`articles/${ARTICLE}`) as any).isSold).toBe(false);
+  });
+});
+
+describe('acceptMeetupOffer — compte supprimé', () => {
+  it("refuse d'accepter l'offre d'un acheteur dont le compte a disparu", async () => {
+    seedChatArticle();
+    fs.setDoc(`users/${BUYER}`, null); // compte supprimé
+    seedOffer('m1', BUYER);
+
+    await expect(
+      callAccept({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: SELLER }, data: { expectedUid: SELLER, chatId: CHAT, messageId: 'm1' } })
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
+
+    expect((fs.getDoc(`articles/${ARTICLE}`) as any).isSold).toBe(false);
+  });
 });

@@ -43,6 +43,8 @@ export type FailedOperationType =
   | 'stripe_refund_failed' // a refunds.create failed (card/destination charge)
   | 'transfer_reversal_failed' // transfers.createReversal failed after a payout error
   | 'payout_reversal_failed' // a payout could not be reversed/cancelled
+  | 'payment_capture_reconciliation' // operator-only capture evidence, never automatic refund
+  | 'payment_checkout_reconciliation' // unsettled authorization, operator evidence only
   | 'amount_mismatch' // webhook PI.succeeded amount != expected (deterministic)
   | 'label_refund_failed' // legacy alias kept for old docs (treated as stripe_refund_failed)
   | 'admin_refund_failed'; // legacy alias kept for old docs (treated as stripe_refund_failed)

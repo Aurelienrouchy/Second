@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInRight, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeOut } from 'react-native-reanimated';
 import { PrivateStorageImage } from '@/components/PrivateStorageImage';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '@/constants/theme';
@@ -13,9 +13,7 @@ interface ThumbnailStripProps {
   canAddMore: boolean;
 }
 
-const THUMB_ENTERING = FadeInRight.duration(300);
 const THUMB_EXITING = FadeOut.duration(200);
-const THUMB_LAYOUT = LinearTransition.duration(250);
 
 export const ThumbnailStrip = React.memo(function ThumbnailStrip({
   photos,
@@ -32,7 +30,13 @@ export const ThumbnailStrip = React.memo(function ThumbnailStrip({
     >
       {canAddMore && (
         <View style={styles.thumbWrapper}>
-          <Pressable style={styles.addButton} onPress={onGalleryPress} testID="sell-gallery-button">
+          <Pressable
+            style={styles.addButton}
+            onPress={onGalleryPress}
+            testID="sell-gallery-button"
+            accessibilityRole="button"
+            accessibilityLabel="Ajouter depuis la galerie"
+          >
             <Ionicons name="add" size={28} color={colors.cream} />
           </Pressable>
         </View>
@@ -41,9 +45,7 @@ export const ThumbnailStrip = React.memo(function ThumbnailStrip({
         <Animated.View
           key={uri}
           style={styles.thumbWrapper}
-          entering={THUMB_ENTERING}
           exiting={THUMB_EXITING}
-          layout={THUMB_LAYOUT}
         >
           <PrivateStorageImage
             uri={uri}
@@ -61,10 +63,12 @@ export const ThumbnailStrip = React.memo(function ThumbnailStrip({
           <Pressable
             style={styles.thumbRemove}
             onPress={() => onRemovePhoto(index)}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             testID={`sell-thumbnail-remove-${index}`}
+            accessibilityRole="button"
+            accessibilityLabel={`Retirer la photo ${index + 1}`}
           >
-            <Ionicons name="close" size={10} color={colors.white} />
+            <Ionicons name="close" size={12} color={colors.white} />
           </Pressable>
         </Animated.View>
       ))}
@@ -107,13 +111,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.charcoal,
   },
+  // La croix déborde de la vignette : sur Android, la part de hitSlop qui sort
+  // du parent est perdue, donc seul le cadre propre du bouton répond.
   thumbRemove: {
     position: 'absolute',
     top: -6,
     right: -6,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',

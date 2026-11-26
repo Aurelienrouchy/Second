@@ -14,6 +14,7 @@
 import sizeCatalog from '@/functions/src/shared/sizeCatalog.json';
 import type { SizeSystem } from '@/types';
 export type { SizeSystem };
+export { articleRequiresSize } from '@/functions/src/shared/article';
 export type SizeDemographic = 'adult' | 'kids';
 export type SizeSection = 'tops' | 'bottoms' | 'shoes';
 
@@ -181,8 +182,14 @@ export const getCategoryType = (categoryIds: string[]): SizeCategory['categoryTy
 /**
  * Returns available sizes based on the list of category IDs
  */
-export const getSizesForCategory = (categoryIds: string[]): string[] => {
+export const getSizesForCategory = (categoryIds: string[], system: SizeSystem = 'EU'): string[] => {
   const categoryType = getCategoryType(categoryIds);
+  if (system === 'US' && categoryType !== 'accessories') {
+    const demographic = categoryType.startsWith('kids_') ? 'kids' : 'adult';
+    return [...new Set(categoryType.endsWith('_shoes')
+      ? getSizes('shoes', system, demographic)
+      : [...getSizes('tops', system, demographic), ...getSizes('bottoms', system, demographic)])];
+  }
   const sizeData = SIZE_DATA.find(s => s.categoryType === categoryType);
   return [...new Set(sizeData?.sizes || SIZE_DATA[0].sizes)];
 };
@@ -190,14 +197,14 @@ export const getSizesForCategory = (categoryIds: string[]): string[] => {
 /**
  * Find a size in the available sizes for a category
  */
-export const findSizeInCategory = (size: string, categoryIds: string[]): string | undefined => {
-  const availableSizes = getSizesForCategory(categoryIds);
+export const findSizeInCategory = (size: string, categoryIds: string[], system: SizeSystem = 'EU'): string | undefined => {
+  const availableSizes = getSizesForCategory(categoryIds, system);
   return availableSizes.find(s => s.toLowerCase() === size.toLowerCase());
 };
 
 /**
  * Check if a size is valid for a given category
  */
-export const isSizeValidForCategory = (size: string, categoryIds: string[]): boolean => {
-  return findSizeInCategory(size, categoryIds) !== undefined;
+export const isSizeValidForCategory = (size: string, categoryIds: string[], system: SizeSystem = 'EU'): boolean => {
+  return findSizeInCategory(size, categoryIds, system) !== undefined;
 };

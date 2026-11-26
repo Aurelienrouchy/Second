@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import ConditionSelector from '@/components/ConditionSelector';
+import ConditionSelector from '@/features/sell/components/details/ConditionSelector';
 import { CONDITIONS } from '@/data/conditions';
 
 describe('ConditionSelector', () => {
@@ -10,6 +10,9 @@ describe('ConditionSelector', () => {
     render(<ConditionSelector value="très bon état" onChange={onChange} />);
 
     fireEvent.press(screen.getByTestId('condition-selector'));
+    let boundary = screen.getByText("État de l'article").parent;
+    while (boundary && boundary.props.accessible === undefined) boundary = boundary.parent;
+    expect(boundary?.props.accessible).toBe(false);
 
     expect(screen.getByText("État de l'article")).toBeOnTheScreen();
     expect(screen.getByText('Neuf avec étiquette')).toBeOnTheScreen();
@@ -22,9 +25,10 @@ describe('ConditionSelector', () => {
     render(<ConditionSelector value="bon état" onChange={onChange} />);
 
     fireEvent.press(screen.getByTestId('condition-selector'));
-    fireEvent.press(screen.getByText('Neuf sans étiquette'));
+    fireEvent.press(screen.getByRole('menuitem', {name: 'Neuf sans étiquette'}));
 
     expect(onChange).toHaveBeenCalledWith('neuf sans étiquette');
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 
   it('expose les cinq états depuis la source de vérité', () => {

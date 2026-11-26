@@ -6,6 +6,7 @@ import {
 jest.mock('@/utils/imageUtils', () => ({ processImageWithBlurhash: jest.fn() }));
 jest.mock('expo-file-system/legacy', () => ({}));
 import { ArticlesService } from '@/services/articlesService';
+import { generateSearchKeywords } from '@/functions/src/utils/search';
 
 type Constraint = { kind: string; field?: string; op?: string; value?: unknown; count?: number; id?: string };
 type SearchQuery = { path: string; constraints: Constraint[] };
@@ -91,5 +92,30 @@ describe.each([undefined, 'robe'] as const)('search pagination (term %s)', (term
     expect(page.hasMore).toBe(true);
     const second = await ArticlesService.searchArticles(term, { excludeUserId: 'owner' }, 3, page.lastVisible!);
     expect(second.articles.map((a) => a.id)).toEqual(['article-7', 'article-9', 'article-11']);
+  });
+});
+
+describe('text matching against the real native index vocabulary', () => {
+  it.each([
+    ['robe en laine', 'Robe en laine', 'robe'],
+    ['Article QA', 'Article QA B', 'article'],
+    ['RÔBE, en LAÎNE!', 'Robe en laine', 'robe'],
+    ["D'été !", 'Été', 'ete'],
+  ])('finds %s using only keywords actually produced by the server', async (term, title, firstKeyword) => {
+    const indexed = (index: number, text: string) => {
+      const native = articleDoc(index), data = native.data();
+      return Object.assign(native, {data: () => ({...data, title: text, keywords: generateSearchKeywords(text)})});
+    };
+    documents = [indexed(0, title), indexed(1, 'Manteau de coton')];
+    const page = await ArticlesService.searchArticles(term, undefined, 10);
+    expect(page.articles.map(article => article.id)).toEqual(['article-0']);
+    expect(where).toHaveBeenCalledWith('keywords', 'array-contains', firstKeyword);
+    expect(page.hasMore).toBe(false);
+  });
+
+  it.each(['a en le du QA', '!!!', 'é à ô'])('returns an empty text result without any popular/broad query when no indexed word remains (%s)', async term => {
+    documents = [articleDoc(0)];
+    await expect(ArticlesService.searchArticles(term, undefined, 10)).resolves.toEqual({articles: [], lastVisible: null, hasMore: false});
+    expect(query).not.toHaveBeenCalled(); expect(getDocs).not.toHaveBeenCalled(); expect(where).not.toHaveBeenCalled();
   });
 });

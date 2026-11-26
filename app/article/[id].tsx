@@ -8,7 +8,7 @@
  * Subcomponents live in features/article/.
  */
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -18,8 +18,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import MakeOfferModal from '@/components/MakeOfferModal';
-import type { MakeOfferModalRef } from '@/components/MakeOfferModal';
+import MakeOfferModal from '@/features/offers/components/MakeOfferModal';
+import type { MakeOfferModalRef } from '@/features/offers/components/MakeOfferModal';
 import ReportBottomSheet from '@/components/ReportBottomSheet';
 import type { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
 
@@ -27,12 +27,13 @@ import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { getCategoryLabelFromIds } from '@/data/categories-v2';
 import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
-import { ArticlesService } from '@/services/articlesService';
 import {
   guestPreferencesService,
   toArticleMeta,
 } from '@/services/guestPreferencesService';
 import type { Article } from '@/types';
+import { articleAvailability } from '@/utils/articleAvailability';
+import {useArticleDetail} from '@/features/article/hooks/useArticleDetail';
 
 import {
   ArticleCTABar,
@@ -74,14 +75,16 @@ export default function ArticleDetailScreen() {
   const {
     data: article = null,
     isLoading,
+    isFetching,
     isError,
     refetch,
-  } = useQuery<Article | null>({
-    queryKey: queryKeys.articles.detail(id ?? ''),
-    queryFn: () => ArticlesService.getArticleById(id!),
-    enabled: !!id,
-    staleTime: 5 * 60 * 1000,
-  });
+    queryKey: articleQueryKey,
+    focused,
+  } = useArticleDetail(id);
+
+  useEffect(() => {
+    if (article && focused && !isFetching && !isError) queryClient.setQueryData(queryKeys.articles.detail(article.id), article);
+  }, [article, focused, isFetching, isError, queryClient]);
 
   const handleRetry = useCallback(() => {
     refetch();
@@ -93,15 +96,29 @@ export default function ArticleDetailScreen() {
     (updater: React.SetStateAction<Article | null>) => {
       if (!id) return;
       queryClient.setQueryData<Article | null>(
-        queryKeys.articles.detail(id),
+        articleQueryKey,
         (prev) => {
           if (typeof updater === 'function') return updater(prev ?? null);
           return updater;
         },
       );
     },
-    [id, queryClient],
+    [id, queryClient, articleQueryKey],
   );
+
+  const applyArticleReceipt = useCallback((received: Article, expected: Article, assertCurrent: () => void): Article | null => {
+    assertCurrent();
+    if (!id || received.id !== id || expected.id !== id || received.sellerId !== expected.sellerId) return null;
+    let applied = false;
+    const stored = queryClient.setQueryData<Article | null>(articleQueryKey, previous => {
+      assertCurrent();
+      if (previous !== expected) return previous;
+      applied = true;
+      return received;
+    });
+    assertCurrent();
+    return applied && stored ? stored : null;
+  }, [id, queryClient, articleQueryKey]);
 
   const {
     user,
@@ -119,6 +136,12 @@ export default function ArticleDetailScreen() {
   } = useArticleActions({
     article,
     setArticle,
+    applyArticleReceipt,
+    isArticleCurrent: expected => {
+      const current = queryClient.getQueryState<Article | null>(articleQueryKey);
+      return focused && current?.status === 'success' && current.fetchStatus === 'idle' &&
+        !current.isInvalidated && current.data === expected;
+    },
     partyId,
     swapItemId,
     makeOfferModalRef,
@@ -146,7 +169,7 @@ export default function ArticleDetailScreen() {
 
     const trackView = async () => {
       try {
-        const { httpsCallable } = await import('firebase/functions');
+        const { phase1HttpsCallable: httpsCallable } = await import('@/services/phase1Callable');
         const { functions } = await import('@/config/firebaseConfig');
         const fn = httpsCallable(functions, 'incrementProductView');
         await fn({ productId: article.id });
@@ -163,12 +186,13 @@ export default function ArticleDetailScreen() {
   }, [article, user, source, isSwapContext]);
 
   // ─── Render states ───
-  if (isLoading) return <LoadingState />;
+  if (!focused || isLoading || isFetching) return <LoadingState />;
   if (isError)
     return <ErrorState onBack={handleGoHome} isNetworkError onRetry={handleRetry} />;
   if (!article) return <ErrorState onBack={handleGoHome} />;
 
   const isOwnArticle = !!(user && user.id === article.sellerId);
+  const availability = articleAvailability(article);
   const categoryLabel = article.categoryIds?.length
     ? getCategoryLabelFromIds(article.categoryIds)
     : article.category;
@@ -200,14 +224,13 @@ export default function ArticleDetailScreen() {
           sellerRating={sellerRating}
           onViewProfile={handleViewProfile}
         />
-
         {/* Bottom spacer for CTA bar */}
         <View style={styles.bottomSpacer} />
       </AnimatedScrollView>
 
       <ArticleFloatingHeader
         isFavorite={isFavorite(article.id)}
-        isSold={article.isSold}
+        isSold={availability === 'sold' || availability === 'unavailable'}
         scrollY={scrollY}
         insetsTop={insets.top}
         onBack={handleBack}
@@ -218,7 +241,9 @@ export default function ArticleDetailScreen() {
 
       <ArticleCTABar
         isOwnArticle={isOwnArticle}
-        isSold={article.isSold}
+        isSold={availability === 'sold'}
+        isReserved={availability === 'reserved'}
+        isUnavailable={availability === 'unavailable'}
         isSwapContext={isSwapContext}
         shippingEnabled={SHIPPING_ENABLED}
         price={article.price}
@@ -235,6 +260,10 @@ export default function ArticleDetailScreen() {
         articleImage={article.images?.[0]?.url}
         currentPrice={article.price}
         defaultMode={SHIPPING_ENABLED && article.isShipping && !article.isHandDelivery ? 'shipping' : 'meetup'}
+        availableModes={[
+          ...(article.isHandDelivery !== false ? ['meetup' as const] : []),
+          ...(SHIPPING_ENABLED && article.isShipping === true ? ['shipping' as const] : []),
+        ]}
         sellerNeighborhood={article.neighborhood}
         sellerPreferredSpots={article.preferredMeetupSpots}
         onMeetupOfferSubmit={handleMeetupOfferSubmit}

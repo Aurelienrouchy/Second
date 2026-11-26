@@ -4,6 +4,7 @@
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { db, FieldValue } from '../config/firebase';
+import {assertPrivateAccountSession,withPrivateAccountSession} from '../utils/privateAccountSession';
 
 // =============================================================================
 // CONSOLIDATE CHAT DUPLICATES — One-shot migration
@@ -27,7 +28,7 @@ import { db, FieldValue } from '../config/firebase';
  *        - Recompute unreadCount on the canonical doc.
  *        - Delete the loser chat doc.
  *
- * Authorization: callable by an admin only (request.auth.token.admin).
+ * Authorization: current private session and current Auth admin claim.
  * Idempotent: re-running has no effect once each pair is single-doc.
  *
  * Usage from a privileged client / admin tool:
@@ -36,13 +37,46 @@ import { db, FieldValue } from '../config/firebase';
  */
 export const consolidateChatDuplicates = onCall(
   { region: 'northamerica-northeast1', memory: '1GiB', timeoutSeconds: 540 },
-  async (request) => {
+  async (request) => withPrivateAccountSession(request, async () => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Sign-in required');
     }
-    if (request.auth.token.admin !== true) {
-      throw new HttpsError('permission-denied', 'Admin only');
-    }
+    const admit = async (tx?: FirebaseFirestore.Transaction): Promise<void> => {
+      if (!tx) return db.runTransaction(current => admit(current));
+      const session = await assertPrivateAccountSession(request,tx);
+      if (!session.currentAdminClaim) throw new HttpsError('permission-denied','Admin only');
+    };
+    await admit();
+
+    const pairOf = (data: FirebaseFirestore.DocumentData): string[]|null => {
+      const p=data.participants;
+      return Array.isArray(p)&&p.length===2&&p.every(v=>typeof v==='string'&&v&&!v.includes('/'))&&p[0]!==p[1] ? [...p].sort() : null;
+    };
+    const source = (snap: FirebaseFirestore.DocumentSnapshot, expected: FirebaseFirestore.DocumentData) => {
+      const current=snap.data(), pair=current&&pairOf(current), original=pairOf(expected);
+      if(!current||!pair||!original||JSON.stringify(pair)!==JSON.stringify(original)||(current.articleId??null)!==(expected.articleId??null))
+        throw new HttpsError('failed-precondition','La source de cette conversation a changé. Relancez la consolidation.');
+      return current;
+    };
+    const moveMessages = async (from: FirebaseFirestore.DocumentReference, to: FirebaseFirestore.DocumentReference,
+      fromData: FirebaseFirestore.DocumentData, toData: FirebaseFirestore.DocumentData, docs: FirebaseFirestore.QueryDocumentSnapshot[]) => {
+      return db.runTransaction(async tx=>{
+        await admit(tx);source(await tx.get(from),fromData);source(await tx.get(to),toData);
+        const current=[];for(const doc of docs){const snap=await tx.get(doc.ref);if(snap.exists&&snap.data()?.chatId===from.id)current.push(snap);}
+        await admit(tx);
+        for(const snap of current)tx.update(snap.ref,{chatId:to.id});
+        return current.length;
+      });
+    };
+    const deleteEmptyChat = async (from: FirebaseFirestore.DocumentReference, to: FirebaseFirestore.DocumentReference,
+      fromData: FirebaseFirestore.DocumentData, toData: FirebaseFirestore.DocumentData) => {
+      await db.runTransaction(async tx=>{
+        await admit(tx);source(await tx.get(from),fromData);source(await tx.get(to),toData);
+        const remaining=await tx.get(db.collection('messages').where('chatId','==',from.id).limit(1));
+        if(!remaining.empty)throw new HttpsError('aborted','De nouveaux messages sont arrivés. Relancez la consolidation.');
+        await admit(tx);tx.delete(from);
+      });
+    };
 
     const dryRun = request.data?.dryRun !== false;
     const maxPairs: number =
@@ -63,13 +97,13 @@ export const consolidateChatDuplicates = onCall(
 
     // 1. Group all chats by their (sorted) participants pair.
     const allChats = await db.collection('chats').get();
+    await admit();
 
     const byPair = new Map<string, FirebaseFirestore.QueryDocumentSnapshot[]>();
     for (const docSnap of allChats.docs) {
       const data = docSnap.data();
-      const participants = (data.participants || []) as string[];
-      if (participants.length !== 2) continue;
-      const sorted = [...participants].sort();
+      const sorted = pairOf(data);
+      if (!sorted) continue;
       const key = `${sorted[0]}__${sorted[1]}`;
       if (!byPair.has(key)) byPair.set(key, []);
       byPair.get(key)!.push(docSnap);
@@ -96,32 +130,37 @@ export const consolidateChatDuplicates = onCall(
         })[0];
 
       const losers = chats.filter((c) => c.id !== canonicalCandidate.id);
+      if(chats.some(c=>JSON.stringify(pairOf(c.data()))!==JSON.stringify(pairOf(canonicalCandidate.data()))))
+        throw new HttpsError('failed-precondition','Les identités de ces conversations doivent être examinées.');
       let movedMessagesForPair = 0;
 
       // 3a. Move messages from each loser to the canonical chat.
       for (const loser of losers) {
+        await db.runTransaction(async tx=>{
+          await admit(tx);source(await tx.get(loser.ref),loser.data());source(await tx.get(canonicalCandidate.ref),canonicalCandidate.data());
+        });
         const messagesQuery = await db
           .collection('messages')
           .where('chatId', '==', loser.id)
           .get();
+        await admit();
 
+        let moved=messagesQuery.size;
         if (!dryRun && !messagesQuery.empty) {
-          // writeBatch caps at 500 ops; chunk if needed.
+          // Each checkpoint re-reads source chats/messages and current authority.
           const docs = messagesQuery.docs;
-          for (let i = 0; i < docs.length; i += 400) {
-            const batch = db.batch();
-            for (const m of docs.slice(i, i + 400)) {
-              batch.update(m.ref, { chatId: canonicalCandidate.id });
-            }
-            await batch.commit();
+          moved=0;
+          for (let i = 0; i < docs.length; i += 100) {
+            moved+=await moveMessages(loser.ref,canonicalCandidate.ref,loser.data(),canonicalCandidate.data(),docs.slice(i,i+100));
+            await admit();
           }
         }
 
-        movedMessagesForPair += messagesQuery.size;
+        movedMessagesForPair += moved;
 
         // 3b. Delete the loser chat doc.
         if (!dryRun) {
-          await loser.ref.delete();
+          await deleteEmptyChat(loser.ref,canonicalCandidate.ref,loser.data(),canonicalCandidate.data());
         }
         summary.chatsDeleted++;
       }
@@ -133,26 +172,26 @@ export const consolidateChatDuplicates = onCall(
       // address so future client lookups hit the fast path.
       if (!dryRun && canonicalCandidate.id !== canonicalId) {
         const targetRef = db.collection('chats').doc(canonicalId);
-        const targetSnap = await targetRef.get();
-        if (!targetSnap.exists) {
-          await targetRef.set({
-            ...canonicalCandidate.data(),
-            updatedAt: FieldValue.serverTimestamp(),
+        const created=await db.runTransaction(async tx=>{
+          await admit(tx);
+          const current=source(await tx.get(canonicalCandidate.ref),canonicalCandidate.data()),target=await tx.get(targetRef);
+          if(target.exists)return false;
+          await admit(tx);tx.create(targetRef,{...current,updatedAt:FieldValue.serverTimestamp()});return true;
           });
+        if (created) {
           // Re-point messages from the auto-ID canonical to the new
           // deterministic doc as well.
+          await admit();
           const ownMsgs = await db
             .collection('messages')
             .where('chatId', '==', canonicalCandidate.id)
             .get();
-          for (let i = 0; i < ownMsgs.docs.length; i += 400) {
-            const batch = db.batch();
-            for (const m of ownMsgs.docs.slice(i, i + 400)) {
-              batch.update(m.ref, { chatId: canonicalId });
-            }
-            await batch.commit();
+          await admit();
+          for (let i = 0; i < ownMsgs.docs.length; i += 100) {
+            await moveMessages(canonicalCandidate.ref,targetRef,canonicalCandidate.data(),canonicalCandidate.data(),ownMsgs.docs.slice(i,i+100));
+            await admit();
           }
-          await canonicalCandidate.ref.delete();
+          await deleteEmptyChat(canonicalCandidate.ref,targetRef,canonicalCandidate.data(),canonicalCandidate.data());
           summary.chatsDeleted++;
         }
       }
@@ -166,6 +205,7 @@ export const consolidateChatDuplicates = onCall(
       }
     }
 
+    await admit();
     return summary;
-  }
+  })
 );

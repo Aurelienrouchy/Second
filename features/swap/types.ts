@@ -2,7 +2,12 @@
  * Swap feature — shared types for sub-components.
  */
 
-import { Swap, SwapExchangeMode, SwapItemInfo, SwapStatus } from '@/types';
+import { Swap, SwapExchangeMode, SwapItemInfo, SwapStatus , SwapParty, SwapPartyItemExtended } from '@/types';
+
+// =============================================================================
+// SWAPZONE — props des composants de la zone (ex-feature swap-party)
+// =============================================================================
+
 
 /** Derived fields computed once in the screen and passed down. */
 export interface SwapParticipantContext {
@@ -13,7 +18,10 @@ export interface SwapParticipantContext {
   senderItems: SwapItemInfo[];
   myItems: SwapItemInfo[];
   hasUploadedPhotos: boolean;
+  /** Local files awaiting an explicit send; never evidence of upload. */
+  hasSelectedPhotos?: boolean;
   hasConfirmedShipping: boolean;
+  counterpartHasShipped?: boolean;
   hasConfirmedReception: boolean;
   hasRated: boolean;
   /** True when the current user is the cash top-up payer (cashTopUp.payerId). */
@@ -36,3 +44,45 @@ export interface SwapActionHandlers {
 }
 
 export { type Swap, type SwapStatus, type SwapExchangeMode, type SwapItemInfo };
+
+export interface PartyHeaderProps {
+  party?: SwapParty;
+  onBack: () => void;
+  onMySwaps?: () => void;
+}
+
+export interface MyArticlesSectionProps {
+  userItems: SwapPartyItemExtended[];
+  onAddPress: () => void;
+  onRemoveItem: (articleId: string) => void;
+  /** Number of articles currently being added (deposit in flight). Renders that
+   *  many skeleton rows at the head of the list until the refetch resolves. */
+  pendingCount?: number;
+  removingArticleIds?: ReadonlySet<string>;
+  isGuest?: boolean;
+  compact?: boolean;
+}
+
+export interface PartyItemCardProps {
+  item: SwapPartyItemExtended;
+  isSelected: boolean;
+  isMultiSelectMode: boolean;
+  /** Disabled when another seller has already been picked in multi-select. */
+  disabled?: boolean;
+  tone?: 'light' | 'dark';
+  featured?: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+}
+
+export interface MultiSelectBarProps {
+  selectedCount: number;
+  canPropose: boolean;
+  onCancel: () => void;
+  onPropose: () => void;
+}
+
+export interface PartyEmptyGridProps {
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
+}

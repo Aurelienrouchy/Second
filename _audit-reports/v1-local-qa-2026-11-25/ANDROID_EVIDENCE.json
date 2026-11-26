@@ -1,0 +1,210 @@
+[
+  {
+    "ids": [
+      "L02",
+      "T06"
+    ],
+    "observation": "Opened Android limited photo picker, selected only imported public Seconde QA logo, returned with 1/5 photos.",
+    "tree": "v86-9"
+  },
+  {
+    "ids": [
+      "L03"
+    ],
+    "observation": "Selected manual entry from photo review, reached Details.",
+    "tree": "v86-11"
+  },
+  {
+    "ids": [
+      "L04"
+    ],
+    "observation": "Empty Continue refused with title/category/hygiene/description/condition requirements.",
+    "tree": "v86-12",
+    "screenshot": "/var/folders/p2/363hl4xn685d4fd5d1d1km400000gn/T/simserver-mMhD7r/media/513776000-1795652228525.png"
+  },
+  {
+    "ids": [
+      "L04",
+      "L05"
+    ],
+    "observation": "Filled precise men's T-shirt category, explicitly selected Very good condition and L EU, price20CAD and MileEnd, reached Preview with exact summary.",
+    "tree": "v86-26"
+  },
+  {
+    "ids": [
+      "L05",
+      "T05"
+    ],
+    "observation": "After diagnostic HMR, reread failed closed; Modifier→Price→Preview restored current context and retained all fields.",
+    "tree": "v86-29"
+  },
+  {
+    "ids": [
+      "A04",
+      "L06"
+    ],
+    "observation": "Android native upload proceeded; publication was refused by server because cached token still had email_verified=false. Native Dev Auth emailVerified had been updated independently, requiring ordinary UI refresh.",
+    "tree": "v86-30",
+    "screenshot": "/var/folders/p2/363hl4xn685d4fd5d1d1km400000gn/T/simserver-mMhD7r/media/543459000-1795652789566.png"
+  },
+  {
+    "ids": [
+      "A03"
+    ],
+    "observation": "Verification UI sent test request, manual 'J'ai vérifié mon email' performed normal reload/token refresh and returned Email verified success; no real mail delivery proved.",
+    "tree": "v86-35"
+  },
+  {
+    "ids": [
+      "L06",
+      "T05"
+    ],
+    "observation": "After generation subscription fix and normal Modifier→Price→Preview recapture, Publish returned 'Annonce publiée' with exact B title and20CAD. No guard bypass.",
+    "tree": "v86-39",
+    "screenshot": "/var/folders/p2/363hl4xn685d4fd5d1d1km400000gn/T/simserver-mMhD7r/media/419606000-1795653574479.png"
+  },
+  {
+    "ids": [
+      "L06",
+      "D01"
+    ],
+    "observation": "Viewed published detail with exact title/20CAD/L EU/MileEnd and owner indication. Article ID fa8090d12faca0d75114.",
+    "tree": "v86-40"
+  },
+  {
+    "ids": [
+      "D09"
+    ],
+    "observation": "Opened system share and copied only the link; visible message points to seconde-dev:///article/fa8090d12faca0d75114. No recipient selected or message sent.",
+    "tree": "v86-42"
+  },
+  {
+    "ids": [
+      "C01",
+      "N05"
+    ],
+    "observation": "Warm Dev deep link opened Messages; inbox empty before A dispatch (v86-46). After A's real purchase request, sale conversation with offer and unread1 appeared (v86-47).",
+    "tree": "v86-47"
+  },
+  {
+    "ids": [
+      "C02",
+      "M01"
+    ],
+    "observation": "B opened contextual chat and received A's20CAD MEETUP offer and exact text 'QA V1 A : bonjour, rendez-vous de test.'.",
+    "tree": "v86-48"
+  },
+  {
+    "ids": [
+      "T07"
+    ],
+    "observation": "Argent Android keyboard rejected nonASCII before typing; normal chat paste inserted French ç intact, no application input failure.",
+    "tree": "v86-50"
+  },
+  {
+    "ids": [
+      "C02"
+    ],
+    "observation": "B's French message sent with input cleared and check mark; iOS actor confirmed exact accented text received.",
+    "tree": "v86-51"
+  },
+  {
+    "ids": [
+      "M02",
+      "T03"
+    ],
+    "observation": "Cancelled first acceptance dialog, offer remained pending. Reopened, accepted; system 'Offre acceptée', 'Voir la commande' and 'Confirmer le rendez-vous' appeared.",
+    "tree": "v86-53",
+    "screenshot": "/var/folders/p2/363hl4xn685d4fd5d1d1km400000gn/T/simserver-mMhD7r/media/997162000-1795654766004.png"
+  },
+  {
+    "ids": [
+      "M03",
+      "T03"
+    ],
+    "observation": "B confirmed meeting at1795655218266. Independent completion clicks A1795655285069 and B1795655289038 (3.969seconds apart) both returned success; both orders became completed, one final notice shown. This was a synthetic declared handover, no money or physical exchange.",
+    "tree": "v86-61"
+  },
+  {
+    "ids": [
+      "M03",
+      "R01"
+    ],
+    "observation": "After client fixes, B final order displays 'La remise est terminée', sales list 'Remise déclarée terminée' with review action.",
+    "tree": "v86-65"
+  },
+  {
+    "ids": [
+      "R04"
+    ],
+    "observation": "Review page loads counterpart through public profile successfully, showing 'Achete par Cille QAam'; five accessible rating buttons present.",
+    "tree": "v86-66"
+  },
+  {
+    "ids": [
+      "R01"
+    ],
+    "observation": "B submitted5star synthetic review at1795656153716 and received Merci pour votre avis confirmation; counterpart public name loaded, no private-profile read required.",
+    "tree": "v86-68"
+  },
+  {
+    "ids": [
+      "E04"
+    ],
+    "observation": "Unknown '/swap' warm Dev deep link showed Page introuvable with return-home action; actual catalogue route '/swap-zone' loaded normally.",
+    "tree": "v86-70"
+  },
+  {
+    "ids": [
+      "S01",
+      "S02",
+      "S04"
+    ],
+    "observation": "B opened Troc, declared synthetic Québec residence through actual admission sheet, selected only own B-SDK-local and B-SDK-postal, submitted once at1795656281610. Pending placeholders reconciled to Vos articles/Afficher2articles by1795656311534 with no retry.",
+    "tree": "v86-77"
+  },
+  {
+    "ids": [
+      "R01"
+    ],
+    "observation": "After successful review, OK returns Mes ventes with Avis laissé and no second review CTA.",
+    "tree": "v86-69"
+  },
+  {
+    "ids": [
+      "D02"
+    ],
+    "observation": "Before fix Article QA returned empty while Article returned6 active fixtures. Server index drops<=2character words but client required them; client fixed and iOS retest separately documented.",
+    "tree": "v86-84"
+  },
+  {
+    "ids": [
+      "D05",
+      "T03"
+    ],
+    "observation": "Saved search Article with alertsOFF, visible saved-list count1; cancelled first delete (record retained), reopened and confirmed deletion→Aucune recherche sauvegardée.",
+    "tree": "v86-92"
+  },
+  {
+    "ids": [
+      "P01"
+    ],
+    "observation": "Edited only B synthetic bio through native profile form, Save returned Votre profil a été mis à jour.",
+    "tree": "v86-94"
+  },
+  {
+    "ids": [
+      "P03",
+      "T07"
+    ],
+    "observation": "Phone123 refused as invalid, then fictional Canadian5145550103 formatted and saved, success. UI explicitly states contact-only, not login/recovery verification. No SMS.",
+    "tree": "v86-99"
+  },
+  {
+    "ids": [
+      "H02"
+    ],
+    "observation": "Created one clearly synthetic personal-data-access support request via UI at1795656696640; receipt and own request card appeared; refresh read then explicit acknowledge cleared pending command without resend.",
+    "tree": "v86-108"
+  }
+]

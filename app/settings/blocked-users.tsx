@@ -7,8 +7,7 @@ import { track } from '@/lib/analytics';
 import { BlockedUser, ModerationService } from '@/services/moderationService';
 import { APP_LOCALE } from '@/constants/locale';
 import { colors, fonts, spacing, radius, sizing } from '@/constants/theme';
-import { Text, Caption, ScreenHeader } from '@/components/ui';
-import { Button } from '@/components/ui';
+import { Text, Caption, ScreenHeader, Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -22,6 +21,8 @@ import { formatDisplayName } from '@/utils/formatName';
 import { Skeleton, SkeletonAvatar } from '@/components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useShippingPurchaseContext } from '@/hooks/useShippingPurchaseContext';
+import { getAuthSessionGeneration } from '@/store/authStore';
 
 const keyExtractor = (item: BlockedUser) => item.blockedUserId;
 
@@ -79,28 +80,38 @@ const formatDate = (date: Date) => {
 export default function BlockedUsersScreen() {
   const router = useRouter();
   const user = useUser();
+  const context = useShippingPurchaseContext('settings-blocked-users', user?.id ?? null);
   const queryClient = useQueryClient();
   const [unblocking, setUnblocking] = useState<string | null>(null);
+  const [formFrame, setFormFrame] = useState(context.frame);
+  if (formFrame !== context.frame) {setFormFrame(context.frame); setUnblocking(null);}
+  const blockedKey = ['blockedUsers', user?.id, getAuthSessionGeneration(), context.focusRevision];
 
-  const { data: blockedUsers = [], isLoading: loading } = useQuery({
-    queryKey: ['blockedUsers', user?.id],
-    queryFn: () => ModerationService.getBlockedUsers(user!.id),
-    enabled: !!user?.id,
+  const { data: blockedUsers = [], isLoading: loading, isError, refetch } = useQuery({
+    queryKey: blockedKey,
+    queryFn: async () => {
+      const operation = context.capture();
+      const value = await ModerationService.getBlockedUsers(operation.session.uid);
+      context.assertCurrent(operation);
+      return value;
+    },
+    enabled: !!user?.id && context.focused,
     staleTime: 10 * 60 * 1000,
   });
 
   const { mutate: performUnblock } = useMutation({
-    mutationFn: (blockedUserId: string) =>
-      ModerationService.unblockUser(user!.id, blockedUserId),
-    onMutate: (blockedUserId: string) => {
-      setUnblocking(blockedUserId);
+    mutationFn: async (input: {blockedUserId: string; operation: ReturnType<typeof context.capture>}) => {
+      context.assertCurrent(input.operation);
+      await ModerationService.unblockUser(input.operation.session.uid, input.blockedUserId);
+      context.assertCurrent(input.operation);
     },
-    onSuccess: (_data, blockedUserId) => {
+    onSuccess: (_data, {blockedUserId, operation}) => {
+      if (!context.isCurrent(operation)) return;
       const countBefore = (
-        queryClient.getQueryData<BlockedUser[]>(['blockedUsers', user?.id]) ?? []
+        queryClient.getQueryData<BlockedUser[]>(blockedKey) ?? []
       ).length;
       queryClient.setQueryData(
-        ['blockedUsers', user?.id],
+        blockedKey,
         (old: BlockedUser[] | undefined) =>
           (old ?? []).filter((u) => u.blockedUserId !== blockedUserId)
       );
@@ -111,9 +122,10 @@ export default function BlockedUsersScreen() {
       });
       setUnblocking(null);
     },
-    onError: (error: Error, blockedUserId) => {
+    onError: (error: Error, {blockedUserId, operation}) => {
+      if (!context.isCurrent(operation)) return;
       const countBefore = (
-        queryClient.getQueryData<BlockedUser[]>(['blockedUsers', user?.id]) ?? []
+        queryClient.getQueryData<BlockedUser[]>(blockedKey) ?? []
       ).length;
       track('user_unblocked', {
         blocked_user_id: blockedUserId,
@@ -123,10 +135,13 @@ export default function BlockedUsersScreen() {
       Alert.alert('Erreur', error.message || 'Une erreur est survenue');
       setUnblocking(null);
     },
+    onSettled: (_data, _error, {operation}) => context.finish(operation),
   });
 
   const handleUnblock = useCallback((blockedUser: BlockedUser) => {
     if (!user) return;
+    let confirmation;
+    try {confirmation = context.capture();} catch {return;}
 
     Alert.alert(
       'Débloquer',
@@ -135,11 +150,17 @@ export default function BlockedUsersScreen() {
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Débloquer',
-          onPress: () => performUnblock(blockedUser.blockedUserId),
+          onPress: () => {
+            let operation;
+            try {context.assertCurrent(confirmation); operation = context.start();} catch {return;}
+            if (!operation) return;
+            setUnblocking(blockedUser.blockedUserId);
+            performUnblock({blockedUserId: blockedUser.blockedUserId, operation});
+          },
         },
       ]
     );
-  }, [user, performUnblock]);
+  }, [user, performUnblock, context]);
 
   const renderItem = useCallback(({ item }: { item: BlockedUser }) => (
     <BlockedUserRow item={item} unblocking={unblocking} onUnblock={handleUnblock} />
@@ -174,7 +195,7 @@ export default function BlockedUsersScreen() {
             </View>
           ))}
         </View>
-      ) : (
+      ) : isError ? <Button variant="secondary" onPress={() => {void refetch();}}>Réessayer le chargement</Button> : (
         <FlashList
           data={blockedUsers}
           keyExtractor={keyExtractor}
@@ -185,7 +206,8 @@ export default function BlockedUsersScreen() {
               <View style={styles.infoBox}>
                 <Ionicons name="information-circle" size={20} color={colors.foregroundSecondary} />
                 <Text variant="bodySmall" style={styles.infoText}>
-                  Les utilisateurs bloqués ne peuvent plus vous contacter ni voir vos articles.
+                  Les utilisateurs bloqués ne peuvent plus vous contacter. Vos articles
+                  restent visibles publiquement, comme ceux de tout le monde.
                 </Text>
               </View>
             ) : null

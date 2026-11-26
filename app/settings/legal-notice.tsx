@@ -29,32 +29,28 @@ export default function LegalNoticeScreen() {
       <ScreenHeader title="Mentions légales" onBack={() => router.back()} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Caption style={styles.lastUpdate}>Dernière mise à jour : Mai 2026</Caption>
+        <Caption style={styles.lastUpdate}>Dernière mise à jour : 25 octobre 2026</Caption>
 
         <Text variant="h3" style={styles.sectionTitle}>1. Éditeur de l&apos;application</Text>
-        <InfoCard title="Seconde Inc.">
-          <Caption>Société par actions constituée au Québec</Caption>
-          <Caption>NEQ : 1234567890</Caption>
+        <InfoCard title="Seconde Technologies inc.">
+          <Caption>Exploitant de l&apos;application Seconde</Caption>
+          <Caption>NEQ : à confirmer auprès du Registraire des entreprises</Caption>
+          <Caption>Inscription TPS/TVQ : à confirmer</Caption>
         </InfoCard>
 
-        <Label style={styles.subTitle}>Siège social</Label>
+        <Label style={styles.subTitle}>Adresse professionnelle publique</Label>
         <InfoCard>
-          <Caption>5000 rue Saint-Denis, bureau 200</Caption>
-          <Caption>Montréal, QC H2J 2L8</Caption>
-          <Caption>Canada</Caption>
+          <Caption>Adresse à communiquer</Caption>
         </InfoCard>
 
         <Label style={styles.subTitle}>Contact</Label>
         <InfoCard>
-          <Caption>Email : contact@seconde.ca</Caption>
-          <Caption>Support : contact@seconde.ca</Caption>
+          <Caption>Pour une demande générale, consultez le Centre d&apos;aide dans les réglages.</Caption>
         </InfoCard>
 
         <Text variant="h3" style={styles.sectionTitle}>2. Directeur de la publication</Text>
         <InfoCard>
-          <Caption>Aurélien Rouchy</Caption>
-          <Caption>En qualité de : Président</Caption>
-          <Caption>Email : contact@seconde.ca</Caption>
+          <Caption>Identité et mandat à confirmer par la société</Caption>
         </InfoCard>
 
         <Text variant="h3" style={styles.sectionTitle}>3. Hébergement</Text>
@@ -73,28 +69,27 @@ export default function LegalNoticeScreen() {
         </Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           La marque « Seconde », le logo et l&apos;ensemble des éléments graphiques sont la propriété
-          exclusive de Seconde Inc. Toute reproduction, représentation, modification,
+          exclusive de Seconde Technologies inc. Toute reproduction, représentation, modification,
           publication ou adaptation totale ou partielle de ces éléments est strictement interdite
           sans autorisation écrite préalable.
         </Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Les contenus publiés par les utilisateurs (photos, descriptions) restent leur
-          propriété. En les publiant sur l&apos;Application, ils accordent à Seconde Inc. une licence
+          propriété. En les publiant sur l&apos;Application, ils accordent à Seconde Technologies inc. une licence
           d&apos;utilisation non exclusive pour les besoins du service.
         </Text>
 
         <Text variant="h3" style={styles.sectionTitle}>5. Données personnelles</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Le traitement des données personnelles est régi par notre Politique de Confidentialité,
-          accessible depuis les paramètres de l&apos;Application. Seconde Inc. se conforme à la Loi 25
-          sur la protection des renseignements personnels dans le secteur privé (Québec) ainsi
-          qu&apos;à la Loi sur la protection des renseignements personnels et les documents
-          électroniques (LPRPDE / PIPEDA) au niveau fédéral.
+          accessible depuis les paramètres de l&apos;Application. Pour toute question relative à
+          vos renseignements personnels ou pour exercer vos droits, écrivez à privacy@seconde.app.
         </Text>
 
         <Label style={styles.subTitle}>Responsable de la protection des renseignements personnels</Label>
         <InfoCard>
-          <Caption>Email : contact@seconde.ca</Caption>
+          <Caption>Direction de Seconde : la personne ayant la plus haute autorité exerce cette fonction, sauf délégation écrite.</Caption>
+          <Caption>Contact confidentialité : privacy@seconde.app</Caption>
         </InfoCard>
 
         <Label style={styles.subTitle}>Autorité de contrôle</Label>
@@ -117,7 +112,7 @@ export default function LegalNoticeScreen() {
 
         <Text variant="h3" style={styles.sectionTitle}>7. Limitation de responsabilité</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Seconde Inc. agit en tant qu&apos;intermédiaire technique entre les utilisateurs. Elle ne
+          Seconde Technologies inc. agit en tant qu&apos;intermédiaire technique entre les utilisateurs. Elle ne
           peut être tenue responsable :
         </Text>
         <View style={styles.warningBox}>
@@ -165,14 +160,14 @@ export default function LegalNoticeScreen() {
             <Caption style={styles.signalText}>La fonction « Signaler » dans l&apos;Application</Caption>
           </View>
           <View style={styles.signalItem}>
-            <Ionicons name="mail" size={18} color={colors.warning} />
-            <Caption style={styles.signalText}>Par email : contact@seconde.ca</Caption>
+            <Ionicons name="help-circle" size={18} color={colors.warning} />
+            <Caption style={styles.signalText}>Le Centre d&apos;aide dans les réglages</Caption>
           </View>
         </View>
 
         <Text variant="h3" style={styles.sectionTitle}>11. Crédits</Text>
         <Text variant="bodySmall" style={styles.paragraph}>
-          Conception et développement : Seconde Inc.
+          Conception et développement : Seconde Technologies inc.
         </Text>
         <Text variant="bodySmall" style={styles.paragraph}>
           Icônes : Ionicons (MIT License)
@@ -180,7 +175,7 @@ export default function LegalNoticeScreen() {
 
         <View style={styles.footer}>
           <Caption style={styles.footerText}>
-            © 2026 Seconde Inc. - Tous droits réservés
+            © 2026 Seconde Technologies inc. - Tous droits réservés
           </Caption>
         </View>
       </ScrollView>

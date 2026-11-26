@@ -1,0 +1,99 @@
+{
+  "environment": "Seconde Dev",
+  "device": "iPhone 13 Pro Max physique / iOS 27.0.1",
+  "recordedAt": "2026-11-26T02:39:20.730Z",
+  "observations": [
+    {
+      "case": "Installation V1 QA signée",
+      "at": "2026-11-26T01:58:51.554Z",
+      "outcome": "success",
+      "bundleId": "com.seconde.app.dev",
+      "nativeVersion": "1.0.1(1)",
+      "sourceHash": "5b77b12c6c82450af00bc6924cbc53ec097e1337060f0928dd62e13ece6bfe53",
+      "proof": "devicectl install success, Métro8092 deviceName iPhone, AX v86-130"
+    },
+    {
+      "case": "Recherche accentuée et mot court QA",
+      "outcome": "PASS",
+      "proof": "v86-132, 1 résultat Article QA reprise corrigée25CAD"
+    },
+    {
+      "case": "Déconnexion puis protection Vendre invité",
+      "outcome": "PARTIAL",
+      "proof": "v86-137→138, un seul modal auth ; formulaire non exposé dans AXphysique signaléRN"
+    },
+    {
+      "case": "Auth accessibilité physique",
+      "outcome": "PASS après correctif",
+      "proof": "v86-143/144 après accessible=false, défaut de grouping avant143 ; inscription/signin exposés"
+    },
+    {
+      "case": "Inscription native C / âge adulte / consentements",
+      "outcome": "En cours",
+      "proof": "v86-152→155, usernameunique, DOB01/01/1990, CGU/privacy/personnelcochés, marketingOFF",
+      "logErrors": [
+        "account-erasure-device stalelease au signup",
+        "searchHistory/timestamp missing COLLECTION_DESC index"
+      ],
+      "fixesRequested": true
+    },
+    {
+      "case": "Email guard et capture photo réelle",
+      "outcome": "PASS",
+      "proof": "157emailnonvérifié, AdminseulementemailVerifiedC hash680706…,158vérifié,160caméra→167capture→168photo noire relue, pas de photothèque sélectionnée",
+      "limits": "Pas de livraison réelle du mail .test. Picker système distant nonpilotableAX, fermé par relance app sans toucher médias."
+    },
+    {
+      "case": "Capture physique et saisie manuelle",
+      "outcome": "PASS partiel",
+      "proof": "v86-166→167capture1/5→168photo noire→169détails→179catégorieMini",
+      "limits": "Publication pas encore exécutée ; boutonmanuel localAsyncStorage vérifié après refusauto sur suppositionuploadIA, nouvelleactionautoriséeaprèsvérificationcode."
+    },
+    {
+      "case": "Publication native physique",
+      "outcome": "PASS",
+      "proof": "v86-191aperçu20CAD→192upload→193Annoncepubliée, sourcephotonoiremanuelle,0nouvelleWARN/ERRORfenêtrepostfix",
+      "at": "2026-11-26T02:16:31.420Z"
+    },
+    {
+      "case": "Favoris depuis fiche puis liste",
+      "outcome": "PASS",
+      "proof": "196→197cœur sélectionné→198Favoris1article, aucunretoggle"
+    },
+    {
+      "case": "Proposition remise et chat physique",
+      "outcome": "PASS envoi/réception",
+      "proof": "200/20224CADnoteQA→203/204Àconvenir→207récap→208envoyer→209chat ; 211messageaccentuéenvoyé→212réponseAreçue",
+      "limits": "Acceptation/fin de remise pas encore observées"
+    },
+    {
+      "case": "Historique recherche après indexDev",
+      "outcome": "PASS",
+      "proof": "220recherche iPhoneV1→222RECHERCHESRÉCENTESiPhoneV1/1résultatnouvelleannonce ; 0WARN/ERRORpendantfenêtrederetest",
+      "at": "2026-11-26T02:24:38.804Z"
+    },
+    {
+      "case": "Réservation et fin remise physique",
+      "outcome": "PASS",
+      "proof": "214photoorder→216Réservé/buybloqué→217favorisRéservéconservé ;Aconfirme1795659785383 ;Cannule227/228puisconfirme1795659960885→231terminée",
+      "transactionId": "meetup_UcPlvRd64dsxxrQOLJ5n",
+      "limits": "Aucunpaiement/remisephysique réel, scénarioDevfictif."
+    },
+    {
+      "case": "Avis et profil",
+      "outcome": "PASS",
+      "proof": "235note5+commentaireQA→238succès→239Avislaissé ; 242bioéditée→243Succès→244biorelue"
+    },
+    {
+      "case": "Favoris après consommation",
+      "outcome": "PASS après correctif",
+      "proof": "2401article/empty incohérent ;245Aucunfavorientêtecorrect, sansretoggle"
+    },
+    {
+      "case": "Dépôt/retrait Troc physique",
+      "outcome": "En cours",
+      "proof": "248entréeTroc→250Québecnoncoché→251confirmé→252C1sélectionné→253ajoutencours→2541article→255C1visible→256confirmerretrait→257en cours",
+      "limits": "Pasd'accordTrocphysiqueengagé."
+    }
+  ]
+}

@@ -2,8 +2,8 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { auth } from '@/config/firebaseConfig';
 import { Modal } from 'react-native';
-import DraftResumeModal from '@/components/DraftResumeModal';
-import type { ArticleDraft } from '@/services/draftService';
+import DraftResumeModal from '@/features/sell/components/shared/DraftResumeModal';
+import type { ArticleDraft } from '@/features/sell/services/draftService';
 
 const mockUid = jest.fn(() => 'alice');
 jest.mock('@/hooks/useFirebaseUserId', () => ({ useFirebaseUserId: () => mockUid() }));
@@ -12,7 +12,7 @@ const mockResolvePrivate = jest.fn((..._args: unknown[]) => ({ uri: 'data:image/
 jest.mock('@/hooks/usePrivateMediaSource', () => ({
   usePrivateMediaSource: (...args: unknown[]) => mockResolvePrivate(...args),
 }));
-jest.mock('@/services/draftService', () => ({ getDaysUntilExpiration: () => 7 }));
+jest.mock('@/features/sell/services/draftService', () => ({ getDaysUntilExpiration: () => 7 }));
 
 it('renders a canonical draft reference through authenticated source resolution, without native URL fallback', () => {
   const canonical = 'https://firebasestorage.googleapis.com/v0/b/test-bucket/o/drafts%2Falice%2Fd1%2Fphoto.jpg?alt=media';
@@ -22,7 +22,7 @@ it('renders a canonical draft reference through authenticated source resolution,
     fields: null, pricing: null, aiResult: null,
   };
   const screen = render(<DraftResumeModal visible draft={draft} onResume={jest.fn()} onDiscard={jest.fn()} />);
-  expect(mockResolvePrivate).toHaveBeenCalledWith(canonical);
+  expect(mockResolvePrivate).toHaveBeenCalledWith(canonical, undefined);
   const image = screen.getByTestId('draft-private-preview');
   expect(image.props.source).toEqual({ uri: 'data:image/jpeg;base64,cHJpdmF0ZQ==' });
   expect(image.props.cachePolicy).toBe('none');

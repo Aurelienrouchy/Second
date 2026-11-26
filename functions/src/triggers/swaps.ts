@@ -1,241 +1,107 @@
-/**
- * Swap Firestore triggers
- * Firebase Functions v7 - using onDocumentCreated/onDocumentUpdated
- */
-import {
-  onDocumentCreated,
-  onDocumentUpdated,
-} from 'firebase-functions/v2/firestore';
+/** Native swap events produce durable in-app notices. Optional push is resumed
+ * independently; an event/decision is never a bank refund confirmation. */
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
-import { sendSwapNotification } from '../utils/notifications';
+import { Timestamp } from 'firebase-admin/firestore';
+import { createHash } from 'node:crypto';
+import { db, FieldValue } from '../config/firebase';
+import {withDocumentaryProjection,swapEventNoticeInputs,recordProducerNoticeIds} from '../utils/documentaryProjection';
+import { prepareOperationalNotices, readOperationalNoticeReceipts, type OperationalNoticeInput } from '../utils/notifications';
 
-/** Resolve items arrays with backward compat for legacy single-item swaps */
-function getSwapItems(swap: any, side: 'initiator' | 'receiver'): any[] {
-  if (side === 'initiator') {
-    return swap.initiatorItems || (swap.initiatorItem ? [swap.initiatorItem] : []);
+const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const id = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(value);
+
+/** A producer's own immutable notice receipt takes priority over a trigger
+ * mirror. Its protected marker alone is not evidence; reread ALL private receipts. */
+async function producerReceipts(tx: FirebaseFirestore.Transaction, swapId: string, before: FirebaseFirestore.DocumentData | null,
+  after: FirebaseFirestore.DocumentData, sourceAt: Timestamp) {
+  const decision = after.disputeResolutionNotice;
+  if (before?.status === 'disputed' && ['cancelled', 'completed'].includes(after.status) &&
+      decision?.protocol === 'swap_dispute_notice_v1' && decision.swapId === swapId &&
+      decision.initiatorId === after.initiatorId && decision.receiverId === after.receiverId &&
+      decision.committedAt instanceof Timestamp && after.disputeResolvedAt instanceof Timestamp &&
+      decision.committedAt.isEqual(after.disputeResolvedAt) && decision.committedAt.isEqual(sourceAt) && /^[a-f0-9]{64}$/.test(decision.decisionKey ?? '') &&
+      Array.isArray(decision.notificationInputs) && decision.notificationInputs.length === 2 &&
+      decision.notificationInputs.every((input: OperationalNoticeInput, index: number) =>
+        input.userId === [after.initiatorId, after.receiverId][index] && input.type === 'swap_update' &&
+        input.eventKey === `swap_dispute_decision:${swapId}:${decision.decisionKey}` && input.data?.swapId === swapId &&
+        input.data?.decisionKey === decision.decisionKey && input.data?.actorUid === decision.actorUid &&
+        input.data?.financialInstruction === decision.issue && input.data?.refundConfirmed === 'false')) {
+    const receipts = await readOperationalNoticeReceipts(tx, decision.notificationInputs);
+    if (Array.isArray(decision.notificationIds) && decision.notificationIds.length === 2 &&
+        receipts.every((receipt, index) => !!receipt && receipt.notificationId === decision.notificationIds[index])) return receipts;
   }
-  return swap.receiverItems || (swap.receiverItem ? [swap.receiverItem] : []);
-}
-
-/**
- * Send notification when a swap is proposed
- */
-export const onSwapCreated = onDocumentCreated(
-  { document: 'swaps/{swapId}', region: 'northamerica-northeast1', memory: '512MiB' },
-  async (event) => {
-    try {
-      const snapshot = event.data;
-      if (!snapshot) return;
-
-      const swap = snapshot.data();
-      const swapId = event.params.swapId;
-
-      if (!swap.receiverId) {
-        logger.info('No receiver for swap notification');
-        return;
-      }
-
-      // Build notification
-      const title = "Nouvelle proposition d'échange";
-
-      // Handle both single-item (legacy) and multi-item formats
-      const receiverItemsArray = getSwapItems(swap, 'receiver');
-      const initiatorItemsArray = getSwapItems(swap, 'initiator');
-
-      let body: string;
-      if (receiverItemsArray.length === 0) {
-        body = `${swap.initiatorName} te propose un échange`;
-      } else if (receiverItemsArray.length === 1) {
-        body = `${swap.initiatorName} te propose un échange pour "${receiverItemsArray[0]?.title}"`;
-      } else {
-        // Multiple items: show count
-        const receiverCount = receiverItemsArray.length;
-        const initiatorCount = initiatorItemsArray.length;
-        body = `${initiatorCount} article(s) proposé(s) pour ${receiverCount} article(s)`;
-      }
-
-      await sendSwapNotification(swap.receiverId, swapId, title, body, swap);
-      logger.info('Swap proposal notification processed');
-    } catch (error) {
-      console.error('Error sending swap proposal notification:', error);
+  const phase = ['proposed_expired_7d', 'payment_pending_expired_7d'].includes(after.cancelReason)
+    ? 'proposal' : typeof after.cancelReason === 'string' && after.cancelReason.startsWith('post_acceptance_expired_14d_from_') ? 'post_acceptance' : null;
+  if (before && phase && ((phase === 'proposal' && after.status === 'cancelled') || (phase === 'post_acceptance' && after.status === 'expired'))) {
+    const anchor = before.updatedAt instanceof Timestamp ? before.updatedAt.toMillis() : null;
+    const eventKey = `swap_expired:${swapId}:${phase}:${before.status}:${anchor}`;
+    const targets = [after.initiatorId, after.receiverId];
+    const entries = await tx.getAll(...targets.map(userId => db.collection('operational_notice_receipts').doc('operational_' + digest([eventKey, userId]))));
+    // Read the producer's frozen content, not today's copy. A source commit
+    // timestamp binds it to THIS native transition, not another expiry phase.
+    if (entries.every((entry, index) => {
+      const receipt = entry.data();
+      return receipt?.protocol === 'operational_notice_v1' && receipt.eventKey === eventKey && receipt.userId === targets[index] &&
+        receipt.type === 'swap_update' && receipt.committedAt instanceof Timestamp && receipt.committedAt.isEqual(sourceAt) &&
+        receipt.data?.swapId === swapId && receipt.data?.sourceStatus === before.status && receipt.data?.expiryPhase === phase;
+    })) {
+      const receipts = await readOperationalNoticeReceipts(tx, entries.map(entry => entry.data() as OperationalNoticeInput));
+      if (receipts.every(Boolean)) return receipts;
     }
   }
-);
-
-/**
- * Helper to get swap description for notifications
- */
-function getSwapDescription(swap: any): string {
-  const initiatorItems = getSwapItems(swap, 'initiator');
-  const receiverItems = getSwapItems(swap, 'receiver');
-
-  if (initiatorItems.length === 0 && receiverItems.length === 0) {
-    return 'l\'échange';
-  }
-
-  if (initiatorItems.length === 1 && receiverItems.length === 1) {
-    return `l'échange de "${receiverItems[0]?.title || 'article'}"`;
-  }
-
-  // Multi-article: show count format
-  return `l'échange (${initiatorItems.length} article(s) pour ${receiverItems.length} article(s))`;
+  return null;
 }
 
-/**
- * Send notification when swap status changes
- */
-export const onSwapStatusUpdated = onDocumentUpdated(
-  { document: 'swaps/{swapId}', region: 'northamerica-northeast1', memory: '512MiB' },
-  async (event) => {
-    try {
-      const before = event.data?.before?.data();
-      const after = event.data?.after?.data();
-      const swapId = event.params.swapId;
-
-      if (!before || !after) return;
-
-      // Only process if status changed
-      if (before.status === after.status) {
-        return;
-      }
-
-      const newStatus = after.status;
-      let targetUserId: string;
-      let title: string;
-      let body: string;
-
-      switch (newStatus) {
-        case 'accepted':
-          // When the transition comes from 'payment_pending', the receiver
-          // accepted by settling the cash top-up — notify BOTH parties so the
-          // receiver also gets confirmation, not just the initiator.
-          if (before.status === 'payment_pending') {
-            await sendSwapNotification(
-              after.initiatorId,
-              swapId,
-              'Échange accepté !',
-              `${after.receiverName} a accepté ${getSwapDescription(after)}`,
-              after
-            );
-            await sendSwapNotification(
-              after.receiverId,
-              swapId,
-              'Échange accepté !',
-              `Tu as accepté ${getSwapDescription(after)}`,
-              after
-            );
-            return;
-          }
-          targetUserId = after.initiatorId;
-          title = 'Échange accepté !';
-          body = `${after.receiverName} a accepté ${getSwapDescription(after)}`;
-          break;
-
-        case 'payment_pending':
-          // The receiver accepted a swap with a cash top-up — notify the payer
-          // (could be either party) that payment is required to proceed.
-          if (after.cashTopUp?.payerId) {
-            await sendSwapNotification(
-              after.cashTopUp.payerId,
-              swapId,
-              'Paiement requis',
-              'Ton échange est accepté. Règle le complément pour lancer l\'échange.',
-              after
-            );
-          }
-          return;
-
-        case 'disputed':
-          // Notify both parties that a dispute was opened.
-          await sendSwapNotification(
-            after.initiatorId,
-            swapId,
-            'Litige ouvert',
-            'Un litige a été ouvert sur cet échange. Notre équipe va l\'examiner.',
-            after
-          );
-          await sendSwapNotification(
-            after.receiverId,
-            swapId,
-            'Litige ouvert',
-            'Un litige a été ouvert sur cet échange. Notre équipe va l\'examiner.',
-            after
-          );
-          return;
-
-        case 'declined':
-          targetUserId = after.initiatorId;
-          title = 'Échange refusé';
-          body = `${after.receiverName} a refusé ${getSwapDescription(after)}`;
-          break;
-
-        case 'cancelled':
-          targetUserId = after.receiverId;
-          title = 'Échange annulé';
-          body = `${after.initiatorName} a annulé ${getSwapDescription(after)}`;
-          break;
-
-        case 'photos_pending':
-          // Notify both parties
-          await sendSwapNotification(
-            after.initiatorId,
-            swapId,
-            'Photos requises',
-            "N'oublie pas d'envoyer les photos de ton article",
-            after
-          );
-          await sendSwapNotification(
-            after.receiverId,
-            swapId,
-            'Photos requises',
-            "N'oublie pas d'envoyer les photos de ton article",
-            after
-          );
-          return;
-
-        case 'shipping':
-          // Notify both parties
-          await sendSwapNotification(
-            after.initiatorId,
-            swapId,
-            'Prêt à expédier',
-            'Les photos sont validées, tu peux envoyer ton article',
-            after
-          );
-          await sendSwapNotification(
-            after.receiverId,
-            swapId,
-            'Prêt à expédier',
-            'Les photos sont validées, tu peux envoyer ton article',
-            after
-          );
-          return;
-
-        case 'completed':
-          // Notify both parties
-          await sendSwapNotification(
-            after.initiatorId,
-            swapId,
-            'Échange terminé !',
-            "L'échange est complet. N'oublie pas de laisser une note.",
-            after
-          );
-          await sendSwapNotification(
-            after.receiverId,
-            swapId,
-            'Échange terminé !',
-            "L'échange est complet. N'oublie pas de laisser une note.",
-            after
-          );
-          return;
-
-        default:
-          return;
-      }
-
-      await sendSwapNotification(targetUserId, swapId, title, body, after);
-    } catch (error) {
-      console.error('Error sending swap status notification:', error);
+async function commitSwapEvent(swapId: string, eventId: string, sourceAt: Timestamp,
+  before: FirebaseFirestore.DocumentData | null, after: FirebaseFirestore.DocumentData) {
+  if (!id(swapId) || typeof eventId !== 'string' || !eventId || eventId.length > 500 || !(sourceAt instanceof Timestamp) ||
+      !id(after.initiatorId) || !id(after.receiverId) || after.initiatorId === after.receiverId) throw new Error('Native swap event identity unqualified');
+  const inputs = swapEventNoticeInputs(swapId, before, after, eventId); if (!inputs.length) return;
+  const statusSource = [swapId, eventId, sourceAt.toMillis(), before?.status ?? null, after.status, after.initiatorId, after.receiverId];
+  // Preserve the V1 hash for status events already committed before partial
+  // progress notices existed. A redelivery must observe its historical receipt.
+  const sourceHash = digest(before?.status === after.status
+    ? [...statusSource, 'partial_progress_v1', ...inputs.map(input => [input.userId, input.data?.progressField ?? null])]
+    : statusSource);
+  const ref = db.collection('swaps').doc(swapId), eventRef = ref.collection('notice_events').doc(digest(eventId));
+  await withDocumentaryProjection({kind:'swap_notice',swapId,eventId,sourceAt,before,after},()=>db.runTransaction(async tx => {
+    const current = (await tx.get(ref)).data(), prior = (await tx.get(eventRef)).data();
+    if (prior) {
+      if (prior.protocol !== 'swap_notice_event_v1' || prior.sourceHash !== sourceHash || prior.swapId !== swapId ||
+          prior.eventId !== eventId || !(prior.committedAt instanceof Timestamp)) throw new Error('Swap notice event receipt conflict');
+      return; // A user-deleted notice is never resurrected.
     }
-  }
-);
+    if (!current || current.initiatorId !== after.initiatorId || current.receiverId !== after.receiverId) {
+      throw new Error('Native swap event parties changed; reconciliation required');
+    }
+    // This is a dated historical event, not a current permission. Newer status
+    // changes do not rewrite its content or authorize a financial action.
+    const producer = await producerReceipts(tx, swapId, before, after, sourceAt);
+    const notices = producer ? null : await prepareOperationalNotices(tx, inputs);
+    if(producer)recordProducerNoticeIds(producer.map(receipt=>receipt!.notificationId));
+    tx.create(eventRef, { protocol: 'swap_notice_event_v1', swapId, eventId, sourceHash, sourceAt,
+      sourceStatus: before?.status ?? null, recordedStatus: after.status, initiatorId: after.initiatorId, receiverId: after.receiverId,
+      notificationIds: producer ? producer.map(receipt => receipt!.notificationId) : notices!.notificationIds,
+      noticeSource: producer ? 'native_producer_receipts' : 'native_event', deviceDeliveryVerified: false,
+      readingVerified: false, committedAt: FieldValue.serverTimestamp() });
+    notices?.commit();
+  }));
+}
+
+export const onSwapCreated = onDocumentCreated({ document: 'swaps/{swapId}', region: 'northamerica-northeast1',
+  memory: '512MiB', retry: true }, async event => {
+  const snapshot = event.data; if (!snapshot) return;
+  try { await commitSwapEvent(event.params.swapId, event.id, snapshot.updateTime, null, snapshot.data()); }
+  catch (error) { logger.error('Swap creation notice remains uncommitted; event will retry', { swapId: event.params.swapId,
+    error: error instanceof Error ? error.message : 'unknown' }); throw error; }
+});
+
+export const onSwapStatusUpdated = onDocumentUpdated({ document: 'swaps/{swapId}', region: 'northamerica-northeast1',
+  memory: '512MiB', retry: true }, async event => {
+  const before = event.data?.before.data(), after = event.data?.after.data();
+    if (!before || !after) return;
+  try { await commitSwapEvent(event.params.swapId, event.id, event.data!.after.updateTime, before, after); }
+  catch (error) { logger.error('Swap status notice remains uncommitted; event will retry', { swapId: event.params.swapId,
+    error: error instanceof Error ? error.message : 'unknown' }); throw error; }
+});

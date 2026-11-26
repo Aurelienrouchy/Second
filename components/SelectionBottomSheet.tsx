@@ -18,7 +18,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, typography, components, spacing } from '@/constants/theme';
+import type { SizeSystem } from '@/types/article';
+
+const SIZE_SYSTEMS: SizeSystem[] = ['EU', 'US'];
 
 export interface SelectionItem {
   value: string;
@@ -27,6 +30,8 @@ export interface SelectionItem {
 }
 
 interface SelectionBottomSheetProps {
+  /** Opt-in visual identity; other consumers keep their existing presentation. */
+  appearance?: 'default' | 'troc';
   title: string;
   items: SelectionItem[];
   selectedValue?: string | null;
@@ -36,6 +41,10 @@ interface SelectionBottomSheetProps {
   type?: 'default' | 'color' | 'size';
   multiSelect?: boolean;
   maxSelections?: number;
+  /** Opt-in system switch for a controlled, single-select size grid. */
+  sizeSystem?: SizeSystem;
+  /** The parent updates the grid and clears the previously selected size. */
+  onSizeSystemChange?: (system: SizeSystem) => void;
 }
 
 export interface SelectionBottomSheetRef {
@@ -44,8 +53,9 @@ export interface SelectionBottomSheetRef {
 }
 
 const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottomSheetProps>(
-  ({ title, items, selectedValue, selectedValues = [], onSelect, onSelectMultiple, type = 'default', multiSelect = false, maxSelections }, ref) => {
+  ({ title, items, selectedValue, selectedValues = [], onSelect, onSelectMultiple, type = 'default', multiSelect = false, maxSelections, appearance = 'default', sizeSystem, onSizeSystemChange }, ref) => {
     const insets = useSafeAreaInsets();
+    const isTroc = appearance === 'troc';
     const snapPoints = useMemo(() => ['85%'], []);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
     const [localSelectedValues, setLocalSelectedValues] = React.useState<string[]>(selectedValues);
@@ -104,11 +114,14 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
         if (!multiSelect) return null;
         return (
           <BottomSheetFooter {...props}>
-            <View style={[styles.confirmContainer, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={[styles.confirmContainer, isTroc && styles.trocSurface, { paddingBottom: insets.bottom + 16 }]}>
               <TouchableOpacity
                 testID="selection-confirm-button"
+                accessibilityRole={isTroc ? 'button' : undefined}
+                accessibilityLabel={isTroc ? 'Valider la sélection' : undefined}
                 style={[
                   styles.confirmButton,
+                  isTroc && styles.trocConfirmButton,
                   localSelectedValues.length === 0 && styles.confirmButtonDisabled,
                 ]}
                 onPress={handleConfirm}
@@ -123,13 +136,14 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
           </BottomSheetFooter>
         );
       },
-      [multiSelect, insets.bottom, localSelectedValues, handleConfirm]
+      [multiSelect, insets.bottom, localSelectedValues, handleConfirm, isTroc]
     );
 
     if (!mounted) return null;
 
     return (
       <BottomSheet
+        accessible={false}
         ref={bottomSheetRef}
         index={0}
         snapPoints={snapPoints}
@@ -139,13 +153,13 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
         onClose={() => setMounted(false)}
         topInset={insets.top}
         handleIndicatorStyle={styles.handleIndicator}
-        backgroundStyle={styles.sheetBackground}
+        backgroundStyle={[styles.sheetBackground, isTroc && styles.trocSurface]}
         enableDynamicSizing={false}
       >
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>{title}</Text>
+            <Text style={[styles.title, isTroc && styles.trocTitle]}>{title}</Text>
             {multiSelect && localSelectedValues.length > 0 && (
               <View style={styles.countBadge}>
                 <Text style={styles.countBadgeText}>{localSelectedValues.length}</Text>
@@ -156,6 +170,8 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
             onPress={() => bottomSheetRef.current?.close()}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.closeButton}
+            accessibilityRole={isTroc ? 'button' : undefined}
+            accessibilityLabel={isTroc ? 'Fermer' : undefined}
           >
             <Ionicons name="close" size={22} color={colors.charcoal} />
           </TouchableOpacity>
@@ -173,6 +189,27 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {type === 'size' && !multiSelect && sizeSystem && onSizeSystemChange && (
+            <View style={styles.sizeSystemControls} accessibilityRole="radiogroup">
+              {SIZE_SYSTEMS.map((system) => (
+                <TouchableOpacity
+                  key={system}
+                  testID={`selection-size-system-${system}`}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`Tailles ${system}`}
+                  accessibilityState={{ checked: sizeSystem === system }}
+                  style={[styles.sizeItem, sizeSystem === system && styles.sizeItemSelected]}
+                  onPress={() => {
+                    if (system !== sizeSystem) onSizeSystemChange(system);
+                  }}
+                >
+                  <Text style={[styles.sizeText, sizeSystem === system && styles.sizeTextSelected]}>
+                    {system}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
           {type === 'size' ? (
             // ── Size grid ──
             <View style={styles.sizeGrid}>
@@ -180,6 +217,9 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
                 <TouchableOpacity
                   key={item.value}
                   testID={`selection-item-${item.value}`}
+                  accessibilityRole={isTroc ? multiSelect ? 'checkbox' : 'button' : undefined}
+                  accessibilityLabel={isTroc ? item.label : undefined}
+                  accessibilityState={isTroc ? multiSelect ? {checked: isSelected(item.value)} : {selected: isSelected(item.value)} : undefined}
                   style={[
                     styles.sizeItem,
                     isSelected(item.value) && styles.sizeItemSelected
@@ -202,6 +242,9 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
                 <TouchableOpacity
                   key={item.value}
                   testID={`selection-item-${item.value}`}
+                  accessibilityRole={isTroc ? multiSelect ? 'checkbox' : 'button' : undefined}
+                  accessibilityLabel={isTroc ? item.label : undefined}
+                  accessibilityState={isTroc ? multiSelect ? {checked: isSelected(item.value)} : {selected: isSelected(item.value)} : undefined}
                   style={[
                     styles.colorOption,
                     isSelected(item.value) && styles.optionSelected
@@ -234,6 +277,9 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
                 <TouchableOpacity
                   key={item.value}
                   testID={`selection-item-${item.value}`}
+                  accessibilityRole={isTroc ? multiSelect ? 'checkbox' : 'button' : undefined}
+                  accessibilityLabel={isTroc ? item.label : undefined}
+                  accessibilityState={isTroc ? multiSelect ? {checked: isSelected(item.value)} : {selected: isSelected(item.value)} : undefined}
                   style={[
                     styles.option,
                     isSelected(item.value) && styles.optionSelected
@@ -264,6 +310,9 @@ const SelectionBottomSheet = forwardRef<SelectionBottomSheetRef, SelectionBottom
 // ─────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  trocSurface: { backgroundColor: colors.background },
+  trocTitle: { ...typography.trocScreenTitle, color: colors.foreground },
+  trocConfirmButton: { backgroundColor: colors.primaryDark, borderRadius: components.troc.cardRadius },
   sheetBackground: {
     backgroundColor: colors.surface,
   },
@@ -382,6 +431,11 @@ const styles = StyleSheet.create({
   },
 
   // ── Size grid (matches onboarding chip dimensions) ──
+  sizeSystemControls: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
   sizeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

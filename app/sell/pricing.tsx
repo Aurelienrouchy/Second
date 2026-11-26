@@ -1,18 +1,22 @@
+import { auth } from '@/config/firebaseConfig';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TextInput,
+  Text,
+  Pressable,
   InputAccessoryView,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import NeighborhoodBottomSheet, { NeighborhoodBottomSheetRef } from '@/components/NeighborhoodBottomSheet';
-import FormSectionTitle from '@/components/sell/FormSectionTitle';
+import NeighborhoodBottomSheet, { NeighborhoodBottomSheetRef } from '@/features/sell/components/pricing/NeighborhoodBottomSheet';
+import FormSectionTitle from '@/features/sell/components/shared/FormSectionTitle';
 import { ScreenHeader } from '@/components/ui';
 import {
   PriceCard,
@@ -23,13 +27,15 @@ import {
 } from '@/features/sell';
 import { AIAnalysisResult } from '@/types/ai';
 import { MeetupNeighborhood } from '@/types';
-import draftService, { ArticleDraft, DraftPricing, DraftFields } from '@/services/draftService';
+import draftService, { ArticleDraft, DraftPricing, DraftFields } from '@/features/sell/services/draftService';
+import { PRICE_INPUT_ACCESSORY_ID } from '@/features/sell/components/pricing/PriceCard';
+import { toggleNeighborhood } from '@/features/sell/utils/neighborhoods';
+import { isObject, isStringArray, parseRouteParam, serializeRouteParam } from '@/features/sell/utils/routeParams';
 import { track } from '@/lib/analytics';
-import { auth } from '@/config/firebaseConfig';
-import { colors, spacing } from '@/constants/theme';
-import { SHIPPING_ENABLED } from '@/config/featureFlags';
-
-type PackageSize = 'small' | 'medium' | 'large';
+import { colors, fonts, spacing } from '@/constants/theme';
+import { SHIPPING_ENABLED, SHIPPING_LISTINGS_ENABLED } from '@/config/featureFlags';
+import { isValidArticlePrice } from '@/functions/src/shared/article';
+import { automaticShippingEstimate } from '@/functions/src/shared/automaticShippingEstimate';
 
 export default function PricingScreen() {
   const router = useRouter();
@@ -45,10 +51,10 @@ export default function PricingScreen() {
 
   // Parse params
   const isResuming = params.resumeDraft === 'true';
-  const [photos, setPhotos] = useState<string[]>(params.photos ? JSON.parse(params.photos as string) : []);
-  const [fields, setFields] = useState<DraftFields | null>(params.fields ? JSON.parse(params.fields as string) : null);
-  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(params.aiResult ? JSON.parse(params.aiResult as string) : null);
-  const [storageUrls, setStorageUrls] = useState<string[]>(params.storageUrls ? JSON.parse(params.storageUrls as string) : []);
+  const [photos, setPhotos] = useState<string[]>(parseRouteParam(params.photos, [] as string[], isStringArray));
+  const [fields, setFields] = useState<DraftFields | null>(parseRouteParam<DraftFields | null>(params.fields, null, isObject));
+  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(parseRouteParam<AIAnalysisResult | null>(params.aiResult, null, isObject));
+  const [storageUrls, setStorageUrls] = useState<string[]>(parseRouteParam(params.storageUrls, [] as string[], isStringArray));
 
   // State
   const [price, setPrice] = useState('');
@@ -56,12 +62,14 @@ export default function PricingScreen() {
   const [isHandDelivery, setIsHandDelivery] = useState(!SHIPPING_ENABLED);
   const [isShipping, setIsShipping] = useState(SHIPPING_ENABLED);
   const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<MeetupNeighborhood[]>([]);
-  const [packageSize, setPackageSize] = useState<PackageSize | null>(
-    aiResult?.packageSize?.suggested || null,
-  );
+  const parcelEstimate = automaticShippingEstimate({categoryIds: fields?.categoryIds ?? []});
+  const packageSize = parcelEstimate.profileSize;
   const [errors, setErrors] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(!isResuming);
   const [draft, setDraft] = useState<ArticleDraft | null>(null);
+  // Le KeyboardAvoidingView de l'écran rétrécirait la feuille pleine page dès que
+  // sa recherche ouvre le clavier : on le neutralise tant qu'elle est ouverte.
+  const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
 
   // Load draft on mount
   useEffect(() => {
@@ -77,11 +85,11 @@ export default function PricingScreen() {
           setFields(existingDraft.fields);
           setAiResult(existingDraft.aiResult);
         }
-        if (isResuming && existingDraft.pricing) {
+        if (existingDraft.pricing) {
           if (existingDraft.pricing.price !== null) {
             setPrice(existingDraft.pricing.price.toString());
           }
-          if (SHIPPING_ENABLED) {
+          if (SHIPPING_LISTINGS_ENABLED) {
             setIsHandDelivery(!!existingDraft.pricing.isHandDelivery);
             setIsShipping(!!existingDraft.pricing.isShipping);
           } else {
@@ -93,9 +101,6 @@ export default function PricingScreen() {
             setSelectedNeighborhoods(existingDraft.pricing.neighborhoods);
           } else if (existingDraft.pricing.neighborhood) {
             setSelectedNeighborhoods([existingDraft.pricing.neighborhood]);
-          }
-          if (existingDraft.pricing.packageSize) {
-            setPackageSize(existingDraft.pricing.packageSize as PackageSize);
           }
         }
         setIsInitialized(true);
@@ -126,58 +131,27 @@ export default function PricingScreen() {
     setDraft(await draftService.updateDraftPricing(latest, pricingData));
   }, [price, isHandDelivery, isShipping, selectedNeighborhoods, packageSize, photoOwnerUid]);
 
-  useEffect(() => {
-    if (!draftId || !isInitialized) return;
-    const timeoutId = setTimeout(() => {
-      void persistPricing().catch(() => {
-        if (__DEV__) console.error('Failed to save draft pricing');
-      });
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [draftId, isInitialized, persistPricing]);
-
-  const handleBack = useCallback(() => {
-    Alert.alert(
-      'Quitter ?',
-      'Tes modifications seront sauvegardées dans le brouillon.',
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-          onPress: () =>
-            track('sell_exit_prompted', {
-              flow_step: 'pricing',
-              confirmed_leave: false,
-              photo_count: photos.length,
-              has_price: !!price,
-            }),
-        },
-        {
-          text: 'Quitter',
-          onPress: async () => {
-            try { await persistPricing(); } catch {
-              Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter.');
-              return;
-            }
-            track('sell_exit_prompted', {
-              flow_step: 'pricing',
-              confirmed_leave: true,
-              photo_count: photos.length,
-              has_price: !!price,
-            });
-            allowLeaveRef.current = true;
-            router.back();
-          },
-        },
-      ],
-    );
-  }, [persistPricing, photos.length, price, router]);
-
-  useEffect(() => navigation.addListener('beforeRemove', event => {
-    if (allowLeaveRef.current || draftService.wasPublished) return;
-    event.preventDefault();
-    handleBack();
-  }), [navigation, handleBack]);
+  // Going back only returns to the details: no « Quitter ? » alert. What is
+  // typed is saved right away — the auto-save waits 500 ms, and unmounting
+  // cancels it.
+  const handleBack = async () => {
+    if (draft && isInitialized) {
+      try {
+        const updated = await draftService.updateDraftPricing(draft, {
+          price: price ? parseFloat(price) : null,
+          isHandDelivery,
+          isShipping,
+          neighborhood: selectedNeighborhoods[0] || null,
+          neighborhoods: selectedNeighborhoods,
+          packageSize,
+        });
+        setDraft(updated);
+      } catch (error) {
+        if (__DEV__) console.error('Failed to save draft pricing:', error);
+      }
+    }
+    router.back();
+  };
 
   const handlePriceChange = (value: string) => {
     const cleaned = value.replace(',', '.').replace(/[^0-9.]/g, '');
@@ -188,37 +162,48 @@ export default function PricingScreen() {
   };
 
   const handleNeighborhoodToggle = (neighborhood: MeetupNeighborhood) => {
-    let countAfter = 0;
-    setSelectedNeighborhoods((prev) => {
-      const exists = prev.some((n) => n.id === neighborhood.id);
-      const next = exists ? prev.filter((n) => n.id !== neighborhood.id) : [...prev, neighborhood];
-      countAfter = next.length;
-      return next;
-    });
+    Keyboard.dismiss();
+    const { next, capped } = toggleNeighborhood(selectedNeighborhoods, neighborhood);
+    if (capped) {
+      Alert.alert('10 quartiers maximum', 'Retire un quartier pour en choisir un autre.');
+      return;
+    }
+    setSelectedNeighborhoods(next);
     track('sell_field_edited', {
       screen: 'sell',
       field: 'neighborhoods',
       value: neighborhood.id,
-      selected_count_after: countAfter,
+      selected_count_after: next.length,
     });
+  };
+
+  const handleNeighborhoodsConfirm = (neighborhoods: MeetupNeighborhood[]) => {
+    setSelectedNeighborhoods(neighborhoods);
+    track('sell_field_edited', {
+      screen: 'sell',
+      field: 'neighborhoods',
+      selected_count_after: neighborhoods.length,
+    });
+  };
+
+  // Le prix se saisit au pavé décimal : sans ce repli, le clavier restait ouvert
+  // par-dessus la feuille des quartiers.
+  const openNeighborhoodSheet = () => {
+    Keyboard.dismiss();
+    neighborhoodSheetRef.current?.show();
   };
 
   const validateForm = (): boolean => {
     const newErrors: string[] = [];
     const priceNum = parseFloat(price);
-    if (!price || isNaN(priceNum) || priceNum < 0.01) {
-      newErrors.push('Entrez un prix valide');
-    } else if (priceNum > 10000) {
-      newErrors.push('Le prix maximum est de 10 000 $');
+    if (!isValidArticlePrice(priceNum)) {
+      newErrors.push('Indiquez un prix entre 0,01 $ et 10 000 $, avec au plus deux décimales. Aucun arrondi automatique ne sera appliqué.');
     }
     if (!isHandDelivery && !isShipping) {
       newErrors.push('Sélectionnez au moins une option de livraison');
     }
     if (isHandDelivery && selectedNeighborhoods.length === 0) {
       newErrors.push('Sélectionnez au moins un quartier pour la remise en main propre');
-    }
-    if (isShipping && !packageSize) {
-      newErrors.push('Sélectionnez une taille de colis');
     }
     setErrors(newErrors);
     return newErrors.length === 0;
@@ -229,11 +214,9 @@ export default function PricingScreen() {
     if (!validateForm()) {
       const missingKeys: string[] = [];
       const priceValue = parseFloat(price);
-      if (!price || isNaN(priceValue) || priceValue < 0.01) missingKeys.push('price_invalid');
-      else if (priceValue > 10000) missingKeys.push('price_too_high');
+      if (!isValidArticlePrice(priceValue)) missingKeys.push(priceValue > 10000 ? 'price_too_high' : 'price_invalid');
       if (!isHandDelivery && !isShipping) missingKeys.push('no_delivery');
       if (isHandDelivery && selectedNeighborhoods.length === 0) missingKeys.push('neighborhoods_required');
-      if (isShipping && !packageSize) missingKeys.push('package_size_required');
       track('sell_validation_failed', {
         step: 'pricing',
         missing_fields: missingKeys,
@@ -247,6 +230,7 @@ export default function PricingScreen() {
       Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de continuer.');
       return;
     }
+    if (!navigation.isFocused()) {advancingRef.current = false; return;}
     track('sell_step_completed', {
       step: 'pricing',
       price_cents: Math.round(parseFloat(price) * 100),
@@ -258,9 +242,13 @@ export default function PricingScreen() {
     router.push({
       pathname: '/sell/preview',
       params: {
-        photos: JSON.stringify(photos),
-        fields: JSON.stringify(fields),
-        pricing: JSON.stringify({
+        // Resumed here, this screen holds no photos, fields or images: the
+        // preview must read them from the draft, or it showed an empty
+        // article that refused to publish.
+        ...(isResuming ? { resumeDraft: 'true' } : {}),
+        photos: serializeRouteParam(photos),
+        fields: serializeRouteParam(fields),
+        pricing: serializeRouteParam({
           price: parseFloat(price),
           isHandDelivery,
           isShipping,
@@ -268,8 +256,8 @@ export default function PricingScreen() {
           neighborhoods: selectedNeighborhoods,
           packageSize,
         }),
-        aiResult: aiResult ? JSON.stringify(aiResult) : undefined,
-        storageUrls: JSON.stringify(storageUrls),
+        aiResult: aiResult ? serializeRouteParam(aiResult) : undefined,
+        storageUrls: serializeRouteParam(storageUrls),
       },
     });
   };
@@ -277,20 +265,17 @@ export default function PricingScreen() {
   const priceNum = parseFloat(price);
   const hasAtLeastOneDelivery = isHandDelivery || isShipping;
   const handDeliveryValid = !isHandDelivery || selectedNeighborhoods.length > 0;
-  const shippingValid = !isShipping || !!packageSize;
   const isFormValid =
-    !isNaN(priceNum) &&
-    priceNum > 0 &&
-    priceNum <= 10000 &&
+    isValidArticlePrice(priceNum) &&
     hasAtLeastOneDelivery &&
-    handDeliveryValid &&
-    shippingValid;
+    handDeliveryValid;
 
   return (
     <KeyboardAvoidingView
       testID="sell-pricing-screen"
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      enabled={!isNeighborhoodSheetOpen}
     >
       <ScreenHeader
         title="Prix & livraison"
@@ -300,6 +285,7 @@ export default function PricingScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
         <FormSectionTitle title="Ton prix" />
@@ -317,16 +303,17 @@ export default function PricingScreen() {
         <HandDeliveryCard
           isActive={isHandDelivery}
           onToggle={() => {
+            Keyboard.dismiss();
             const enabled = !isHandDelivery;
             setIsHandDelivery(enabled);
             track('sell_field_edited', { screen: 'sell', field: 'hand_delivery', enabled });
           }}
           selectedNeighborhoods={selectedNeighborhoods}
           onNeighborhoodToggle={handleNeighborhoodToggle}
-          onViewMore={() => neighborhoodSheetRef.current?.show()}
+          onViewMore={openNeighborhoodSheet}
         />
 
-        {SHIPPING_ENABLED && (
+        {SHIPPING_LISTINGS_ENABLED && (
           <ShippingCard
             isActive={isShipping}
             onToggle={() => {
@@ -334,17 +321,7 @@ export default function PricingScreen() {
               setIsShipping(enabled);
               track('sell_field_edited', { screen: 'sell', field: 'shipping', enabled });
             }}
-            packageSize={packageSize}
-            onPackageSizeSelect={(size) => {
-              setPackageSize(size);
-              track('sell_field_edited', {
-                screen: 'sell',
-                field: 'package_size',
-                value: size,
-                matched_ai_suggestion: size === aiResult?.packageSize?.suggested,
-              });
-            }}
-            aiSuggestedSize={aiResult?.packageSize?.suggested}
+            estimate={parcelEstimate}
           />
         )}
 
@@ -355,6 +332,7 @@ export default function PricingScreen() {
         testID="sell-pricing-footer-cta"
         label="APERÇU"
         onPress={handleContinue}
+        onInvalidPress={handleContinue}
         isValid={isFormValid}
         bottomInset={Math.max(insets.bottom, 16) - 16}
       />
@@ -362,13 +340,22 @@ export default function PricingScreen() {
       <NeighborhoodBottomSheet
         ref={neighborhoodSheetRef}
         selectedNeighborhoods={selectedNeighborhoods}
-        onSelect={handleNeighborhoodToggle}
-        multiSelect
+        onConfirm={handleNeighborhoodsConfirm}
+        onVisibilityChange={setIsNeighborhoodSheetOpen}
       />
 
       {Platform.OS === 'ios' && (
-        <InputAccessoryView nativeID="pricing-empty">
-          <View />
+        <InputAccessoryView nativeID={PRICE_INPUT_ACCESSORY_ID}>
+          <View style={styles.accessoryBar}>
+            <Pressable
+              testID="sell-price-done"
+              onPress={() => Keyboard.dismiss()}
+              hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.accessoryText}>Terminé</Text>
+            </Pressable>
+          </View>
         </InputAccessoryView>
       )}
     </KeyboardAvoidingView>
@@ -386,5 +373,19 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 32,
+  },
+  accessoryBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    backgroundColor: colors.surfaceWarm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  accessoryText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.charcoal,
   },
 });

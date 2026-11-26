@@ -1,5 +1,11 @@
+import { runtimeEnvironment } from '@/config/firebaseEnvironment';
+import { catalogueCallableName } from '@/config/catalogueCallableContracts';
+import { resolveGoogleSignInConfiguration, socialAuthBundleId } from '@/config/socialAuthConfig';
+import * as Application from 'expo-application';
 import { auth, firestore, functions } from '@/config/firebaseConfig';
 import { User } from '@/types';
+import {isSmallBalanceSettlement} from '@/utils/smallBalanceClosure';
+import type {SmallBalanceSettlement} from '@/types/wallet';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged as firebaseOnAuthStateChanged,
@@ -29,13 +35,22 @@ import {
   setDoc,
   updateDoc
 } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
+import { phase1HttpsCallable as httpsCallable } from '@/services/phase1Callable';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
+import { issueAppleErasureAuthorization } from '@/services/accountErasureAppleAuthorization';
+import type { AppleErasureAuthorization } from '@/services/accountErasureAppleAuthorization';
+import type { AccountErasureAttempt } from '@/types/accountErasure';
 
 import { computeAgeFromIso, MIN_AGE_REGISTER } from '@/utils/age';
+import { clearSignupConsent, isDefinitiveSignupRefusal, parseSignupConsent, readSignupConsent, writeSignupConsent,
+  type SignupConsent } from '@/services/signupConsentJournal';
+export type { SignupConsent } from '@/services/signupConsentJournal';
+
+export interface SignupConsentContext { assertCurrent: () => void }
+const signupSubmissions = new Set<string>();
 
 /**
  * Consent payload collected at signup. `dateOfBirth` is an ISO "YYYY-MM-DD"
@@ -47,14 +62,6 @@ import { computeAgeFromIso, MIN_AGE_REGISTER } from '@/utils/age';
  * atomically by recordSignupConsent. Optional: legacy/auto-assign fallback when
  * absent.
  */
-export interface SignupConsent {
-  dateOfBirth: string;
-  acceptedTerms: boolean;
-  acceptedPrivacy: boolean;
-  marketingOptIn: boolean;
-  desiredUsername?: string;
-}
-
 /**
  * Result of a social sign-in (Google/Apple).
  *
@@ -79,14 +86,96 @@ export interface SocialAuthResult {
   isNewUser: boolean;
 }
 
+export type AccountClosureMode = 'pause' | 'delete';
+export interface AccountClosureResult {
+  success: boolean;
+  status: 'paused' | 'incomplete' | 'complete';
+  deletionComplete: boolean;
+  newOperationsBlocked: boolean;
+  authDeleted?: boolean;
+  blockers?: string[];
+  incompleteParts?: string[];
+  action?: string;
+  smallBalanceSettlement?: SmallBalanceSettlement | null;
+}
+
+export function isAccountClosureResult(value: unknown): value is AccountClosureResult {
+  if (!value || typeof value !== 'object') return false;
+  const result = value as Record<string, unknown>;
+  if (typeof result.success !== 'boolean' || typeof result.deletionComplete !== 'boolean' ||
+      result.newOperationsBlocked !== true || typeof result.status !== 'string' ||
+      !['paused', 'incomplete', 'complete'].includes(result.status)) return false;
+  if (result.status === 'complete' ? !result.success || !result.deletionComplete : result.deletionComplete) return false;
+  if (result.authDeleted !== undefined && typeof result.authDeleted !== 'boolean') return false;
+  if (result.smallBalanceSettlement !== undefined && result.smallBalanceSettlement !== null && (!isSmallBalanceSettlement(result.smallBalanceSettlement) || result.status === 'complete' || result.deletionComplete !== false || result.authDeleted === true)) return false;
+  for (const key of ['blockers', 'incompleteParts']) {
+    const items = result[key];
+    if (items !== undefined && (!Array.isArray(items) || !items.every(item => typeof item === 'string'))) return false;
+  }
+  if (Array.isArray(result.blockers) && result.blockers.some(blocker => blocker === 'privacy_retention_review_required' ||
+    blocker === 'external_erasure_retention_review_required') &&
+    (result.success !== false || result.deletionComplete !== false || result.status === 'complete' ||
+      (result.action !== 'contactSupport' && !(result.action === 'settleSmallBalance' && isSmallBalanceSettlement(result.smallBalanceSettlement))))) return false;
+  return result.action === undefined || typeof result.action === 'string';
+}
+
 function generateDefaultUsername(uid: string): string {
   return `user${uid.slice(-6)}`;
+}
+
+/**
+ * Longueur maximale d'un nom d'affichage, imposée par `firestore.rules`
+ * (`isValidUserData` : `isValidString(displayName, 1, 50)`).
+ *
+ * Le nom rendu par Google ou Apple n'est borné par RIEN. Un nom composé long —
+ * patronymes portugais ou hispaniques, doubles noms — dépasse 50 caractères, et
+ * l'écriture était alors REFUSÉE par la règle : `setDoc` lève à la première
+ * connexion, le `catch` englobant le convertit en « Erreur lors de la connexion
+ * Google. Veuillez réessayer. », et le retry échoue à l'identique. La personne
+ * est enfermée dehors de son propre compte, sans que rien n'indique pourquoi.
+ *
+ * On tronque donc au bord du client, avant l'écriture, sur les deux chemins
+ * (création du document et rattrapage d'un nom générique) et pour les deux
+ * fournisseurs.
+ */
+const MAX_DISPLAY_NAME_LENGTH = 50;
+
+/** Nom d'affichage borné, prêt à être écrit. */
+function boundDisplayName(name: string): string {
+  return name.trim().slice(0, MAX_DISPLAY_NAME_LENGTH);
 }
 
 function isGenericDisplayName(name: string | null | undefined): boolean {
   if (!name || name.trim().length === 0) return true;
   const lower = name.toLowerCase().trim();
   return lower.includes('utilisateur') || lower === 'user';
+}
+
+function googleSignInConfig() {
+  return resolveGoogleSignInConfiguration({
+    environment: runtimeEnvironment.name,
+    platform: Platform.OS,
+    webClientId: process.env.EXPO_PUBLIC_DEV_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_DEV_GOOGLE_IOS_CLIENT_ID,
+  });
+}
+
+function requireSocialAuthNativeBuild(): void {
+  const expectedBundleId = socialAuthBundleId(runtimeEnvironment.name);
+  if (Application.applicationId !== expectedBundleId) {
+    throw new Error(runtimeEnvironment.name === 'development'
+      ? 'Google et Apple nécessitent l’application Seconde Dev. Installez le client de développement, puis réessayez.'
+      : 'Cette version de l’application ne correspond pas à l’environnement de connexion.');
+  }
+}
+
+function requireGoogleSignInConfiguration(): void {
+  requireSocialAuthNativeBuild();
+  const configuration = googleSignInConfig();
+  if (!configuration) {
+    throw new Error('La connexion Google de Seconde Dev n’est pas encore configurée. Utilisez une adresse courriel et un mot de passe de test.');
+  }
+  GoogleSignin.configure(configuration);
 }
 
 export class AuthService {
@@ -123,13 +212,9 @@ export class AuthService {
    */
   static async initialize(): Promise<void> {
     try {
-      const config = {
-        webClientId: '628214013296-pggun4ig3j52v6r2me4k33ljsh5rc4tg.apps.googleusercontent.com',
-        iosClientId: '628214013296-fspuqlslcg8tln3aonhce95c435oauts.apps.googleusercontent.com',
-        offlineAccess: false,
-      };
-
-      GoogleSignin.configure(config);
+      const config = googleSignInConfig();
+      // Missing OAuth setup disables Google only; email sign-in remains usable.
+      if (config) GoogleSignin.configure(config);
     } catch (error) {
       if (__DEV__) console.error('[AuthService] Failed to configure Google Sign-In:', error);
       throw error;
@@ -291,12 +376,16 @@ export class AuthService {
    * Connexion avec Google
    */
   static async signInWithGoogle(): Promise<SocialAuthResult> {
+    requireGoogleSignInConfiguration();
     try {
       // Vérifier si Google Play Services est disponible
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
       // Obtenir les informations utilisateur de Google
       const userInfo = await GoogleSignin.signIn();
+      if (userInfo.type === 'cancelled') {
+        throw Object.assign(new Error('Connexion Google annulée'), { code: 'SIGN_IN_CANCELLED' });
+      }
 
       // Extraire correctement l'idToken et l'accessToken selon la forme retournée
       const idToken = (userInfo as any)?.idToken ?? (userInfo as any)?.data?.idToken;
@@ -313,9 +402,11 @@ export class AuthService {
       const userCredential = await signInWithCredential(auth, googleCredential);
       const firebaseUser = userCredential.user;
 
-      const googleName = isGenericDisplayName(firebaseUser.displayName)
-        ? generateDefaultUsername(firebaseUser.uid)
-        : firebaseUser.displayName!;
+      const googleName = boundDisplayName(
+        isGenericDisplayName(firebaseUser.displayName)
+          ? generateDefaultUsername(firebaseUser.uid)
+          : firebaseUser.displayName!,
+      );
 
       let userData = await this.getUserData(firebaseUser.uid);
       // Calcule AVANT de créer/mettre à jour le doc (sinon getUserData ne
@@ -368,7 +459,7 @@ export class AuthService {
       } else if (error?.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
         throw new Error('Google Play Services non disponible');
       } else if (error?.code === 'DEVELOPER_ERROR') {
-        throw new Error('Configuration Google Sign-In incorrecte. Vérifiez le SHA-1 dans Firebase Console.');
+        throw new Error('La connexion Google est indisponible sur cette version. Réessayez ou contactez l’assistance.');
       }
 
       if (error?.code === 'auth/account-exists-with-different-credential') {
@@ -390,6 +481,7 @@ export class AuthService {
     if (Platform.OS !== 'ios') {
       throw new Error('Apple Sign-In disponible uniquement sur iOS.');
     }
+    requireSocialAuthNativeBuild();
     try {
       // Garde-fou de disponibilité runtime (Apple peut être indisponible même
       // sur iOS : simulateur sans compte, version < iOS 13, etc.).
@@ -435,9 +527,11 @@ export class AuthService {
       const appleFullName = credential.fullName
         ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
         : '';
-      const resolvedName = appleFullName
-        || (isGenericDisplayName(firebaseUser.displayName) ? null : firebaseUser.displayName)
-        || generateDefaultUsername(firebaseUser.uid);
+      const resolvedName = boundDisplayName(
+        appleFullName
+          || (isGenericDisplayName(firebaseUser.displayName) ? null : firebaseUser.displayName)
+          || generateDefaultUsername(firebaseUser.uid),
+      );
 
       let userData = await this.getUserData(firebaseUser.uid);
       // Calcule AVANT toute écriture (cf. signInWithGoogle).
@@ -518,64 +612,87 @@ export class AuthService {
    *
    * Retourne le User rafraîchi (avec dateOfBirth + username).
    */
-  static async recordConsentForCurrentUser(consent: SignupConsent): Promise<User> {
+  static async getPendingSignupConsent(uid: string, context?: SignupConsentContext): Promise<SignupConsent | null> {
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      throw new Error('Utilisateur non connecté');
-    }
-
-    // ── Age gate client (UX) — le serveur revalide de toute façon ──
-    const age = computeAgeFromIso(consent.dateOfBirth);
-    if (age === null) {
-      throw new Error('La date de naissance est invalide');
-    }
-    if (age < MIN_AGE_REGISTER) {
-      throw new Error(
-        `Vous devez avoir au moins ${MIN_AGE_REGISTER} ans pour utiliser Second.`,
-      );
-    }
-    if (!consent.acceptedTerms || !consent.acceptedPrivacy) {
-      throw new Error(
-        "Vous devez accepter les Conditions d'utilisation et la Politique de confidentialité.",
-      );
-    }
-
-    const recordConsentFn = httpsCallable<
-      {
-        dateOfBirth: string;
-        acceptedTerms: boolean;
-        acceptedPrivacy: boolean;
-        marketingOptIn: boolean;
-        desiredUsername?: string;
-      },
-      { ok: true; age: number; username?: string }
-    >(functions, 'recordSignupConsent');
-
-    const payload: {
-      dateOfBirth: string;
-      acceptedTerms: boolean;
-      acceptedPrivacy: boolean;
-      marketingOptIn: boolean;
-      desiredUsername?: string;
-    } = {
-      dateOfBirth: consent.dateOfBirth,
-      acceptedTerms: consent.acceptedTerms,
-      acceptedPrivacy: consent.acceptedPrivacy,
-      marketingOptIn: consent.marketingOptIn,
+    const current = () => {
+      if (!firebaseUser || firebaseUser.uid !== uid || auth.currentUser !== firebaseUser) {
+        throw Object.assign(new Error('La session a changé. Reconnectez-vous.'), {code: 'client/stale-operation'});
+      }
+      context?.assertCurrent();
     };
-    // N'inclure desiredUsername que s'il est fourni (jamais undefined explicite).
-    if (consent.desiredUsername) {
-      payload.desiredUsername = consent.desiredUsername;
-    }
+    current();
+    const pending = await readSignupConsent(uid);
+    current();
+    return pending;
+  }
 
-    // L'erreur du callable remonte telle quelle (cf. doc ci-dessus).
-    await recordConsentFn(payload);
+  /** Clear only after the store adopted this receipt. Focus is no longer relevant. */
+  static async acknowledgeSignupConsent(consent: SignupConsent, context: SignupConsentContext): Promise<void> {
+    const firebaseUser = auth.currentUser, uid = consent.sellerActivityDeclaration.expectedUid;
+    const current = () => {
+      if (!firebaseUser || firebaseUser.uid !== uid || auth.currentUser !== firebaseUser) {
+        throw Object.assign(new Error('La session a changé.'), {code: 'client/stale-operation'});
+      }
+      context.assertCurrent();
+    };
+    current();
+    const pending = await readSignupConsent(uid);
+    current();
+    if (!pending) return;
+    if (JSON.stringify(pending) !== JSON.stringify(parseSignupConsent(consent, uid))) throw new Error('Cette inscription ne correspond pas à la demande en attente.');
+    await clearSignupConsent(uid);
+    current();
+  }
 
-    const fresh = await this.getUserData(firebaseUser.uid);
-    if (!fresh) {
-      throw new Error('Données utilisateur introuvables');
+  static async recordConsentForCurrentUser(consent: SignupConsent, context?: SignupConsentContext): Promise<User> {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) throw new Error('Utilisateur non connecté');
+    const uid = firebaseUser.uid;
+    const current = () => {
+      if (auth.currentUser !== firebaseUser || auth.currentUser?.uid !== uid) {
+        throw Object.assign(new Error('La session a changé. Reconnectez-vous.'), {code: 'client/stale-operation'});
+      }
+      context?.assertCurrent();
+    };
+    current();
+    const age = computeAgeFromIso(consent.dateOfBirth);
+    if (age === null) throw new Error('La date de naissance est invalide');
+    if (age < MIN_AGE_REGISTER) throw new Error(`Vous devez avoir au moins ${MIN_AGE_REGISTER} ans pour utiliser Second.`);
+    const payload = parseSignupConsent(consent, uid);
+    if (signupSubmissions.has(uid)) throw Object.assign(new Error('Votre inscription est déjà en cours.'), {code: 'client/signup-in-progress'});
+    signupSubmissions.add(uid);
+    try {
+      const pending = await readSignupConsent(uid);
+      current();
+      if (pending && JSON.stringify(pending) !== JSON.stringify(payload)) {
+        throw Object.assign(new Error('Reprenez votre inscription précédente avant de modifier vos choix.'), {code: 'client/signup-pending'});
+      }
+      // Durable before the first network mutation. Every retry uses these exact choices.
+      await writeSignupConsent(uid, pending ?? payload);
+      current();
+      const recordConsentFn = httpsCallable<SignupConsent, {ok: true; age: number; username?: string}>(functions, catalogueCallableName('recordSignupConsent'));
+      let result;
+      try {
+        result = await recordConsentFn(pending ?? payload);
+      } catch (error) {
+        current();
+        if (isDefinitiveSignupRefusal(error)) {
+          await clearSignupConsent(uid);
+          current();
+        }
+        throw error;
+      }
+      current();
+      if (result.data?.ok !== true) throw new Error('Le résultat de votre inscription reste à confirmer. Réessayez.');
+      const fresh = await this.getUserData(uid);
+      current();
+      if (!fresh || fresh.id !== uid) throw new Error('Données utilisateur introuvables');
+      // The store acknowledges only after signIn adopted this known receipt.
+      // Losing focus before that point must leave an exact replay available.
+      return fresh;
+    } finally {
+      signupSubmissions.delete(uid);
     }
-    return fresh;
   }
 
   /**
@@ -662,7 +779,10 @@ export class AuthService {
   /**
    * Déconnexion
    */
-  static async signOut(): Promise<void> {
+  static async signOut(options: { expectedUid?: string; isCurrent?: () => boolean } = {}): Promise<void> {
+    const current = () => (!options.expectedUid || auth.currentUser?.uid === options.expectedUid) &&
+      (options.isCurrent?.() ?? true);
+    if (!current()) return;
     try {
       // Déconnexion Google
       try {
@@ -670,6 +790,8 @@ export class AuthService {
       } catch {
         // Ignorer les erreurs si l'utilisateur n'est pas connecté via Google
       }
+
+      if (!current()) return;
 
       // Déconnexion Firebase
       await firebaseSignOut(auth);
@@ -681,15 +803,16 @@ export class AuthService {
   /**
    * Obtenir l'utilisateur actuel
    */
-  static async getCurrentUser(): Promise<User | null> {
+  static async getCurrentUser(expectedUid?: string): Promise<User | null> {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) return null;
+    if (expectedUid && firebaseUser.uid !== expectedUid) throw new Error('La session a changé.');
     try {
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) {
-        return null;
-      }
-
-      return await this.getUserData(firebaseUser.uid);
-    } catch {
+      const user = await this.getUserData(firebaseUser.uid, !!expectedUid);
+      if (expectedUid && auth.currentUser?.uid !== expectedUid) throw new Error('La session a changé.');
+      return user;
+    } catch (error) {
+      if (expectedUid) throw error;
       return null;
     }
   }
@@ -704,7 +827,7 @@ export class AuthService {
   /**
    * Récupérer les données utilisateur depuis Firestore
    */
-  private static async getUserData(userId: string): Promise<User | null> {
+  private static async getUserData(userId: string, strict = false): Promise<User | null> {
     try {
       const userDoc = await getDoc(doc(firestore, 'users', userId));
 
@@ -712,13 +835,15 @@ export class AuthService {
         return null;
       }
 
+      if (userDoc.id !== userId) throw new Error('Profile identity mismatch');
       const data = userDoc.data()!;
       return {
         ...data,
         id: userDoc.id,
         createdAt: data.createdAt?.toDate?.() || new Date(),
       } as User;
-    } catch {
+    } catch (error) {
+      if (strict) throw error;
       return null;
     }
   }
@@ -739,40 +864,57 @@ export class AuthService {
     return user.providerData.some(p => p.providerId === 'password');
   }
 
-  static async reauthenticate(password: string): Promise<void> {
+  static async reauthenticate(password: string, assertCurrent: () => void = () => {}): Promise<void> {
+    assertCurrent();
     const user = auth.currentUser;
     if (!user || !user.email) throw new Error('Utilisateur non connecté');
 
     const credential = EmailAuthProvider.credential(user.email, password);
     try {
       await reauthenticateWithCredential(user, credential);
+      assertCurrent();
     } catch (error: any) {
       throw new Error(this.getAuthErrorMessage(error.code));
     }
   }
 
-  static async reauthenticateWithGoogle(): Promise<void> {
+  static async reauthenticateWithGoogle(assertCurrent: () => void = () => {}, waitForNativeReturn?: () => Promise<void>): Promise<void> {
+    assertCurrent();
+    requireGoogleSignInConfiguration();
     const user = auth.currentUser;
     if (!user) throw new Error('Utilisateur non connecté');
 
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    assertCurrent();
     const userInfo = await GoogleSignin.signIn();
+    await waitForNativeReturn?.();
+    assertCurrent();
+    if (userInfo.type === 'cancelled') {
+      throw Object.assign(new Error('Connexion Google annulée'), { code: 'SIGN_IN_CANCELLED' });
+    }
     const idToken = (userInfo as any)?.idToken ?? (userInfo as any)?.data?.idToken;
     if (!idToken) throw new Error('Erreur de réauthentification Google');
 
     const credential = GoogleAuthProvider.credential(idToken);
     await reauthenticateWithCredential(user, credential);
+    assertCurrent();
   }
 
-  static async reauthenticateWithApple(): Promise<void> {
+  private static async reauthenticateAppleCredential(assertCurrent: () => void, waitForNativeReturn?: () => Promise<void>): Promise<AppleAuthentication.AppleAuthenticationCredential> {
+    assertCurrent();
     if (Platform.OS !== 'ios') {
       throw new Error('La ré-authentification Apple n\'est disponible que sur iOS. Veuillez ajouter un mot de passe à votre compte depuis un appareil iOS.');
     }
+    requireSocialAuthNativeBuild();
+    const appleAvailable = await AppleAuthentication.isAvailableAsync();
+    assertCurrent();
+    if (!appleAvailable) throw new Error('Apple Sign-In n’est pas disponible sur cet appareil.');
 
     const user = auth.currentUser;
     if (!user) throw new Error('Utilisateur non connecté');
 
     const nonceBytes = await Crypto.getRandomBytesAsync(32);
+    assertCurrent();
     const nonce = Array.from(new Uint8Array(nonceBytes))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
@@ -780,6 +922,7 @@ export class AuthService {
       Crypto.CryptoDigestAlgorithm.SHA256,
       nonce
     );
+    assertCurrent();
 
     const appleCredential = await AppleAuthentication.signInAsync({
       requestedScopes: [
@@ -788,6 +931,8 @@ export class AuthService {
       ],
       nonce: hashedNonce,
     });
+    await waitForNativeReturn?.();
+    assertCurrent();
 
     if (!appleCredential.identityToken) {
       throw new Error('Réauthentification Apple échouée');
@@ -799,6 +944,29 @@ export class AuthService {
       rawNonce: nonce,
     });
     await reauthenticateWithCredential(user, credential);
+    assertCurrent();
+    return appleCredential;
+  }
+
+  static async reauthenticateWithApple(assertCurrent: () => void = () => {}, waitForNativeReturn?: () => Promise<void>): Promise<void> {
+    await this.reauthenticateAppleCredential(assertCurrent, waitForNativeReturn);
+  }
+
+  /** Erasure additionally needs Apple's fresh authorization CODE. It is never
+   * an OAuth access token and never enters a persisted journal or analytics. */
+  static async reauthenticateWithAppleForErasure(attempt: AccountErasureAttempt, generation: number,
+    assertCurrent: () => void, waitForNativeReturn?: () => Promise<void>): Promise<AppleErasureAuthorization> {
+    const owner = auth.currentUser;
+    const check = () => {
+      assertCurrent();
+      if (!owner || auth.currentUser !== owner || owner.uid !== attempt.ownerId ||
+          !owner.providerData.some(provider => provider.providerId === 'apple.com')) throw new Error('La session Apple a changé.');
+    };
+    check();
+    const credential = await this.reauthenticateAppleCredential(check, waitForNativeReturn);
+    check();
+    if (!credential.authorizationCode) throw new Error('Apple doit fournir une nouvelle autorisation pour cette demande.');
+    return issueAppleErasureAuthorization(attempt, owner!, generation, credential.authorizationCode);
   }
 
   /**
@@ -838,11 +1006,20 @@ export class AuthService {
   /**
    * Vérifier l'état de la configuration des services d'authentification
    */
-  static getAuthConfigStatus() {
+  static async getAuthConfigStatus() {
+    const nativeBuildMatches = Application.applicationId === socialAuthBundleId(runtimeEnvironment.name);
+    let apple: 'unsupported' | 'native_build_required' | 'available' | 'unavailable' = 'unsupported';
+    if (Platform.OS === 'ios') {
+      apple = !nativeBuildMatches ? 'native_build_required' :
+        await AppleAuthentication.isAvailableAsync().catch(() => false) ? 'available' : 'unavailable';
+    }
     return {
-      emailPassword: 'Ready', // Toujours disponible avec Firebase Auth
-      google: 'Ready', // Configuré directement dans le code avec les valeurs du GoogleService-Info.plist
-      apple: 'Ready' // Apple Sign-In disponible sur iOS
+      environment: runtimeEnvironment.name,
+      firebaseProjectId: runtimeEnvironment.projectId,
+      // Client configuration cannot certify that a remote provider is enabled.
+      emailPassword: 'server_configuration_not_verified' as const,
+      google: !googleSignInConfig() ? 'not_configured' : nativeBuildMatches ? 'configured' : 'native_build_required',
+      apple,
     };
   }
 
@@ -852,26 +1029,39 @@ export class AuthService {
   static async sendPasswordResetEmail(email: string): Promise<void> {
     try {
       await firebaseSendPasswordResetEmail(auth, email);
-    } catch (error: any) {
-      throw new Error(this.getAuthErrorMessage(error.code));
+    } catch (error: unknown) {
+      const code = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : '';
+      // Account absence/disabled state never becomes an existence signal on reset.
+      if (code === 'auth/user-not-found' || code === 'auth/user-disabled') return;
+      throw Object.assign(new Error(this.getAuthErrorMessage(code)), { code });
     }
   }
 
   /**
    * Supprimer le compte utilisateur (Loi 25 / PIPEDA)
-   * Appelle la callable deleteUserAccount qui gere le cleanup Firestore,
-   * Storage et la suppression du compte Firebase Auth cote serveur.
+   * Le serveur peut conserver la demande en attente d’un examen de conservation.
+   * Seule une réponse complète qualifiée autorise le parcours de fin de compte.
    */
-  static async deleteAccount(): Promise<void> {
+  static async deleteAccount(mode: AccountClosureMode = 'delete', options: { expectedUid?: string; assertCurrent?: () => void } = {}): Promise<AccountClosureResult> {
+    // Deletion uses AccountErasureService's durable identity and private
+    // observation capability. This legacy API remains the distinct pause API.
+    if (mode !== 'pause') throw new Error('Utilisez la demande suivie de suppression depuis les paramètres du compte.');
     const user = auth.currentUser;
     if (!user) throw new Error('Utilisateur non connecté');
-
-    try {
-      const deleteUserAccountFn = httpsCallable(functions, 'deleteUserAccount');
-      await deleteUserAccountFn();
-    } catch (error: any) {
-      throw new Error(this.getAuthErrorMessage(error.code));
-    }
+    const expectedUid = options.expectedUid ?? user.uid;
+    const assertCurrent = () => {
+      options.assertCurrent?.();
+      if (auth.currentUser?.uid !== expectedUid || user.uid !== expectedUid) throw new Error('La session a changé.');
+    };
+    assertCurrent();
+    // Refresh the JWT after real reauthentication; a UI flag alone cannot
+    // satisfy the server's five-minute auth_time requirement.
+    await user.getIdToken(true);
+    assertCurrent();
+    const result = await httpsCallable<{ mode: AccountClosureMode; expectedUid: string }, unknown>(functions, 'deleteUserAccount')({ mode, expectedUid });
+    assertCurrent();
+    if (!isAccountClosureResult(result.data)) throw new Error('Le résultat de la fermeture reste à vérifier.');
+    return result.data;
   }
 
   /**

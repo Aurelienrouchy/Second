@@ -1,4 +1,13 @@
 export const queryKeys = {
+  eligibility: {
+    owner: (uid: string) => ['eligibility', 'owner', uid] as const,
+    reviews: (uid: string) => ['eligibility', 'owner', uid, 'reviews'] as const,
+    review: (uid: string, id: string) => ['eligibility', 'owner', uid, 'review', id] as const,
+    admin: (uid: string) => ['eligibility', 'admin', uid] as const,
+    adminPermission: (uid: string) => ['eligibility', 'admin', uid, 'permission'] as const,
+    adminQueue: (uid: string, status: string | null) => ['eligibility', 'admin', uid, 'queue', status] as const,
+    adminReview: (uid: string, id: string) => ['eligibility', 'admin', uid, 'review', id] as const,
+  },
   articles: {
     all: ['articles'] as const,
     detail: (id: string) => ['articles', id] as const,
@@ -22,7 +31,9 @@ export const queryKeys = {
   chat: {
     all: ['chat'] as const,
     article: (articleId: string) => ['chat', 'article', articleId] as const,
-    transaction: (chatId: string) => ['chat', 'transaction', chatId] as const,
+    transaction: (chatId: string, userId: string) => ['chat', 'transaction', userId, chatId] as const,
+    transactionHistory: (chatId: string, userId: string) => ['chat', 'transaction', userId, chatId, 'history'] as const,
+    selectedTransaction: (chatId: string, userId: string, transactionId: string) => ['chat', 'transaction', userId, chatId, 'selected', transactionId] as const,
   },
   shops: {
     all: ['shops'] as const,
@@ -46,7 +57,7 @@ export const queryKeys = {
   },
   payments: {
     all: ['payments'] as const,
-    transaction: (id: string) => ['payments', id] as const,
+    transaction: (id: string, userId: string) => ['payments', userId, id] as const,
   },
   reviews: {
     all: ['reviews'] as const,

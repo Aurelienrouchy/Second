@@ -13,7 +13,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
-import ImageGallery from '@/components/ImageGallery';
+import ImageGallery from './ImageGallery';
 import { colors } from '@/constants/theme';
 
 import type { ArticleImage } from '@/types';
@@ -89,17 +89,19 @@ function ArticleFloatingHeaderComponent({
 
   return (
     <Animated.View style={[styles.floatingHeader, headerAnimatedStyle, { paddingTop: insetsTop }]}>
-      <HeaderButton icon="chevron-back" onPress={onBack} />
+      <HeaderButton icon="chevron-back" accessibilityLabel="Retour" testID="article-back-button" onPress={onBack} />
       <View style={styles.headerActions}>
         <HeaderButton
           icon={isFavorite ? 'heart' : 'heart-outline'}
+          accessibilityLabel={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          testID="article-favorite-button"
           onPress={onToggleFavorite}
           isActive={isFavorite}
           activeColor={colors.white}
           disabled={isSold}
         />
-        <HeaderButton icon="share-outline" onPress={onShare} />
-        <HeaderButton icon="ellipsis-horizontal" onPress={onMoreOptions} size={18} />
+        <HeaderButton icon="share-outline" accessibilityLabel="Partager l’article" testID="article-share-button" onPress={onShare} />
+        <HeaderButton icon="ellipsis-horizontal" accessibilityLabel="Options de l’article" testID="article-options-button" onPress={onMoreOptions} size={18} />
       </View>
     </Animated.View>
   );

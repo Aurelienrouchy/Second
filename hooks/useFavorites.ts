@@ -17,7 +17,7 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@/utils/environmentStorage';
 import {
   arrayRemove,
   arrayUnion,

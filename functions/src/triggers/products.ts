@@ -2,15 +2,122 @@
  * Article Firestore triggers (search index + user stats)
  * Firebase Functions v7 - using onDocumentWritten
  */
+import { isDeepStrictEqual } from 'node:util';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
-import { encodeGeohash } from '../utils/geohash';
 import {
   generateSearchKeywords,
   calculatePopularityScore,
 } from '../utils/search';
 import { debounceUpdate } from '../utils/debounce';
+import { articlePrivacyWithdrawn } from '../utils/publicProfile';
+
+/** Compteurs dont le changement SEUL ne justifie ni réindexation immédiate ni recalcul. */
+const METRIC_FIELDS = new Set([
+  'views',
+  'likes',
+  'likedBy',
+  'favoritesCount',
+  'popularityScore',
+  'updatedAt',
+]);
+
+/** Vrai quand, d'un état à l'autre, seuls des compteurs ont bougé. */
+function onlyMetricsChanged(
+  before: FirebaseFirestore.DocumentData | undefined,
+  after: FirebaseFirestore.DocumentData
+): boolean {
+  if (!before) return false;
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  for (const key of keys) {
+    if (!METRIC_FIELDS.has(key) && !isDeepStrictEqual(before[key], after[key])) return false;
+  }
+  return true;
+}
+
+/** Champs de l'index dont le seul changement ne justifie pas une écriture. */
+const VOLATILE_INDEX_FIELDS = new Set(['views', 'likes', 'popularityScore', 'lastIndexed']);
+
+function stableIndexFields(payload: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (!VOLATILE_INDEX_FIELDS.has(key)) out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * Document d'index d'un article. Extrait du trigger pour qu'on puisse
+ * construire aussi celui de l'état PRÉCÉDENT et comparer les deux.
+ */
+function buildSearchIndexPayload(
+  articleId: string,
+  articleData: FirebaseFirestore.DocumentData
+): Record<string, unknown> {
+  // Normalize array fields (support both singular and array formats)
+  const asList = (plural: unknown, singular: unknown): string[] => {
+    if (Array.isArray(plural)) return plural;
+    if (singular) return [singular as string];
+    return [];
+  };
+
+  const brands = asList(articleData.brands, articleData.brand);
+  const colors = asList(articleData.colors, articleData.color);
+  const materials = asList(articleData.materials, articleData.material);
+
+  // La description n'est pas relue depuis l'index (la carte ne l'affiche pas),
+  // mais ses jetons doivent rester dans `keywords` : la recherche porte dessus.
+  const brandsText = brands.join(' ');
+  const searchText = `${articleData.title} ${articleData.description} ${brandsText} ${articleData.category || ''}`;
+
+  return {
+    articleId,
+    title: articleData.title,
+    keywords: generateSearchKeywords(searchText),
+
+    // Filterable fields
+    category: articleData.category,
+    // Hierarchical category IDs — mirrored so the search_index path can
+    // filter by category when a text term is present (C1).
+    categoryIds: articleData.categoryIds || [],
+    subcategory: articleData.subcategory || null,
+    brands: brands,
+    colors: colors,
+    materials: materials,
+    brand: brands[0] || null,
+    color: colors[0] || null,
+    material: materials[0] || null,
+    // ArticleSize is an object { value, system }; mirror verbatim (or null).
+    size: articleData.size ?? null,
+    condition: articleData.condition,
+    price: articleData.price,
+
+    // Cached display data
+    sellerId: articleData.sellerId,
+    sellerName: articleData.sellerName,
+    sellerRating: articleData.sellerRating || null,
+    firstImage: articleData.images?.[0]?.url || null,
+
+    // Status
+    isActive: articleData.isActive,
+    isSold: articleData.isSold,
+    isPromoted: articleData.isPromoted || false,
+
+    // Metrics for ranking
+    views: articleData.views || 0,
+    likes: articleData.likes || 0,
+    createdAt: articleData.createdAt,
+
+    // Search optimization
+    popularityScore: calculatePopularityScore(
+      articleData.views || 0,
+      articleData.likes || 0,
+      articleData.createdAt?.toDate?.() ?? new Date()
+    ),
+    lastIndexed: FieldValue.serverTimestamp(),
+  };
+}
 
 /**
  * Update search index when article is created/updated/deleted
@@ -55,134 +162,49 @@ export const updateSearchIndex = onDocumentWritten(
         return;
       }
 
-      // Generate geohash for location
-      let geohash = '';
-      if (articleData.location?.coordinates) {
-        const { lat, lon } = articleData.location.coordinates;
-        geohash = encodeGeohash(lat, lon, 7);
-      }
-
-      // Normalize array fields (support both singular and array formats)
-      const getBrands = (): string[] => {
-        if (articleData.brands && Array.isArray(articleData.brands))
-          return articleData.brands;
-        if (articleData.brand) return [articleData.brand];
-        return [];
-      };
-      const getColors = (): string[] => {
-        if (articleData.colors && Array.isArray(articleData.colors))
-          return articleData.colors;
-        if (articleData.color) return [articleData.color];
-        return [];
-      };
-      const getMaterials = (): string[] => {
-        if (articleData.materials && Array.isArray(articleData.materials))
-          return articleData.materials;
-        if (articleData.material) return [articleData.material];
-        return [];
-      };
-
-      const brands = getBrands();
-      const colors = getColors();
-      const materials = getMaterials();
-
-      // Generate search keywords
-      const brandsText = brands.join(' ');
-      const searchText = `${articleData.title} ${articleData.description} ${brandsText} ${articleData.category || ''}`;
-      const keywords = generateSearchKeywords(searchText);
-
-      // Calculate popularity score
-      const popularityScore = calculatePopularityScore(
-        articleData.views || 0,
-        articleData.likes || 0,
-        articleData.createdAt?.toDate() || new Date()
-      );
-
-      // Create search index document
-      const searchIndexData = {
-        articleId,
-        title: articleData.title,
-        titleLowercase: articleData.title.toLowerCase(),
-        description: articleData.description,
-        keywords,
-
-        // Filterable fields
-        category: articleData.category,
-        // Hierarchical category IDs — mirrored so the search_index path can
-        // filter by category when a text term is present (C1).
-        categoryIds: articleData.categoryIds || [],
-        subcategory: articleData.subcategory || null,
-        brands: brands,
-        colors: colors,
-        materials: materials,
-        brand: brands[0] || null,
-        color: colors[0] || null,
-        material: materials[0] || null,
-        // ArticleSize is an object { value, system }; mirror verbatim (or null).
-        size: articleData.size ?? null,
-        condition: articleData.condition,
-        price: articleData.price,
-
-        // Location data
-        location: {
-          city: articleData.location?.city || '',
-          geohash,
-          coordinates: articleData.location?.coordinates || null,
-        },
-
-        // Cached display data
-        sellerId: articleData.sellerId,
-        sellerName: articleData.sellerName,
-        sellerRating: articleData.sellerRating || null,
-        firstImage: articleData.images?.[0]?.url || null,
-
-        // Status
-        isActive: articleData.isActive,
-        isSold: articleData.isSold,
-        isPromoted: articleData.isPromoted || false,
-
-        // Metrics for ranking
-        views: articleData.views || 0,
-        likes: articleData.likes || 0,
-        createdAt: articleData.createdAt,
-
-        // Search optimization
-        popularityScore,
-        lastIndexed: FieldValue.serverTimestamp(),
-      };
-
-      // Write search index. On the INITIAL creation we must await the write
-      // directly: debounceUpdate is a fire-and-forget setTimeout, and on
-      // Cloud Functions v2 (Cloud Run) the instance can be frozen/terminated
-      // as soon as the handler returns — the timer would never fire and the
-      // article would never be indexed (P1-7). We only debounce subsequent
-      // updates (frequent metric writes: views/likes/popularity).
-      const updateKey = `search_index_${articleId}`;
+      const payload = buildSearchIndexPayload(articleId, articleData);
       const isCreation = !event.data.before?.exists;
-      if (isCreation) {
-        await db
-          .collection('search_index')
-          .doc(articleId)
-          .set(searchIndexData, { merge: true });
-        logger.info(`Indexed new article ${articleId}`);
-      } else {
-        debounceUpdate(updateKey, async () => {
-          await db
-            .collection('search_index')
-            .doc(articleId)
-            .set(searchIndexData, { merge: true });
-          logger.info(`Updated search index for article ${articleId}`);
-        });
-      }
+      const before = event.data.before?.exists ? event.data.before.data() : undefined;
 
-      // Update article with geohash if not present
-      if (geohash && !articleData.location?.geohash) {
-        const geoKey = `article_geohash_${articleId}`;
-        debounceUpdate(geoKey, async () => {
-          await db.collection('articles').doc(articleId).update({
-            'location.geohash': geohash,
-          });
-          logger.info(`Added geohash to article ${articleId}`);
+      // On compare l'index que produirait l'état précédent à celui de l'état
+      // courant : changer sa photo de profil réécrit tous les articles du
+      // vendeur, et réécrivait autant de documents d'index, alors que
+      // `sellerImage` n'y figure même pas.
+      const indexedChanged =
+        isCreation ||
+        !before ||
+        !isDeepStrictEqual(
+          stableIndexFields(buildSearchIndexPayload(articleId, before)),
+          stableIndexFields(payload)
+        );
+
+      // Seuls les compteurs passent par le debounce, perdable : sur Cloud
+      // Run l'instance peut être gelée dès le retour du handler. Tout autre
+      // changement — création, remise en vente, prix, titre, photo — est
+      // écrit tout de suite (P1-7).
+      const metricsChanged =
+        !!before &&
+        (before.views !== articleData.views || before.likes !== articleData.likes);
+
+      const writeIndex = async () => {
+        await db.runTransaction(async tx => {
+          const current = (await tx.get(db.collection('articles').doc(articleId))).data();
+          const ref = db.collection('search_index').doc(articleId);
+          if (!current || articlePrivacyWithdrawn(current) || !current.isActive || current.isSold === true
+              || ['pending', 'rejected'].includes(current.moderationStatus)) {
+            tx.delete(ref); return;
+          }
+          tx.set(ref, buildSearchIndexPayload(articleId, current));
+        });
+      };
+
+      if (indexedChanged) {
+        await writeIndex();
+        logger.info(`Indexed article ${articleId}`);
+      } else if (metricsChanged) {
+        debounceUpdate(`search_index_${articleId}`, async () => {
+          await writeIndex();
+          logger.info(`Updated search index for article ${articleId}`);
         });
       }
     } catch (error) {
@@ -250,10 +272,23 @@ export const updateShopArticlesCount = onDocumentWritten(
         Array.from(deltas.entries()).map(async ([shopId, delta]) => {
           if (delta === 0) return;
           try {
-            await db
-              .collection('shops')
-              .doc(shopId)
-              .update({ articlesCount: FieldValue.increment(delta) });
+            // Même garde que le compteur vendeur : un `increment(-1)` brut sur
+            // une boutique disparue ou déjà à zéro laissait un compteur négatif,
+            // et la page boutique masque ses sections sous zéro.
+            if (delta > 0) {
+              await db
+                .collection('shops')
+                .doc(shopId)
+                .update({ articlesCount: FieldValue.increment(delta) });
+            } else {
+              await db.runTransaction(async (tx) => {
+                const ref = db.collection('shops').doc(shopId);
+                const snap = await tx.get(ref);
+                if (!snap.exists) return;
+                const current = snap.data()?.articlesCount || 0;
+                tx.update(ref, { articlesCount: Math.max(0, current + delta) });
+              });
+            }
             logger.info(
               `Adjusted articlesCount for shop ${shopId} by ${delta} (article ${articleId})`,
             );
@@ -369,6 +404,12 @@ export const updateUserStats = onDocumentWritten(
 
       const sellerId = after.sellerId;
       if (!sellerId) return;
+
+      // Chaque vue réécrit l'article : sans cette garde, chaque affichage de
+      // fiche relisait TOUT le catalogue du vendeur pour un document de
+      // statistiques qu'aucun écran ne lit.
+      const before = event.data?.before?.exists ? event.data.before.data() : undefined;
+      if (onlyMetricsChanged(before, after)) return;
 
       // Debounce user stats update
       const updateKey = `user_stats_${sellerId}`;

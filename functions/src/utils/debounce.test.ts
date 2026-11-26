@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { debounceUpdate, cancelDebouncedUpdate } from './debounce';
+import { debounceUpdate } from './debounce';
 
 describe('debounceUpdate', () => {
   beforeEach(() => {
@@ -55,28 +55,5 @@ describe('debounceUpdate', () => {
     expect(fn).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(fn).toHaveBeenCalledOnce();
-  });
-});
-
-describe('cancelDebouncedUpdate', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('prevents the debounced function from executing', () => {
-    const fn = vi.fn().mockResolvedValue(undefined);
-    debounceUpdate('test-cancel-exec', fn, 1000);
-    cancelDebouncedUpdate('test-cancel-exec');
-
-    vi.advanceTimersByTime(2000);
-    expect(fn).not.toHaveBeenCalled();
-  });
-
-  it('does not throw for unknown keys', () => {
-    expect(() => cancelDebouncedUpdate('nonexistent')).not.toThrow();
   });
 });

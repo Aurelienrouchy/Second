@@ -37,6 +37,9 @@
     "ios",
     "functions",
     "tests/security",
+    // Probes historiques figés : exécutés avec leurs configurations d’audit.
+    // Les régressions durables restent dans le domaine de test de l’application.
+    "_audit-reports",
     ".claude",
     ".agents",
     ".expo"

@@ -470,6 +470,9 @@ export interface AnalyticsEvents {
   };
   ai_analysis_completed: {
     photo_count: number;
+    // Distingue une hydratation du brouillon d'une vraie analyse Gemini : sans ce
+    // drapeau, une reprise gonfle le taux de complétion et écrase la durée.
+    hydrated_from_draft: boolean;
     prefilled_count: number;
     detected_category: boolean;
     detected_brand: boolean;
@@ -620,7 +623,7 @@ export interface AnalyticsEvents {
   };
   payment_blocked: {
     transaction_id: string;
-    reason: 'not_found' | 'forbidden' | 'already_processed';
+    reason: 'not_found' | 'forbidden' | 'already_processed' | 'financial_obligation';
   };
   order_cancel_submitted: {
     transaction_id: string;
@@ -636,7 +639,7 @@ export interface AnalyticsEvents {
     transaction_id: string;
     status: string;
     delivery_type: DeliveryType;
-    destination: 'payment' | 'chat' | 'article';
+    destination: 'payment' | 'chat' | 'article' | 'order';
     from_deep_link?: boolean;
   };
   review_submitted: {
@@ -733,6 +736,8 @@ export interface AnalyticsEvents {
     transaction_id: string;
     status: 'delivery_failed' | 'lost';
     success: boolean;
+    request_received?: boolean;
+    refund_status?: string;
     redirected_to_report: boolean;
     error_code?: string;
   };
@@ -806,7 +811,7 @@ export interface AnalyticsEvents {
     list_price_cents: number;
     discount_pct: number;
     mode: OfferMode;
-    validation_result: 'ok' | 'invalid' | 'too_high' | 'low_warned_continued' | 'low_warned_cancelled';
+    validation_result: 'ok' | 'invalid' | 'too_high' | 'above_list_price' | 'low_warned_continued' | 'low_warned_cancelled';
     message_length: number;
   };
   offer_location_selected: {
@@ -952,7 +957,7 @@ export interface AnalyticsEvents {
   push_opened: {
     notification_type: string;
     from_killed_state: boolean;
-    destination_route: 'chat' | 'article' | 'swap' | 'my-orders' | 'search' | 'notifications' | 'deep_link_fallback';
+    destination_route: 'chat' | 'article' | 'swap' | 'my-orders' | 'wallet' | 'search' | 'notifications' | 'deep_link_fallback';
   };
   push_token_registered: {
     permission_status: string;

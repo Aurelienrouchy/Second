@@ -3,6 +3,7 @@ import { usePrivateMediaSource } from '@/hooks/usePrivateMediaSource';
 
 const mockAuth = { currentUser: null as { uid: string } | null };
 const mockGetBytes = jest.fn();
+const mockReadChatImage = jest.fn();
 const mockRef = jest.fn((_storage: unknown, path: string) => ({ fullPath: path }));
 const mockUnsubscribe = jest.fn();
 let mockAuthListener: ((user: { uid: string } | null) => void) | undefined;
@@ -22,8 +23,11 @@ jest.mock('firebase/storage', () => ({
   getBytes: (...args: unknown[]) => mockGetBytes(...args),
   ref: (storage: unknown, path: string) => mockRef(storage, path),
 }));
+jest.mock('@/services/chatMessageImageService', () => ({
+  ChatMessageImageService: { read: (...args: unknown[]) => mockReadChatImage(...args) },
+}));
 
-const uri = 'https://firebasestorage.googleapis.com/v0/b/demo-second.appspot.com/o/chat_images%2Fc1%2Fx.jpg?alt=media';
+const uri = 'https://firebasestorage.googleapis.com/v0/b/demo-second.appspot.com/o/drafts%2Fu1%2Fd1%2Fx.jpg?alt=media';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -41,10 +45,16 @@ async function mount(input = uri) {
 describe('authenticated private image source', () => {
   it('downloads through authenticated SDK path with a size cap; returns bytes only', async () => {
     const view = await mount(`${uri}&token=legacy-test-token`);
-    expect(mockRef).toHaveBeenCalledWith(expect.anything(), 'chat_images/c1/x.jpg');
-    expect(mockGetBytes).toHaveBeenCalledWith({ fullPath: 'chat_images/c1/x.jpg' }, 10 * 1024 * 1024);
+    expect(mockRef).toHaveBeenCalledWith(expect.anything(), 'drafts/u1/d1/x.jpg');
+    expect(mockGetBytes).toHaveBeenCalledWith({ fullPath: 'drafts/u1/d1/x.jpg' }, 10 * 1024 * 1024);
     expect(view.result.current).toEqual({ uri: 'data:image/jpeg;base64,/9j/' });
     expect(JSON.stringify(view.result.current)).not.toContain('token');
+  });
+  it('refuses chat media without its native message context and never falls back to Storage', async () => {
+    const view = await mount('https://firebasestorage.googleapis.com/v0/b/demo-second.appspot.com/o/chat_images%2Fc1%2Fx.jpg?alt=media');
+    expect(mockGetBytes).not.toHaveBeenCalled();
+    expect(mockReadChatImage).not.toHaveBeenCalled();
+    expect(view.result.current).toBeUndefined();
   });
   it('ignores arbitrary hosts without requesting bytes or credentials', async () => {
     const view = await mount('https://example.test/private.jpg');

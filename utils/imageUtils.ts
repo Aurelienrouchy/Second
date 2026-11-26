@@ -1,6 +1,9 @@
 import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
 
+import { boundedResize } from './imageResize';
+import { getImageSize } from './imageSize';
+
 const DEFAULT_MAX_DIMENSION = 1200;
 const DEFAULT_QUALITY = 0.75;
 
@@ -16,15 +19,17 @@ export async function prepareImageForUpload(
   const quality = options?.quality ?? DEFAULT_QUALITY;
 
   try {
+    const size = await getImageSize(uri);
+    // A failed preparation never returns the uncompressed original.
     const result = await ImageManipulator.manipulateAsync(
       uri,
-      [{ resize: { width: maxDim } }],
+      boundedResize(size?.width ?? 0, size?.height ?? 0, maxDim),
       { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
     );
     return result.uri;
-  } catch (error) {
-    if (__DEV__) console.error('Error preparing image for upload:', error);
-    return uri;
+  } catch {
+    // Native errors can contain absolute sandbox paths or source capabilities.
+    throw new Error('Cette photo ne peut pas être préparée. Sélectionnez-la de nouveau.');
   }
 }
 
@@ -46,10 +51,10 @@ async function compressImage(
  */
 async function generateBlurhash(uri: string): Promise<string | undefined> {
   try {
-    const blurhash = await Image.generateBlurhashAsync(uri, { width: 4, height: 3 });
+    const blurhash = await Image.generateBlurhashAsync(uri, [4, 3]);
     return blurhash ?? undefined;
-  } catch (error) {
-    if (__DEV__) console.error('Error generating blurhash:', error);
+  } catch {
+    if (__DEV__) console.error('Error generating blurhash');
     return undefined;
   }
 }
@@ -66,12 +71,12 @@ export async function processImageWithBlurhash(
     const blurhash = await generateBlurhash(compressedUri);
     return { compressedUri, blurhash };
   } catch (error) {
-    if (__DEV__) console.error('Error processing image with blurhash:', error);
+    if (__DEV__) console.error('Error processing image with blurhash');
     try {
       const compressedUri = await compressImage(uri, compressionOptions);
       return { compressedUri, blurhash: undefined };
-    } catch (fallbackError) {
-      if (__DEV__) console.error('Fallback also failed:', fallbackError);
+    } catch {
+      if (__DEV__) console.error('Fallback image preparation failed');
       throw error;
     }
   }

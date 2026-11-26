@@ -7,7 +7,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { httpsCallable } from 'firebase/functions';
+import { phase1HttpsCallable as httpsCallable } from '@/services/phase1Callable';
 import { functions } from '@/config/firebaseConfig';
 import { homeKeys } from '@/features/home/query-keys';
 

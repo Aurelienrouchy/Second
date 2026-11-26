@@ -11,7 +11,7 @@ vi.mock('../config/firebase', () => ({ get db() { return holder.fs!.db; }, get F
 vi.mock('../config/stripe', () => ({ getStripe: () => holder.stripe!.client }));
 vi.mock('../config/shipEngine', () => ({ getShipEngine: () => null }));
 vi.mock('../lib/analytics', () => ({ captureServerEvent: async () => {} }));
-vi.mock('../utils/notifications', () => ({ sendNotification: async () => {} }));
+vi.mock('../utils/notifications', () => ({ sendPushNotification: async () => {}, sendNotification: async () => {} }));
 vi.mock('firebase-functions/logger', () => ({ info() {}, warn() {}, error() {}, debug() {} }));
 vi.mock('firebase-functions/v2/scheduler', () => ({ onSchedule: (_: unknown, handler: unknown) => handler }));
 vi.mock('firebase-functions/v2/https', () => ({ onCall: (_: unknown, handler: unknown) => handler,

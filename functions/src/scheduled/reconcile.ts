@@ -1,3 +1,6 @@
+import { FinancialRecoveryBlocked } from "../utils/financialRecoveryInterlock";
+import { financialRecoveryCommitCheckpoint } from "../utils/financialRecoverySources";
+import { withFinancialRecoveryScope } from "../utils/financialRecoveryInterlock";
 /**
  * Scheduled reconciliation jobs — catch silent money divergences (P1 ops)
  * Firebase Functions v2 - onSchedule, region northamerica-northeast1
@@ -25,8 +28,13 @@ import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
 import { writeFailedOperation, writeAdminAlert } from '../utils/failedOperations';
-import { revertFailedPayout } from '../utils/payoutRecovery';
-import { resolveWithdrawalPayout } from '../utils/payoutOutcome';
+import { observeWithdrawalPayout } from '../utils/payoutRecovery';
+import { observePurchaseRefund, reconcileCanceledPurchase, observeArchivedPurchaseRefunds } from '../utils/refund';
+import {observePurchaseRefundRepairs} from '../utils/refundRepair';
+import { recordCheckoutReconciliation } from '../utils/paymentCheckoutReconciliation';
+import { nativeTime, nativeUnknownStripeConfirmation } from '../utils/stripeCheckoutProof';
+import { reconcileFraudReviews } from '../utils/fraudReviewReconciliation';
+import { inspectWalletInvariants } from '../utils/walletInvariantScan';
 
 /** Only inspect transactions older than this (let webhooks land first). */
 const PAYMENT_STALE_MS = 30 * 60 * 1000; // 30 min
@@ -39,6 +47,19 @@ const MAX_PER_RUN = 200;
 
 /** Process Stripe-bound work in small concurrent lots. */
 const LOT_SIZE = 10;
+
+/** Pending operator dossiers remain in place: rotate the bounded payment scan
+ * so they cannot permanently hide later payments. Reuses status/createdAt ASC. */
+async function paymentPage(status: 'pending_payment' | 'paid', cutoff: Date) {
+  const cursorRef = db.collection('job_locks').doc(`reconcilePayments_${status}_cursor`);
+  const cursor = (await cursorRef.get()).data();
+  const query = db.collection('transactions').where('status', '==', status).where('createdAt', '<', cutoff)
+    .orderBy('createdAt', 'asc').orderBy('__name__', 'asc').limit(MAX_PER_RUN);
+  const valid = nativeTime(cursor?.createdAt) && typeof cursor?.id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(cursor.id);
+  let snapshot = await (valid ? query.startAfter(cursor!.createdAt, cursor!.id) : query).get();
+  if (snapshot.empty && valid) snapshot = await query.get();
+  return {snapshot, cursorRef};
+}
 
 /** F75: page size when scanning ALL wallets for invariant breaches. */
 const WALLET_PAGE_SIZE = 500;
@@ -86,11 +107,13 @@ async function reconcileOnePayment(
   let amountReceived = 0;
   let amountRefunded = 0;
   let amountCaptured = 0;
+  let observedPaymentIntent: unknown;
   try {
     const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {
       expand: ['latest_charge'],
     });
     piStatus = pi.status;
+    observedPaymentIntent = pi;
     amountReceived = pi.amount_received ?? pi.amount ?? 0;
     const charge = (pi as any).latest_charge;
     if (charge && typeof charge === 'object') {
@@ -103,6 +126,7 @@ async function reconcileOnePayment(
             : 0;
     }
   } catch (err) {
+      if (err instanceof FinancialRecoveryBlocked) throw err;
     logger.warn('[reconcilePayments] PI retrieve failed — skipping', {
       transactionId,
       paymentIntentId,
@@ -112,6 +136,45 @@ async function reconcileOnePayment(
   }
 
   const status = data.status;
+
+  // Authorization is neither captured payment nor an unpaid cancellation.
+  // Keep a bounded, deterministic operator dossier instead of silently waiting
+  // for a capture operation this purchase rail does not implement.
+  if (piStatus === 'requires_capture' && status === 'pending_payment') {
+    await recordCheckoutReconciliation(transactionId, observedPaymentIntent, data,
+      'authorization_unsettled', 'reconcilePayments');
+    return true;
+  }
+
+  if (piStatus === 'processing' && status === 'pending_payment') {
+    const intent = (await db.collection('stripe_checkout_intents').doc(transactionId).get()).data();
+    const authorization = intent?.authorizedAt;
+    const authorizedAtMs = nativeTime(authorization) ? authorization instanceof Date ? authorization.getTime() : authorization.toMillis() : null;
+    // Internal review threshold only, never a universal provider timeout or
+    // permission to cancel/refund a processing payment. Recent confirms wait.
+    if (authorizedAtMs !== null && Date.now() - authorizedAtMs < PAYMENT_STALE_MS) return false;
+    await recordCheckoutReconciliation(transactionId, observedPaymentIntent, data, 'processing_unsettled', 'reconcilePayments',
+      authorizedAtMs === null ? 'processing_age_unqualified' : undefined);
+    return true;
+  }
+
+  if (['requires_payment_method', 'requires_confirmation'].includes(piStatus ?? '') && status === 'pending_payment') {
+    const intent = (await db.collection('stripe_checkout_intents').doc(transactionId).get()).data();
+    const existingMixedUncertainty = typeof data.walletAmountUsed === 'number' && data.walletAmountUsed > 0 &&
+      (['confirming', 'unknown'].includes(intent?.state) || ['creating', 'unknown'].includes(data.walletCheckoutOutcome));
+    const nativeConfirmUnknown = nativeUnknownStripeConfirmation(transactionId, data, intent, observedPaymentIntent);
+    if (existingMixedUncertainty || nativeConfirmUnknown) {
+      const authorization = intent?.authorizedAt;
+      const authorizedAtMs = nativeTime(authorization) ? authorization instanceof Date ? authorization.getTime() : authorization.toMillis() : null;
+      if (authorizedAtMs !== null && Date.now() - authorizedAtMs < PAYMENT_STALE_MS) return false;
+      // A present unconfirmed PI is NOT proof that the earlier confirm request
+      // cannot still execute. Preserve the exact reserved debit and version;
+      // operator observation grants neither a second confirm nor restitution.
+      await recordCheckoutReconciliation(transactionId, observedPaymentIntent, data,
+        'confirmation_outcome_unknown', 'reconcilePayments', authorizedAtMs === null ? 'confirmation_age_unqualified' : undefined);
+      return true;
+    }
+  }
 
   // Case A: PI succeeded but the transaction is still awaiting payment. The
   // PI.succeeded webhook was lost. This is a real divergence: the buyer paid but
@@ -136,14 +199,13 @@ async function reconcileOnePayment(
     return true;
   }
 
-  // Case B1: canceled PI on a still-pending tx — let expireOrphanedTransactions
-  // handle it (it cancels + releases). Just log for visibility, no dead-letter.
+  // Case B1: terminal cancellation neutralizes the card, but restitution still
+  // requires the attributed intent, parties, exact debit and local receipt.
   if (piStatus === 'canceled' && status === 'pending_payment') {
-    logger.warn('[reconcilePayments] canceled PI on pending_payment tx (expiry will handle)', {
-      transactionId,
-      paymentIntentId,
-    });
-    return false;
+    const result = await reconcileCanceledPurchase(transactionId, observedPaymentIntent);
+    if (!result.committed) await recordCheckoutReconciliation(transactionId, observedPaymentIntent, data,
+      'cancellation_unsettled', 'reconcilePayments', result.reason);
+    return true;
   }
 
   // Case B2 (F76): Stripe shows the charge was REFUNDED (fully) but our
@@ -190,90 +252,30 @@ async function reconcileOnePayment(
 // 2. reconcileWithdrawals — recover lost payout webhooks
 // =============================================================================
 
-/**
- * For a withdrawal_requests doc stuck 'processing' well past creation, look up
- * the Stripe payout and reconcile:
- *   - payout 'paid'     → mark request 'completed' (idempotent, bookkeeping)
- *   - payout 'failed'   → dead-letter so retryFailedOperations / a human can
- *                         re-credit (the canonical re-credit lives in the
- *                         payout.failed webhook; we surface + record here).
- *   - payout 'canceled' → dead-letter for manual review.
- */
+/** Observe the current payout with exact local/provider witnesses. Paid updates
+ * bookkeeping; failed/canceled enter the shared, qualified return-of-funds
+ * recovery. Unknown or contradictory evidence retains the reservation. */
 async function reconcileOneWithdrawal(
   doc: FirebaseFirestore.QueryDocumentSnapshot,
   stripe: StripeClient
 ): Promise<boolean> {
-  const requestId = doc.id;
-  const data = doc.data();
-  const stripeAccountId =
-    typeof data.stripeAccountId === 'string' ? data.stripeAccountId : undefined;
   if (!stripe) return false;
-  let payoutId: string;
-  let payoutStatus: string;
-  try {
-    const payout = await resolveWithdrawalPayout(requestId, data, stripe);
-    if (!payout) {
-      await writeFailedOperation({
-        type: 'payout_reversal_failed', refId: requestId,
-        payload: { kind: 'payout_outcome_unknown', userId: data.userId ?? null,
-          amount: data.amount ?? null, stripeAccountId: stripeAccountId ?? null },
-        error: 'Withdrawal outcome remains unknown; no compensation authorised',
-      });
-      return true;
-    }
-    payoutId = payout.id;
-    payoutStatus = payout.status;
-    await doc.ref.update({ stripePayoutId: payoutId, payoutOutcome: payoutStatus,
-      updatedAt: FieldValue.serverTimestamp() });
-  } catch (err) {
-    logger.warn('[reconcileWithdrawals] payout resolution failed — keeping reservation', {
-      requestId, error: err instanceof Error ? err.message : err,
-    });
-    return false;
-  }
+  const observed = await observeWithdrawalPayout(doc.id, stripe);
+  if (observed.state === 'paid') return observed.completedNow;
+  return observed.state !== 'pending';
+}
 
-  if (payoutStatus === 'paid') {
-    // Bookkeeping only — the wallet was already debited at walletWithdraw time.
-    await db.runTransaction(async (tx) => {
-      const current = (await tx.get(doc.ref)).data();
-      if (current?.status !== 'processing') return;
-      tx.update(doc.ref, { status: 'completed', completedAt: FieldValue.serverTimestamp(),
-        reconciledBy: 'reconcileWithdrawals' });
-    });
-    logger.info('[reconcileWithdrawals] processing withdrawal reconciled to completed', {
-      requestId,
-      payoutId,
-    });
-    return true;
-  }
-
-  if (payoutStatus === 'failed' || payoutStatus === 'canceled') {
-    logger.error('CRITICAL [reconcileWithdrawals] payout failed/canceled but request still processing (lost webhook)', {
-      requestId,
-      payoutId,
-      payoutStatus,
-      userId: data.userId,
-      amount: data.amount,
-    });
-    // F36/F99: the payout.failed webhook was lost. Re-drive the EXACT same
-    // recovery the webhook would have run — re-credit the wallet AND reverse the
-    // platform->connected transfer — via the shared idempotent helper (no-op if
-    // the request is no longer 'processing'). The helper dead-letters its own
-    // transfer-reversal failures.
-    await revertFailedPayout(
-      {
-        withdrawalRequestId: requestId,
-        payoutId,
-        failureReason: `payout ${payoutStatus} (reconciled from Stripe)`,
-        ownerIdFallback: typeof data.userId === 'string' ? data.userId : null,
-      },
-      stripe
-    );
-    return true;
-  }
-
-  // pending / in_transit — still legitimately in flight, leave it.
-  return false;
+/** Continue observing completed payouts: paid can later become failed. Rotate
+ * bounded pages so old paid/operator cases cannot hide later withdrawals. */
+async function withdrawalPage(status: 'processing' | 'completed' | 'failed', cutoff: Date) {
+  const cursorRef = db.collection('job_locks').doc(`reconcileWithdrawals_${status}_cursor`);
+  const cursor = (await cursorRef.get()).data();
+  const query = db.collection('withdrawal_requests').where('status', '==', status).where('createdAt', '<', cutoff)
+    .orderBy('createdAt', 'asc').orderBy('__name__', 'asc').limit(MAX_PER_RUN);
+  const valid = nativeTime(cursor?.createdAt) && typeof cursor?.id === 'string' && !cursor.id.includes('/');
+  let snapshot = await (valid ? query.startAfter(cursor!.createdAt, cursor!.id) : query).get();
+  if (snapshot.empty && valid) snapshot = await query.get();
+  return { snapshot, cursorRef };
 }
 
 // =============================================================================
@@ -287,38 +289,29 @@ async function reconcileOneWithdrawal(
 async function checkWalletInvariants(
   doc: FirebaseFirestore.QueryDocumentSnapshot
 ): Promise<boolean> {
-  const data = doc.data();
-  const balance = typeof data.balance === 'number' ? data.balance : 0;
-  const pending = typeof data.pendingBalance === 'number' ? data.pendingBalance : 0;
-  const held = typeof data.heldBalance === 'number' ? data.heldBalance : 0;
-  const debt = typeof data.sellerDebt === 'number' ? data.sellerDebt : 0;
-
-  const breaches: string[] = [];
-  if (balance < 0) breaches.push(`balance=${balance}`);
-  if (pending < 0) breaches.push(`pendingBalance=${pending}`);
-  if (held < 0) breaches.push(`heldBalance=${held}`);
-  if (debt < 0) breaches.push(`sellerDebt=${debt}`);
-
-  if (breaches.length > 0) {
-    logger.error('CRITICAL [reconcileBalances] wallet invariant breach', {
-      walletId: doc.id,
-      breaches,
-      balance,
-      pendingBalance: pending,
-      heldBalance: held,
-      sellerDebt: debt,
-    });
-    // F85: invariant breaches have no auto-retry path (they are structural bugs),
-    // so raise an operator alert in addition to the CRITICAL log.
+  const observed = inspectWalletInvariants(doc.data());
+  if (observed.requiresReview) {
+    // Unknown or malformed values remain unknown. Never log arbitrary stored
+    // values, convert them to zero, or infer that an absence of negatives is a
+    // reconciliation with a ledger or provider statement.
+    const context = { walletId: doc.id, ...observed };
+    if (observed.alertSeverity === 'critical') logger.error('CRITICAL [reconcileBalances] wallet invariant breach', context);
+    else logger.warn('[reconcileBalances] required wallet source not recorded', context);
+    // Keep the operator-only alert contract; this scan has no repair route.
     await writeAdminAlert({
       kind: 'wallet_invariant_breach',
-      severity: 'critical',
+      severity: observed.alertSeverity!,
       refId: doc.id,
-      message: 'Invariant de porte-monnaie violé (solde négatif) — corruption probable, audit requis.',
-      context: { walletId: doc.id, breaches, balance, pendingBalance: pending, heldBalance: held, sellerDebt: debt },
+      message: observed.invariantQualification === 'breach_observed'
+        ? 'Montant négatif observé dans un porte-monnaie — audit requis, aucun ajustement automatique.'
+        : observed.alertSeverity === 'critical'
+          ? 'Données de porte-monnaie invalides — audit requis, aucun ajustement automatique.'
+          : 'Source obligatoire du porte-monnaie non consignée — à qualifier, aucun solde ni rapprochement confirmé.',
+      context,
     });
     return true;
   }
+  if (observed.notRecordedFields.length) logger.debug('[reconcileBalances] optional wallet buckets not recorded', {walletId:doc.id,...observed});
   return false;
 }
 
@@ -331,15 +324,58 @@ export const reconcileFinances = onSchedule(
     schedule: 'every 6 hours',
     region: 'northamerica-northeast1',
     memory: '512MiB',
+    timeoutSeconds: 540,
     secrets: ['STRIPE_SECRET_KEY'],
   },
   async () => {
+    return withFinancialRecoveryScope({operation: "scheduled/reconcile.reconcileFinances"}, async () => {
     const now = Date.now();
     const stripe = getStripe();
+
+    // Risk dossiers have a separate finite, leased scan and never move money.
+    try { await reconcileFraudReviews(); }
+    catch (error) {
+      if (error instanceof FinancialRecoveryBlocked) throw error; logger.error('Fraud review reconciliation scan failed', {error: String(error)}); }
 
     let paymentDivergences = 0;
     let withdrawalDivergences = 0;
     let balanceBreaches = 0;
+
+    // A successful card refund can fail days later. Rotate a bounded page by
+    // document identity; historical successful rows age out after 31 days.
+    try {
+      const cursorRef = db.collection('job_locks').doc('purchaseRefundWatch_cursor');
+      const cursor = (await cursorRef.get()).data()?.lastId;
+      const base = db.collection('transactions').where('refund.watch', '==', true).orderBy('__name__').limit(100);
+      let watched = await (typeof cursor === 'string' && cursor ? base.startAfter(cursor) : base).get();
+      if (watched.empty && cursor) watched = await base.get();
+      for (let i = 0; i < watched.size; i += LOT_SIZE) {
+        await Promise.allSettled(watched.docs.slice(i, i + LOT_SIZE).map(async doc => {
+          const refund = doc.data().refund;
+          await observePurchaseRefundRepairs(doc.id);
+          const archivedStillWatched = await observeArchivedPurchaseRefunds(doc.id);
+          if (typeof refund.stripeRefundId === 'string' && refund.stripeRefundId) {
+            // Verify once more before retiring a successful historical row:
+            // a failure may have occurred before the deadline but its event was lost.
+            await observePurchaseRefund(doc.id, refund.stripeRefundId);
+            await db.runTransaction(async tx => {
+    const recoveryCommit = financialRecoveryCommitCheckpoint();
+              const current = (await tx.get(doc.ref)).data()?.refund;
+              if (!archivedStillWatched && current?.state === 'succeeded' && typeof current.watchUntilMs === 'number' && current.watchUntilMs < now) { await recoveryCommit({refs: [(doc.ref).path]}); tx.update(doc.ref, { 'refund.watch': false }); }
+            });
+          } else if (!archivedStillWatched && refund?.allocation && refund.state === 'succeeded') await db.runTransaction(async tx => {
+    const recoveryCommit = financialRecoveryCommitCheckpoint();
+            const current = (await tx.get(doc.ref)).data()?.refund;
+            if (current?.intentId === refund.intentId && current.state === 'succeeded' && current.cardAmountCents === 0 &&
+                !(typeof current.watchHistoryUntilMs === 'number' && current.watchHistoryUntilMs > now)) { await recoveryCommit({refs: [(doc.ref).path]}); tx.update(doc.ref, {'refund.watch': false}); }
+          });
+        }));
+      }
+      if (watched.size) await cursorRef.set({ lastId: watched.docs[watched.size - 1].id }, { merge: true });
+    } catch (error) {
+      if (error instanceof FinancialRecoveryBlocked) throw error;
+      logger.error('Purchase refund current-proof scan failed', { error: String(error) });
+    }
 
     // -------------------------------------------------------------------------
     // 1. reconcilePayments — scan BOTH stale 'pending_payment' (lost PI.succeeded)
@@ -349,21 +385,8 @@ export const reconcileFinances = onSchedule(
     // -------------------------------------------------------------------------
     try {
       const cutoff = new Date(now - PAYMENT_STALE_MS);
-      const snaps = await Promise.all([
-        db
-          .collection('transactions')
-          .where('status', '==', 'pending_payment')
-          .where('createdAt', '<', cutoff)
-          .limit(MAX_PER_RUN)
-          .get(),
-        db
-          .collection('transactions')
-          .where('status', '==', 'paid')
-          .where('createdAt', '<', cutoff)
-          .limit(MAX_PER_RUN)
-          .get(),
-      ]);
-      const docs = [...snaps[0].docs, ...snaps[1].docs];
+      const pages = await Promise.all([paymentPage('pending_payment', cutoff), paymentPage('paid', cutoff)]);
+      const docs = pages.flatMap(page => page.snapshot.docs);
 
       for (let i = 0; i < docs.length; i += LOT_SIZE) {
         const lot = docs.slice(i, i + LOT_SIZE);
@@ -374,7 +397,12 @@ export const reconcileFinances = onSchedule(
           if (r.status === 'fulfilled' && r.value) paymentDivergences++;
         }
       }
+      await Promise.all(pages.map(async ({snapshot, cursorRef}) => {
+        const last = snapshot.docs.at(-1);
+        if (last) await cursorRef.set({id: last.id, createdAt: last.data().createdAt, updatedAt: FieldValue.serverTimestamp()});
+      }));
     } catch (err) {
+      if (err instanceof FinancialRecoveryBlocked) throw err;
       logger.error('[reconcileFinances] reconcilePayments pass failed', {
         error: err instanceof Error ? err.message : err,
       });
@@ -385,23 +413,23 @@ export const reconcileFinances = onSchedule(
     // -------------------------------------------------------------------------
     try {
       const cutoff = new Date(now - WITHDRAWAL_STALE_MS);
-      const snap = await db
-        .collection('withdrawal_requests')
-        .where('status', '==', 'processing')
-        .where('createdAt', '<', cutoff)
-        .limit(MAX_PER_RUN)
-        .get();
-
-      for (let i = 0; i < snap.docs.length; i += LOT_SIZE) {
-        const lot = snap.docs.slice(i, i + LOT_SIZE);
+      for (const status of ['processing', 'completed', 'failed'] as const) {
+        const { snapshot: snap, cursorRef } = await withdrawalPage(status, cutoff);
+        for (let i = 0; i < snap.docs.length; i += LOT_SIZE) {
+          const lot = snap.docs.slice(i, i + LOT_SIZE);
         const results = await Promise.allSettled(
           lot.map((doc) => reconcileOneWithdrawal(doc, stripe))
         );
-        for (const r of results) {
-          if (r.status === 'fulfilled' && r.value) withdrawalDivergences++;
+          for (const r of results) {
+            if (r.status === 'fulfilled' && r.value) withdrawalDivergences++;
+          }
         }
+        const last = snap.docs[snap.docs.length - 1];
+        if (last && nativeTime(last.data().createdAt)) await cursorRef.set({ createdAt: last.data().createdAt, id: last.id,
+          updatedAt: FieldValue.serverTimestamp() });
       }
     } catch (err) {
+      if (err instanceof FinancialRecoveryBlocked) throw err;
       logger.error('[reconcileFinances] reconcileWithdrawals pass failed', {
         error: err instanceof Error ? err.message : err,
       });
@@ -435,6 +463,7 @@ export const reconcileFinances = onSchedule(
         });
       }
     } catch (err) {
+      if (err instanceof FinancialRecoveryBlocked) throw err;
       logger.error('[reconcileFinances] reconcileBalances pass failed', {
         error: err instanceof Error ? err.message : err,
       });
@@ -444,6 +473,9 @@ export const reconcileFinances = onSchedule(
       paymentDivergences,
       withdrawalDivergences,
       balanceBreaches,
+      balanceScan: {scope:'native_bucket_structure_only',ledgerReconciled:false,providerReconciled:false},
+    });
+
     });
   }
 );

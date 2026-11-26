@@ -1,11 +1,29 @@
+import { ChildSafetyPreparations } from '@/components/ChildSafetyPreparations';
+import { useAuthenticatedUid } from '@/hooks/useAuth';
+import { useTradeAdmissionError } from '@/hooks/useTradeAdmissionError';
+import { useTradeOperation, type TradeOperation } from '@/hooks/useTradeOperation';
+import { prepareArticleSoldChange, toggleArticleSoldSafely, type ArticleSoldIntent, type ArticleSoldResult } from '@/services/articleSoldService';
+import { isDefinitiveTradeRefusal, staleTradeOperation } from '@/services/tradeOperation';
 import { useAuthStore } from '@/store/authStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import { ArticlesService } from '@/services/articlesService';
 import { Article } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
-import { draftService } from '@/services/draftService';
+import { favoritesKeys } from '@/hooks/useFavorites';
+import {
+  CANCEL_LABEL,
+  MARK_AS_SOLD_ALERT,
+  OWNER_ACTION_SHEET_MESSAGE,
+  buildOwnerActionSheetIOS,
+  ownerArticleActions,
+  removeArticleAlert,
+  type OwnerArticleAction,
+} from '@/features/article/services/ownerArticleActions';
+import { SHIPPING_LISTINGS_ENABLED } from '@/config/featureFlags';
+import { draftService } from '@/features/sell/services/draftService';
 import { formatPrice } from '@/utils/formatPrice';
 import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,9 +31,7 @@ import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '@/config/firebaseConfig';
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -27,16 +43,23 @@ import {
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { ScreenHeader, Skeleton, Text } from '@/components/ui';
+import { Button, ScreenHeader, Skeleton, Text } from '@/components/ui';
+
+const EMPTY_ARTICLES: Article[] = [];
 
 export default function MyArticlesScreen() {
-  const user = useAuthStore((s) => s.user);
+  const { user, ownerUid } = useAuthStore(useShallow(s => ({ user: s.user, ownerUid: s.authenticatedUid })));
+  const operationContext = useTradeOperation('my-articles', user?.id ?? null);
   const router = useRouter();
+  const showAdmissionError = useTradeAdmissionError();
+  const sdkUid = useAuthenticatedUid();
+  const preparations = sdkUid ? <ChildSafetyPreparations uid={sdkUid} /> : null;
+  const decisionLink = ownerUid ? <Button variant="ghost" onPress={() => router.push('/article/moderation')}>Décisions privées</Button> : undefined;
   const queryClient = useQueryClient();
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const {
-    data: articles = [],
+    data: articles = EMPTY_ARTICLES,
     isLoading,
     isRefetching,
     isError,
@@ -48,6 +71,31 @@ export default function MyArticlesScreen() {
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
+
+  const [listFrame, setListFrame] = useState(() => ({ articles, epoch: 0 }));
+  if (listFrame.articles !== articles) setListFrame({ articles, epoch: listFrame.epoch + 1 });
+  const listEpoch = listFrame.epoch;
+  const listSource = useRef(listFrame);
+  useLayoutEffect(() => { listSource.current = { articles, epoch: listEpoch }; }, [articles, listEpoch]);
+  const pendingConfirmations = useRef(new Map<string, { articles: Article[]; cancel: () => void }>());
+  useLayoutEffect(() => { pendingConfirmations.current.forEach((pending, id) => { if (pending.articles !== articles) { pending.cancel(); pendingConfirmations.current.delete(id); } }); }, [articles]);
+  const displayed = useRef<{ result: ArticleSoldResult; operation: TradeOperation; applied: Article[]; assertCurrent: () => void } | null>(null);
+  const [applicationRevision, setApplicationRevision] = useState(0);
+  useLayoutEffect(() => {
+    const receipt = displayed.current;
+    if (!receipt) return;
+    displayed.current = null;
+    if (articles !== receipt.applied) return;
+    try { receipt.assertCurrent(); receipt.result.acknowledge(); } catch { return; }
+    queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
+    queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
+    if (receipt.result.reconciled) Alert.alert('État actualisé', 'Vérifiez le statut affiché avant de choisir une nouvelle modification.');
+    else track('article_sold_toggled', { article_id: receipt.result.article.id, new_state: receipt.result.article.isSold ? 'sold' : 'relisted', success: true, source: 'my_articles' });
+  }, [articles, applicationRevision, queryClient]);
+  const assertArticleCurrent = (article: Article) => {
+    const cached = queryClient.getQueryData<Article[]>(queryKeys.articles.userList(user?.id ?? ''));
+    if (listSource.current.epoch !== listEpoch || listSource.current.articles !== articles || !articles.includes(article) || cached !== articles) throw staleTradeOperation();
+  };
 
   const [filter, setFilter] = useState<'all' | 'active' | 'sold'>('all');
 
@@ -62,17 +110,27 @@ export default function MyArticlesScreen() {
   };
 
   const handleDeleteArticle = (article: Article, entry: 'menu' | 'swipe' = 'menu') => {
+    // « Supprimer » désactive l'article : il n'est pas effacé. L'alerte
+    // promettait une suppression « définitive » et « irréversible ».
+    let operation;
+    try { operation = operationContext.capture(); } catch { return; }
+    const confirm = removeArticleAlert(article.title);
     Alert.alert(
-      'Supprimer définitivement',
-      `"${article.title}" sera supprimé définitivement. Cette action est irréversible.`,
+      confirm.title,
+      confirm.message,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: CANCEL_LABEL, style: 'cancel', onPress: closeAllSwipeables },
         {
-          text: 'Supprimer',
+          text: confirm.confirmLabel,
           style: 'destructive',
           onPress: async () => {
+            if (!operationContext.isCurrent(operation)) return;
+            const deletion = operationContext.start(article.id);
+            if (!deletion) return;
             try {
+              operationContext.assertCurrent(operation);
               await ArticlesService.deleteArticle(article.id);
+              operationContext.assertCurrent(operation);
               track('article_deleted', {
                 article_id: article.id,
                 is_sold: article.isSold,
@@ -82,11 +140,16 @@ export default function MyArticlesScreen() {
                 price_cents: Math.round(article.price * 100),
               });
               queryClient.setQueryData<Article[]>(
-                queryKeys.articles.userList(user!.id),
+                queryKeys.articles.userList(operation.session.uid),
                 (old) => old?.filter((a) => a.id !== article.id) ?? []
               );
+              // The article page and the other lists kept showing it.
+              queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
+              // La fiche article purgeait déjà les favoris, pas « Mes articles ».
+              queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
               closeAllSwipeables();
             } catch (error) {
+              if (!operationContext.isCurrent(operation)) return;
               if (__DEV__) console.error('Erreur suppression:', error);
               track('article_deleted', {
                 article_id: article.id,
@@ -96,8 +159,12 @@ export default function MyArticlesScreen() {
                 entry,
                 price_cents: Math.round(article.price * 100),
               });
-              Alert.alert('Erreur', 'Impossible de supprimer l\'article');
-            }
+              closeAllSwipeables();
+              Alert.alert(
+                'Erreur',
+                error instanceof Error ? error.message : 'Impossible de retirer l\'article'
+              );
+            } finally { operationContext.finish(deletion); }
           },
         },
       ]
@@ -105,30 +172,58 @@ export default function MyArticlesScreen() {
   };
 
   const handleMarkAsSold = async (article: Article) => {
-    const nextState: 'sold' | 'relisted' = article.isSold ? 'relisted' : 'sold';
+    let operation: TradeOperation | null;
+    try { assertArticleCurrent(article); operation = operationContext.start(article.id); } catch { return; }
+    if (!operation) return;
+    let application: Article[] | null = null;
+    let cancelled = false; let used = false;
+    const cancel = () => { if (!used) { cancelled = true; operationContext.finish(operation!); } };
+    pendingConfirmations.current.set(article.id, { articles, cancel });
+    const key = queryKeys.articles.userList(operation.session.uid);
+    const assertCurrent = () => {
+      if (cancelled) throw staleTradeOperation();
+      operationContext.assertCurrent(operation!);
+      if (application) {
+        if (listSource.current.articles !== application || queryClient.getQueryData(key) !== application) throw staleTradeOperation();
+      } else assertArticleCurrent(article);
+    };
+    const apply = (result: ArticleSoldResult) => {
+      assertCurrent();
+      let didApply = false;
+      const stored = queryClient.setQueryData<Article[]>(key, previous => {
+        assertCurrent();
+        if (previous !== articles || !previous.includes(article)) return previous;
+        didApply = true;
+        return previous.map(item => item === article ? result.article : item);
+      });
+      if (!didApply || !stored) return;
+      application = stored;
+      displayed.current = { result, operation: operation!, applied: stored, assertCurrent };
+      setApplicationRevision(value => value + 1);
+    };
+    const fail = (error: unknown) => {
+      try { assertCurrent(); } catch { return; }
+      if (showAdmissionError(error, {isCurrent: () => {try {assertCurrent(); return true;} catch {return false;}}, publication: {uid: operation!.session.uid}})) return;
+      const detail = error instanceof Error ? error.message : 'Impossible de mettre à jour l’article';
+      Alert.alert('Erreur', isDefinitiveTradeRefusal(error) ? detail : `${detail} L’état doit être vérifié avant une nouvelle modification.`);
+    };
+    const execute = async (intent: ArticleSoldIntent) => {
+      if (used || cancelled) return;
+      used = true; pendingConfirmations.current.delete(article.id);
+      try { assertCurrent(); apply(await toggleArticleSoldSafely(article.id, operation!.session.uid, assertCurrent, intent)); }
+      catch (error) { fail(error); }
+      finally { operationContext.finish(operation!); }
+    };
     try {
-      await httpsCallable(functions, 'toggleArticleSold')({ articleId: article.id });
-      track('article_sold_toggled', {
-        article_id: article.id,
-        new_state: nextState,
-        success: true,
-        source: 'my_articles',
-      });
-      queryClient.setQueryData<Article[]>(
-        queryKeys.articles.userList(user!.id),
-        (old) =>
-          old?.map((a) => (a.id === article.id ? { ...a, isSold: !a.isSold } : a)) ?? []
-      );
-    } catch (error) {
-      if (__DEV__) console.error('Erreur mise a jour:', error);
-      track('article_sold_toggled', {
-        article_id: article.id,
-        new_state: nextState,
-        success: false,
-        source: 'my_articles',
-      });
-      Alert.alert('Erreur', 'Impossible de mettre a jour l\'article');
-    }
+      const prepared = await prepareArticleSoldChange(article.id, operation.session.uid, !!article.isSold, assertCurrent);
+      assertCurrent();
+      if (prepared.result) { pendingConfirmations.current.delete(article.id); apply(prepared.result); operationContext.finish(operation); return; }
+      if (!prepared.intent.payload.desiredIsSold) { await execute(prepared.intent); return; }
+      Alert.alert(MARK_AS_SOLD_ALERT.title, MARK_AS_SOLD_ALERT.message, [
+        { text: CANCEL_LABEL, style: 'cancel', onPress: cancel },
+        { text: MARK_AS_SOLD_ALERT.confirmLabel, onPress: () => { void execute(prepared.intent); } },
+      ], { onDismiss: cancel });
+    } catch (error) { pendingConfirmations.current.delete(article.id); fail(error); operationContext.finish(operation); }
   };
 
   const handleEditArticle = (article: Article) => {
@@ -139,56 +234,36 @@ export default function MyArticlesScreen() {
   };
 
   const showActionSheet = (article: Article) => {
-    const soldOption = article.isSold ? 'Remettre en vente' : 'Marquer comme vendu';
+    let operation;
+    try { assertArticleCurrent(article); operation = operationContext.capture(); } catch { return; }
+    const run = (action: OwnerArticleAction | null) => {
+      try { operationContext.assertCurrent(operation); assertArticleCurrent(article); } catch { return; }
+      if (action === 'edit') handleEditArticle(article);
+      else if (action === 'shipping') router.push({ pathname: '/article/shipping/[id]', params: { id: article.id } });
+      else if (action === 'toggle_sold') handleMarkAsSold(article);
+      else if (action === 'delete') handleDeleteArticle(article);
+    };
 
     if (Platform.OS === 'ios') {
-      if (article.isSold) {
-        // Sold articles: no "Modifier" option
-        ActionSheetIOS.showActionSheetWithOptions(
-          {
-            options: ['Annuler', soldOption, 'Supprimer'],
-            destructiveButtonIndex: 2,
-            cancelButtonIndex: 0,
-            title: article.title,
-          },
-          (buttonIndex) => {
-            if (buttonIndex === 1) {
-              handleMarkAsSold(article);
-            } else if (buttonIndex === 2) {
-              handleDeleteArticle(article);
-            }
-          }
-        );
-      } else {
-        ActionSheetIOS.showActionSheetWithOptions(
-          {
-            options: ['Annuler', 'Modifier', soldOption, 'Supprimer'],
-            destructiveButtonIndex: 3,
-            cancelButtonIndex: 0,
-            title: article.title,
-          },
-          (buttonIndex) => {
-            if (buttonIndex === 1) {
-              handleEditArticle(article);
-            } else if (buttonIndex === 2) {
-              handleMarkAsSold(article);
-            } else if (buttonIndex === 3) {
-              handleDeleteArticle(article);
-            }
-          }
-        );
-      }
+      const sheet = buildOwnerActionSheetIOS(article.title, !!article.isSold, SHIPPING_LISTINGS_ENABLED && article.isShipping === true);
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: sheet.options,
+          destructiveButtonIndex: sheet.destructiveButtonIndex,
+          cancelButtonIndex: sheet.cancelButtonIndex,
+          title: sheet.title,
+        },
+        (buttonIndex) => run(sheet.actions[buttonIndex] ?? null)
+      );
     } else {
-      const alertOptions: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [
-        { text: 'Annuler', style: 'cancel' },
-      ];
-      if (!article.isSold) {
-        alertOptions.push({ text: 'Modifier', onPress: () => handleEditArticle(article) });
-      }
-      alertOptions.push({ text: soldOption, onPress: () => handleMarkAsSold(article) });
-      alertOptions.push({ text: 'Supprimer', style: 'destructive', onPress: () => handleDeleteArticle(article) });
-
-      Alert.alert(article.title, 'Que souhaitez-vous faire ?', alertOptions);
+      Alert.alert(article.title, OWNER_ACTION_SHEET_MESSAGE, [
+        { text: CANCEL_LABEL, style: 'cancel' },
+        ...ownerArticleActions(!!article.isSold, SHIPPING_LISTINGS_ENABLED && article.isShipping === true).map((entry) => ({
+          text: entry.label,
+          style: entry.action === 'delete' ? ('destructive' as const) : undefined,
+          onPress: () => run(entry.action),
+        })),
+      ]);
     }
   };
 
@@ -215,7 +290,7 @@ export default function MyArticlesScreen() {
         </Animated.View>
       );
     },
-    []
+    [handleDeleteArticle]
   );
 
   const renderArticleItem = useCallback(
@@ -298,7 +373,7 @@ export default function MyArticlesScreen() {
         </Swipeable>
       );
     },
-    [renderRightActions]
+    [renderRightActions, showActionSheet]
   );
 
   const keyExtractor = useCallback((item: Article) => item.id, []);
@@ -318,10 +393,13 @@ export default function MyArticlesScreen() {
     );
   }, [filter]);
 
+  if (sdkUid && (!user || user.id !== sdkUid)) return <View style={styles.container}><ScreenHeader title="Mes articles" onBack={() => router.back()} />{preparations}<Text style={styles.emptyText}>Complétez votre profil pour publier une annonce.</Text></View>;
+
   if (!user) {
     return (
       <View style={styles.container}>
-        <ScreenHeader title="Mes articles" onBack={() => router.back()} />
+        <ScreenHeader title="Mes articles" onBack={() => router.back()} rightContent={decisionLink} />
+        {preparations}
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>Connexion requise</Text>
           <Text style={styles.emptyText}>
@@ -344,7 +422,8 @@ export default function MyArticlesScreen() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <ScreenHeader title="Mes articles" onBack={() => router.back()} />
+        <ScreenHeader title="Mes articles" onBack={() => router.back()} rightContent={decisionLink} />
+        {preparations}
         <View style={styles.skeletonList}>
           {Array.from({ length: 5 }).map((_, i) => (
             <View key={i} style={styles.skeletonArticleItem}>
@@ -370,7 +449,8 @@ export default function MyArticlesScreen() {
     if (__DEV__) console.error('[MyArticles] Query error:', error);
     return (
       <View style={styles.container}>
-        <ScreenHeader title="Mes articles" onBack={() => router.back()} />
+        <ScreenHeader title="Mes articles" onBack={() => router.back()} rightContent={decisionLink} />
+        {preparations}
         <View style={styles.emptyContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.danger} style={styles.emptyIcon} />
           <Text style={styles.emptyTitle}>Erreur de chargement</Text>
@@ -402,6 +482,7 @@ export default function MyArticlesScreen() {
       <ScreenHeader
         title={`Mes articles (${articles.length})`}
         onBack={() => router.back()}
+        rightContent={decisionLink}
       />
 
       {articles.length === 0 ? (
@@ -445,6 +526,7 @@ export default function MyArticlesScreen() {
                   styles.filterTab,
                   filter === tab.key && styles.filterTabActive,
                 ]}
+                hitSlop={{ top: spacing.sm, bottom: spacing.sm }}
                 onPress={() => {
                   setFilter(tab.key);
                   const count =
@@ -660,7 +742,9 @@ const styles = StyleSheet.create({
   },
   filterTab: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    // 25 pt de haut : sous le minimum tactile, avec la fiche article juste
+    // dessous comme cible de repli.
+    paddingVertical: spacing.sm,
     borderRadius: radius.full,
     backgroundColor: colors.surfaceWarm,
   },

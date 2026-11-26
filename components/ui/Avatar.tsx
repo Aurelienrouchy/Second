@@ -112,7 +112,7 @@ export const Avatar: React.FC<AvatarProps> = ({
           ]}
           contentFit="cover"
           transition={200}
-          cachePolicy="memory-disk"
+          cachePolicy={source?.startsWith('data:') ? 'none' : 'memory-disk'}
         />
       ) : initials ? (
         <LinearGradient

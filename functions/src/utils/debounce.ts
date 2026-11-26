@@ -53,14 +53,3 @@ export function debounceUpdate(
 
   updateQueues.set(key, timeout);
 }
-
-/**
- * Cancel a pending debounced update
- */
-export function cancelDebouncedUpdate(key: string): void {
-  const existingTimeout = updateQueues.get(key);
-  if (existingTimeout) {
-    clearTimeout(existingTimeout);
-    updateQueues.delete(key);
-  }
-}

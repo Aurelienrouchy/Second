@@ -1,3 +1,4 @@
+import {auth} from '@/config/firebaseConfig';
 /**
  * <AdminLayout /> — garde d'accès central de la section /admin/*.
  *
@@ -24,14 +25,24 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react-native';
 
 // useUser / useIsLoading sont des hooks Zustand ciblés (shim AuthContext).
 const mockUseUser = jest.fn();
 const mockUseIsLoading = jest.fn();
+const mockIdentity = jest.fn();
+let mockPathname='/admin/shops';
+let mockGeneration=0;
+jest.mock('@/store/authStore',()=>({getAuthSessionGeneration:()=>mockGeneration, useAuthStore: Object.assign((selector: (value: unknown) => unknown) => selector(require('@/store/authStore').useAuthStore.getState()), {getState: () => ({authenticatedUid: require('@/config/firebaseConfig').auth.currentUser?.uid ?? null, user: mockUseUser(), identityUser: mockIdentity(), isLoading: mockUseIsLoading(), identityError: false})})}));
 jest.mock('@/hooks/useAuth', () => ({
+  useAuthenticatedUid: () => require('@/config/firebaseConfig').auth.currentUser?.uid ?? null,
+  useAuthenticatedSession: () => ({ uid: require('@/config/firebaseConfig').auth.currentUser?.uid ?? null, identity: require('@/hooks/useAuth').useAuthenticatedIdentity() }),
+
   useUser: () => mockUseUser(),
   useIsLoading: () => mockUseIsLoading(),
+  useAuthenticatedIdentity: () => mockIdentity(),
+  useAuthGuardSession: () => ({normalUser:mockUseUser(),identity:mockIdentity(),isAuthLoading:mockUseIsLoading()}),
 }));
 
 // La vérification du rôle admin (custom claim + fallback Firestore).
@@ -59,6 +70,13 @@ jest.mock('expo-router', () => {
   const React = require('react');
   const { View, Text } = require('react-native');
   return {
+  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => true },
+  useRouter: () => require('expo-router').router,
+  useLocalSearchParams: () => ({}),
+  useNavigation: () => ({ isFocused: () => true, canGoBack: () => true }),
+  useFocusEffect: (effect: () => void | (() => void)) => require('react').useEffect(effect, [effect]),
+
+    usePathname:()=>mockPathname,
     Redirect: ({ href }: { href: string }) =>
       React.createElement(Text, { testID: 'redirect' }, href),
     Slot: () => React.createElement(View, { testID: 'admin-slot' }),
@@ -66,11 +84,16 @@ jest.mock('expo-router', () => {
 });
 
 import AdminLayout from '@/app/admin/_layout';
+const clients:QueryClient[]=[];
+function nativeOwner(){const uid=mockUseUser()?.id ?? mockIdentity()?.id ?? null; Object.defineProperty(auth, 'currentUser', {value: uid ? {uid} : null, writable: true, configurable: true});}
+function renderLayout(){nativeOwner();const client=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{gcTime:0}}});clients.push(client);return render(<AdminLayout/>,{wrapper:({children}:{children:React.ReactNode})=><QueryClientProvider client={client}>{children}</QueryClientProvider>});}
+afterEach(()=>{clients.forEach(client=>client.clear());clients.length=0;});
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockUseIsLoading.mockReturnValue(false);
   mockUseUser.mockReturnValue(null);
+  mockIdentity.mockReturnValue(null);mockPathname='/admin/shops';mockGeneration++;
   mockIsUserAdmin.mockResolvedValue(false);
 });
 
@@ -79,7 +102,7 @@ describe('<AdminLayout /> — garde de privilèges', () => {
     mockUseIsLoading.mockReturnValue(true);
     mockUseUser.mockReturnValue(null);
 
-    render(<AdminLayout />);
+    renderLayout();
 
     expect(screen.queryByTestId('redirect')).toBeNull();
     expect(screen.queryByTestId('admin-slot')).toBeNull();
@@ -90,7 +113,7 @@ describe('<AdminLayout /> — garde de privilèges', () => {
   it('redirige vers /(tabs) si aucun utilisateur connecté', async () => {
     mockUseUser.mockReturnValue(null);
 
-    render(<AdminLayout />);
+    renderLayout();
 
     await waitFor(() => {
       expect(screen.getByTestId('redirect')).toHaveTextContent('/(tabs)');
@@ -103,7 +126,7 @@ describe('<AdminLayout /> — garde de privilèges', () => {
     mockUseUser.mockReturnValue({ id: 'user_42' });
     mockIsUserAdmin.mockResolvedValue(false);
 
-    render(<AdminLayout />);
+    renderLayout();
 
     await waitFor(() => {
       expect(screen.getByTestId('redirect')).toBeOnTheScreen();
@@ -116,7 +139,7 @@ describe('<AdminLayout /> — garde de privilèges', () => {
     mockUseUser.mockReturnValue({ id: 'admin_1' });
     mockIsUserAdmin.mockResolvedValue(true);
 
-    render(<AdminLayout />);
+    renderLayout();
 
     await waitFor(() => {
       expect(screen.getByTestId('admin-slot')).toBeOnTheScreen();
@@ -124,15 +147,26 @@ describe('<AdminLayout /> — garde de privilèges', () => {
     expect(screen.queryByTestId('redirect')).toBeNull();
   });
 
-  it('fail-closed : refuse l\'accès si la vérification admin lève une erreur', async () => {
-    mockUseUser.mockReturnValue({ id: 'admin_1' });
-    mockIsUserAdmin.mockRejectedValue(new Error('network'));
-
-    render(<AdminLayout />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('redirect')).toHaveTextContent('/(tabs)');
-    });
+  it('fail-closed : erreur visible et retry, sans contenu privé', async () => {
+    mockUseUser.mockReturnValue({ id: 'admin_1' }); mockIsUserAdmin.mockRejectedValue(new Error('network'));
+    renderLayout();
+    await waitFor(() => expect(screen.getByText('Impossible de vérifier les permissions.')).toBeOnTheScreen());
     expect(screen.queryByTestId('admin-slot')).toBeNull();
+    mockIsUserAdmin.mockResolvedValue(true); fireEvent.press(screen.getByText('Réessayer'));
+    await waitFor(() => expect(screen.getByTestId('admin-slot')).toBeOnTheScreen());
+  });
+  it('identity-only pending owner enters only the admission admin route after real role check',async()=>{
+    mockPathname='/admin/eligibility';mockIdentity.mockReturnValue({id:'pending_admin'});mockIsUserAdmin.mockResolvedValue(true);
+    renderLayout();await waitFor(()=>expect(screen.getByTestId('admin-slot')).toBeOnTheScreen());expect(mockIsUserAdmin).toHaveBeenCalledWith('pending_admin');
+  });
+  it('identity-only owner cannot unlock other admin routes',async()=>{
+    mockIdentity.mockReturnValue({id:'pending_admin'});mockIsUserAdmin.mockResolvedValue(true);renderLayout();
+    await waitFor(()=>expect(screen.getByTestId('redirect')).toBeOnTheScreen());expect(mockIsUserAdmin).not.toHaveBeenCalled();expect(screen.queryByTestId('admin-slot')).toBeNull();
+  });
+  it('late admin A permission cannot admit the current non-admin B',async()=>{
+    let finish:(v:boolean)=>void;mockUseUser.mockReturnValue({id:'admin_A'});mockIsUserAdmin.mockImplementation((id:string)=>id==='admin_A'?new Promise(r=>{finish=r;}):Promise.resolve(false));
+    const view=renderLayout();await waitFor(()=>expect(mockIsUserAdmin).toHaveBeenCalledWith('admin_A'));
+    mockGeneration++;mockUseUser.mockReturnValue({id:'owner_B'});nativeOwner();view.rerender(<AdminLayout/>);await waitFor(()=>expect(screen.getByTestId('redirect')).toBeOnTheScreen());
+    await act(async()=>{finish!(true);});expect(screen.queryByTestId('admin-slot')).toBeNull();view.unmount();
   });
 });

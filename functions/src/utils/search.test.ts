@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   generateSearchKeywords,
   calculatePopularityScore,
+  isIndexableArticle,
   normalizeSearchText,
 } from './search';
 
@@ -128,5 +129,22 @@ describe('calculatePopularityScore', () => {
   it('returns positive score for any engagement', () => {
     const score = calculatePopularityScore(1, 0, new Date());
     expect(score).toBeGreaterThan(0);
+  });
+});
+
+describe('isIndexableArticle — ce qui entre dans l’index de recherche', () => {
+  it('un article en ligne, approuvé ou ancien, non vendu', () => {
+    expect(isIndexableArticle({ isActive: true, isSold: false, moderationStatus: 'approved' })).toBe(true);
+    expect(isIndexableArticle({ isActive: true })).toBe(true);
+  });
+
+  it('jamais un article VENDU — la migration en attente les aurait tous réinjectés', () => {
+    expect(isIndexableArticle({ isActive: true, isSold: true })).toBe(false);
+  });
+
+  it('jamais un article retiré ou bloqué en modération', () => {
+    expect(isIndexableArticle({ isActive: false })).toBe(false);
+    expect(isIndexableArticle({ isActive: true, moderationStatus: 'pending' })).toBe(false);
+    expect(isIndexableArticle({ isActive: true, moderationStatus: 'rejected' })).toBe(false);
   });
 });

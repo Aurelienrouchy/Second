@@ -221,11 +221,18 @@ describe('shops rules — self-approval & forfait lock (B1/B2/B3)', () => {
     );
   });
 
-  it('allows an admin to assign a paid forfait', async () => {
+  it.each(['admin-claim', ADMIN])('denies paid entitlement changes from admin client %s', async (uid) => {
     const env = await getTestEnv();
-    const db = env.authenticatedContext('admin-claim', { admin: true }).firestore();
-    await assertSucceeds(
-      updateDoc(doc(db, 'shops', SHOP_ID), { plan: 'premium' }),
-    );
+    const db = env.authenticatedContext(uid, uid === 'admin-claim' ? { admin: true } : {}).firestore();
+    // Financial entitlements come from the confirmed server settlement, not
+    // a moderator's client, including when combined with valid moderation.
+    for (const entitlement of [
+      { plan: 'premium' },
+      { tier: 'premium', tierPaidUntil: new Date(Date.now() + 86_400_000) },
+      { feesTier: 'pro' },
+      { financialRecoveryWitness: { epoch: 'forged' } },
+    ]) {
+      await assertFails(updateDoc(doc(db, 'shops', SHOP_ID), { status: 'approved', ...entitlement }));
+    }
   });
 });

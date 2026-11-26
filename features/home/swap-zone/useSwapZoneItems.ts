@@ -18,7 +18,7 @@ import { homeKeys } from '@/features/home/query-keys';
 // CONSTANTS
 // =============================================================================
 
-const PREVIEW_LIMIT = 6;
+const PREVIEW_LIMIT = 12;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 // =============================================================================

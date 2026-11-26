@@ -6,7 +6,7 @@
  * Route params: { imageUri: string }
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,18 +14,22 @@ import {
   Dimensions,
   Pressable,
   RefreshControl,
+  AppState,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing, typography, radius } from '@/constants/theme';
 import { track } from '@/lib/analytics';
-import { searchByImage, VisualSearchResult } from '@/services/visualSearchService';
+import { searchByImage, captureVisualSearchOwner, isVisualSearchImageUri, VisualSearchResult } from '@/features/search/services/visualSearchService';
 import ProductCard from '@/components/ProductCard';
-import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
+import { auth } from '@/config/firebaseConfig';
+import { getAuthSessionGeneration, useAuthStore } from '@/store/authStore';
+import { staleTradeOperation } from '@/services/tradeOperation';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 type VisualSearchErrorCode =
   | 'unauthenticated'
@@ -34,8 +38,9 @@ type VisualSearchErrorCode =
   | 'internal'
   | 'unavailable';
 
-function mapErrorToCode(err: any): VisualSearchErrorCode {
-  const code = String(err?.code || err?.message || '');
+function mapErrorToCode(err: unknown): VisualSearchErrorCode {
+  const details = err as {code?: unknown; message?: unknown} | null;
+  const code = String(details?.code || details?.message || '');
   if (code.includes('unauthenticated')) return 'unauthenticated';
   if (code.includes('resource-exhausted')) return 'resource-exhausted';
   if (code.includes('invalid-argument')) return 'invalid-argument';
@@ -43,8 +48,9 @@ function mapErrorToCode(err: any): VisualSearchErrorCode {
   return 'internal';
 }
 
-function mapErrorToUserMessage(err: any): string {
-  const code = err?.code || err?.message || '';
+function mapErrorToUserMessage(err: unknown): string {
+  const details = err as {code?: unknown; message?: unknown} | null;
+  const code = String(details?.code || details?.message || '');
   if (code.includes('unauthenticated'))
     return 'Session expirée. Veuillez vous reconnecter et réessayer.';
   if (code.includes('resource-exhausted'))
@@ -63,77 +69,138 @@ function mapErrorToUserMessage(err: any): string {
 // ============================================================
 
 const { width: screenWidth } = Dimensions.get('window');
+const EMPTY_RESULTS: VisualSearchResult[] = [];
 
 // ============================================================
 // Component
 // ============================================================
 
 export default function VisualSearchResultsScreen() {
-  const params = useLocalSearchParams<{ imageUri: string }>();
-  const { imageUri } = params;
+  const params = useLocalSearchParams<{ imageUri?: string | string[] }>();
+  const imageUri = typeof params.imageUri === 'string' ? params.imageUri : '';
+  const generation = useAuthStore(() => getAuthSessionGeneration());
+  const owner = auth.currentUser;
+  const activity = useRef({state: AppState.currentState, revision: 0});
+  const [activityRevision, setActivityRevision] = useState(0);
+  type Visit = {imageUri: string; generation: number; owner: typeof owner; activityRevision: number; active: boolean; locked: boolean; assertOwner: () => void};
+  const currentVisit = useRef<Visit | null>(null);
+  const automaticPhoto = useRef<string | null>(null);
+  const completedSearch = useRef<{visit: Visit; results: VisualSearchResult[]} | null>(null);
+  const [snapshot, setSnapshot] = useState<{visit: Visit; results: VisualSearchResult[]; loading: boolean; error: string | null} | null>(null);
 
-  const [results, setResults] = useState<VisualSearchResult[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const performSearch = async (isRetry = false) => {
-    if (!imageUri) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    const startedAt = Date.now();
-    try {
-      const searchResults = await searchByImage(imageUri);
-      setResults(searchResults);
-      track('visual_search_performed', {
-        outcome: searchResults.length === 0 ? 'empty' : 'success',
-        results_count: searchResults.length,
-        latency_ms: Date.now() - startedAt,
-        is_retry: isRetry,
-      });
-    } catch (err: any) {
-      if (__DEV__) console.error('[VisualSearchResults] Search failed:', err);
-      setError(mapErrorToUserMessage(err));
-      track('visual_search_performed', {
-        outcome: 'error',
-        results_count: 0,
-        error_code: mapErrorToCode(err),
-        latency_ms: Date.now() - startedAt,
-        is_retry: isRetry,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Run visual search on mount
   useEffect(() => {
-    if (imageUri) {
-      (async () => {
-        await performSearch();
-      })();
+    const completed = completedSearch.current;
+    if (completed && (completed.visit.imageUri !== imageUri || completed.visit.owner !== owner ||
+        completed.visit.generation !== generation)) {
+      completedSearch.current = null;
+    }
+  }, [imageUri, owner, generation]);
+
+  useEffect(() => {
+    const changed = (state: typeof AppState.currentState) => {
+      if (state === activity.current.state) return;
+      activity.current = {state, revision: activity.current.revision + 1};
+      if (currentVisit.current) currentVisit.current.active = false;
+      completedSearch.current = null;
+      setActivityRevision(activity.current.revision);
+    };
+    const subscription = AppState.addEventListener('change', changed);
+    changed(AppState.currentState);
+    return () => subscription.remove();
+  }, []);
+
+  const assertVisit = useCallback((visit: Visit) => {
+    visit.assertOwner();
+    if (!visit.active || currentVisit.current !== visit || visit.imageUri !== imageUri ||
+        visit.owner !== auth.currentUser || visit.generation !== getAuthSessionGeneration() ||
+        visit.activityRevision !== activity.current.revision || AppState.currentState !== 'active' || activity.current.state !== 'active') {
+      throw staleTradeOperation();
     }
   }, [imageUri]);
 
-  const handleRetry = () => {
-    track('error_retry_tapped', { screen: 'visual_search', error_context: 'visual_search' });
-    performSearch(true);
-  };
+  const performSearch = useCallback(async (isRetry = false) => {
+    const visit = currentVisit.current;
+    if (!visit || visit.imageUri !== imageUri || visit.generation !== generation || visit.owner !== owner) return;
+    try {assertVisit(visit);} catch {return;}
+    if (visit.locked) return;
+    visit.locked = true;
+    completedSearch.current = null;
+    setSnapshot({visit, results: [], loading: true, error: null});
+    const startedAt = Date.now();
+    try {
+      if (!isVisualSearchImageUri(imageUri)) throw Object.assign(new Error('Photo locale invalide.'), {code: 'invalid-argument'});
+      const searchResults = await searchByImage(imageUri, undefined, 20, {assertCurrent: () => assertVisit(visit)});
+      assertVisit(visit);
+      completedSearch.current = {visit, results: searchResults};
+      setSnapshot({visit, results: searchResults, loading: false, error: null});
+      track('visual_search_performed', {outcome: searchResults.length === 0 ? 'empty' : 'success', results_count: searchResults.length,
+        latency_ms: Date.now() - startedAt, is_retry: isRetry});
+    } catch (err: unknown) {
+      try {assertVisit(visit);} catch {return;}
+      if (__DEV__) console.error('[VisualSearchResults] Search failed:', err);
+      setSnapshot({visit, results: [], loading: false, error: mapErrorToUserMessage(err)});
+      track('visual_search_performed', {outcome: 'error', results_count: 0, error_code: mapErrorToCode(err),
+        latency_ms: Date.now() - startedAt, is_retry: isRetry});
+    } finally {visit.locked = false;}
+  }, [imageUri, generation, owner, assertVisit]);
 
+  useFocusEffect(useCallback(() => {
+    if (AppState.currentState !== 'active' || activity.current.state !== 'active') return;
+    let assertOwner: () => void;
+    try {assertOwner = captureVisualSearchOwner();} catch {return;}
+    const visit: Visit = {imageUri, generation, owner, activityRevision, active: true, locked: false, assertOwner};
+    currentVisit.current = visit;
+    const completed = completedSearch.current;
+    let canResume = completed && completed.visit.imageUri === imageUri && completed.visit.owner === owner &&
+      completed.visit.generation === generation && completed.visit.activityRevision === activityRevision;
+    if (canResume && completed) {
+      try {completed.visit.assertOwner();} catch {canResume = false;}
+    }
+    if (canResume && completed) {
+      // Opening an article only changes focus: rebind the completed results to
+      // this visit without processing or sending the selected photo again.
+      setSnapshot({visit, results: completed.results, loading: false, error: null});
+    } else if (automaticPhoto.current !== imageUri) {
+      completedSearch.current = null;
+      automaticPhoto.current = imageUri;
+      void performSearch();
+    } else {
+      completedSearch.current = null;
+      // A new visit/session cannot silently re-send a previously selected photo.
+      setSnapshot({visit, results: [], loading: false,
+        error: 'La recherche a été interrompue. Réessayez pour analyser cette photo dans le contexte actuel.'});
+    }
+    return () => {visit.active = false; if (currentVisit.current === visit) currentVisit.current = null;};
+  }, [imageUri, generation, owner, activityRevision, performSearch]));
+
+  const displayedVisit = snapshot && snapshot.visit.imageUri === imageUri && snapshot.visit.generation === generation &&
+    snapshot.visit.owner === owner && snapshot.visit.activityRevision === activityRevision ? snapshot.visit : null;
+  const results = displayedVisit ? snapshot!.results : EMPTY_RESULTS;
+  const isLoading = !displayedVisit || snapshot!.loading;
+  const error = displayedVisit ? snapshot!.error : null;
+  const assertDisplayedVisit = () => {if (!displayedVisit) throw staleTradeOperation(); assertVisit(displayedVisit);};
+  const handleRetry = () => {
+    try {assertDisplayedVisit();} catch {return;}
+    track('error_retry_tapped', {screen: 'visual_search', error_context: 'visual_search'});
+    void performSearch(true);
+  };
   const handleNewSearch = () => {
-    track('visual_search_abandoned', { action: 'new_search', stage: 'results_empty' });
+    try {assertDisplayedVisit();} catch {return;}
+    track('visual_search_abandoned', {action: 'new_search', stage: 'results_empty'});
     router.back();
   };
-
   const handleTextSearch = () => {
-    track('visual_search_abandoned', { action: 'text_fallback', stage: 'results_empty' });
-    router.replace({ pathname: '/search', params: { source: 'visual_fallback' } });
+    try {assertDisplayedVisit();} catch {return;}
+    track('visual_search_abandoned', {action: 'text_fallback', stage: 'results_empty'});
+    router.replace({pathname: '/search', params: {source: 'visual_fallback'}});
   };
-
-  const handleArticlePress = useCallback((articleId: string) => {
-    router.push(`/article/${articleId}`);
-  }, []);
+  const handleArticlePress = useCallback((item: VisualSearchResult) => {
+    try {if (!displayedVisit) return; assertVisit(displayedVisit);} catch {return;}
+    if (!results.includes(item)) return;
+    track('article_card_tapped', {article_id: item.articleId, source: 'visual_search', price_cents: Math.round(item.price * 100),
+      brand: item.brand, condition: item.condition, is_sold: false, similarity_pct: item.similarity});
+    router.push(`/article/${item.articleId}`);
+  }, [displayedVisit, assertVisit, results]);
 
   // ─── Render Product Card ────────────────────────────────────
   const renderProductCard = useCallback(
@@ -149,18 +216,7 @@ export default function VisualSearchResultsScreen() {
             size: item.size,
             condition: item.condition,
           }}
-          onPress={() => {
-            track('article_card_tapped', {
-              article_id: item.articleId,
-              source: 'visual_search',
-              price_cents: Math.round(item.price * 100),
-              brand: item.brand,
-              condition: item.condition,
-              is_sold: false,
-              similarity_pct: item.similarity,
-            });
-            handleArticlePress(item.articleId);
-          }}
+          onPress={() => handleArticlePress(item)}
         />
         {/* Similarity badge overlay */}
         <View style={styles.similarityBadge}>
@@ -287,7 +343,7 @@ export default function VisualSearchResultsScreen() {
             refreshControl={
               <RefreshControl
                 refreshing={isLoading}
-                onRefresh={() => performSearch(true)}
+                onRefresh={handleRetry}
                 tintColor={colors.primary}
                 colors={[colors.primary]}
               />

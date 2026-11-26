@@ -6,16 +6,10 @@ import { onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/fire
 import { db, FieldValue } from '../config/firebase';
 import * as logger from 'firebase-functions/logger';
 import { sendPushNotification } from '../utils/notifications';
+import {withDocumentaryProjection,favoriteProjectionIds,recordFavoriteProjectionCount} from '../utils/documentaryProjection';
 
 /** Old events and Admin writes may predate the stricter client rules. */
-function favoriteArticleIds(value: unknown): Set<string> {
-  if (!Array.isArray(value)) return new Set();
-  return new Set(value.filter((id): id is string =>
-    typeof id === 'string' && id.length > 0 &&
-    Buffer.byteLength(id, 'utf8') <= 1500 && !id.includes('/') &&
-    id !== '.' && id !== '..' && !/^__[\s\S]*__$/.test(id),
-  ));
-}
+const favoriteArticleIds=favoriteProjectionIds;
 
 /**
  * Canonical writer of article engagement counters (P1-3 / P1-5).
@@ -48,7 +42,7 @@ export const onArticleFavorited = onDocumentWritten(
       // delivery and out-of-order events cannot count a like twice or resurrect
       // an unlike. The first document creation and deletion are also handled.
       for (const id of touched) {
-        const added = await db.runTransaction(async (tx) => {
+        const added = await withDocumentaryProjection({kind:'favorite',articleId:id,userId:buyerUserId},()=>db.runTransaction(async (tx) => {
           const favoriteRef = db.collection('favorites').doc(buyerUserId);
           const articleRef = db.collection('articles').doc(id);
           const memberRef = db.collection('favorite_memberships').doc(id).collection('users').doc(buyerUserId);
@@ -60,6 +54,7 @@ export const onArticleFavorited = onDocumentWritten(
           ]);
           const desired = favoriteArticleIds(favorite.data()?.articleIds).has(id);
           const added = desired && !beforeSet.has(id) && member.data()?.counted !== true;
+          recordFavoriteProjectionCount(total.data().count);
           tx.set(memberRef, { counted: desired, updatedAt: FieldValue.serverTimestamp() });
           if (!article.exists) return false;
           // Aggregation repairs existing drift too (including the old missed
@@ -68,7 +63,7 @@ export const onArticleFavorited = onDocumentWritten(
           tx.update(articleRef, { favoritesCount: count, likes: count });
           if (index.exists) tx.update(indexRef, { likes: count });
           return added;
-        });
+        }));
         if (added) newFavoriteIds.push(id);
       }
 

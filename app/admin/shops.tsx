@@ -3,11 +3,10 @@
  * Liste et gestion des boutiques (validation, rejet, suspension)
  */
 
-import RejectionModal, { RejectionModalRef } from '@/components/admin/RejectionModal';
-import ShopValidationCard from '@/components/admin/ShopValidationCard';
+import RejectionModal, { RejectionModalRef } from '@/features/admin/components/RejectionModal';
+import ShopValidationCard from '@/features/admin/components/ShopValidationCard';
 import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 import { useUser } from '@/hooks/useAuth';
-import { NotificationService } from '@/services/notificationService';
 import { ShopService } from '@/services/shopService';
 import { UserService } from '@/services/userService';
 import { Shop } from '@/types';
@@ -24,6 +23,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius } from '@/constants/theme';
+import { AdminSectionNav } from '@/features/admin';
+import { CancelledError, useQuery } from '@tanstack/react-query';
+import { useShippingPurchaseContext } from '@/hooks/useShippingPurchaseContext';
+import { getAuthSessionGeneration } from '@/store/authStore';
 
 type TabType = 'pending' | 'approved' | 'rejected' | 'suspended' | 'all';
 
@@ -31,34 +34,27 @@ export default function AdminShopsScreen() {
   const router = useRouter();
   const user = useUser();
   const [selectedTab, setSelectedTab] = useState<TabType>('pending');
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const context = useShippingPurchaseContext(`admin-shops:${selectedTab}`, user?.id ?? null);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [modalMode, setModalMode] = useState<'reject' | 'suspend'>('reject');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [busy, setBusy] = useState<{frame: symbol; focus: number; value: boolean} | null>(null);
+  const isSubmitting = busy?.frame === context.frame && busy.focus === context.focusRevision && busy.value;
   const rejectionModalRef = useRef<RejectionModalRef>(null);
-
-  const checkAdminAccess = async () => {
-    if (!user) {
-      router.replace('/(tabs)');
-      return;
-    }
-
-    const adminStatus = await UserService.isUserAdmin(user.id);
-    if (!adminStatus) {
-      Alert.alert('Accès refusé', 'Vous n\'avez pas les droits d\'administrateur', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
-      ]);
-      return;
-    }
-
-    setIsAdmin(true);
-  };
-
-  const loadShops = async () => {
-    try {
-      setIsLoading(true);
+  const modalSelection = useRef<{operation: ReturnType<typeof context.capture>; shopId: string; mode: 'reject' | 'suspend'} | null>(null);
+  const permission = useQuery({queryKey: ['admin-shop-permission', user?.id, getAuthSessionGeneration(), context.focusRevision],
+    enabled: !!user && context.focused, staleTime: 0, gcTime: 0, retry: false, queryFn: async ({signal}) => {
+      try {
+        const op = context.capture(); const allowed = await UserService.isUserAdmin(op.session.uid); context.assertCurrent(op); return allowed;
+      } catch (error) {
+        if (signal.aborted || error && typeof error === 'object' && 'code' in error && error.code === 'client/stale-operation') throw new CancelledError({revert: true});
+        throw error;
+      }
+    }});
+  const isAdmin = context.focused && permission.isSuccess && !permission.isFetching && permission.data === true;
+  const shopsQuery = useQuery({queryKey: ['admin-shops', user?.id, getAuthSessionGeneration(), selectedTab, context.focusRevision],
+    enabled: isAdmin, staleTime: 0, gcTime: 0, retry: false, queryFn: async ({signal}) => {
+      try {
+      const operation = context.capture();
       let fetchedShops: Shop[] = [];
 
       switch (selectedTab) {
@@ -86,31 +82,24 @@ export default function AdminShopsScreen() {
           break;
       }
 
-      setShops(fetchedShops);
-    } catch (error) {
-      if (__DEV__) console.error('Error loading shops:', error);
-      Alert.alert('Erreur', 'Impossible de charger les boutiques');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+      context.assertCurrent(operation);
+      return [...new Map(fetchedShops.map(shop => [shop.id, shop])).values()];
+      } catch (error) {
+        if (signal.aborted || error && typeof error === 'object' && 'code' in error && error.code === 'client/stale-operation') throw new CancelledError({revert: true});
+        throw error;
+      }
+    }});
+  const shops = isAdmin && !shopsQuery.isError ? shopsQuery.data ?? [] : [];
+  const isLoading = permission.isPending || permission.isFetching || shopsQuery.isFetching;
+  const loadShops = () => {try {context.capture(); if (isAdmin) void shopsQuery.refetch();} catch { /* Inactive operator. */ }};
   useEffect(() => {
-    (async () => {
-      await checkAdminAccess();
-    })();
-  }, [user]);
-
-  useEffect(() => {
-    if (isAdmin) {
-      (async () => {
-        await loadShops();
-      })();
-    }
-  }, [selectedTab, isAdmin]);
+    modalSelection.current = null; rejectionModalRef.current?.hide();
+  }, [context.frame, context.focusRevision]);
 
   const handleApprove = async (shop: Shop) => {
-    if (!user) return;
+    if (!user || !isAdmin) return;
+    let opened: ReturnType<typeof context.capture>;
+    try {opened = context.capture();} catch {return;}
 
     Alert.alert(
       'Approuver la boutique',
@@ -121,18 +110,21 @@ export default function AdminShopsScreen() {
           text: 'Approuver',
           style: 'default',
           onPress: async () => {
-            if (isSubmitting) return;
+            if (!context.isCurrent(opened)) return;
+            const operation = context.start(); if (!operation) return;
             try {
-              setIsSubmitting(true);
-              await ShopService.approveShop(shop.id);
-              await NotificationService.notifyShopApproved(shop.id, shop.ownerId);
+              setBusy({frame: context.frame, focus: context.focusRevision, value: true});
+              await ShopService.approveShop(shop.id, {expectedUid: operation.session.uid, assertCurrent: () => context.assertCurrent(operation)});
+              context.assertCurrent(operation);
               Alert.alert('Succès', 'La boutique a été approuvée');
               loadShops();
             } catch (error) {
+              if (!context.isCurrent(operation)) return;
               if (__DEV__) console.error('Error approving shop:', error);
               Alert.alert('Erreur', 'Impossible d\'approuver la boutique');
             } finally {
-              setIsSubmitting(false);
+              if (context.isCurrent(operation)) setBusy({frame: context.frame, focus: context.focusRevision, value: false});
+              context.finish(operation);
             }
           },
         },
@@ -141,54 +133,47 @@ export default function AdminShopsScreen() {
   };
 
   const handleReject = (shop: Shop) => {
+    if (!isAdmin) return;
+    try {modalSelection.current = {operation: context.capture(), shopId: shop.id, mode: 'reject'};} catch {return;}
     setSelectedShop(shop);
     setModalMode('reject');
     rejectionModalRef.current?.show();
   };
 
   const handleSuspend = (shop: Shop) => {
+    if (!isAdmin) return;
+    try {modalSelection.current = {operation: context.capture(), shopId: shop.id, mode: 'suspend'};} catch {return;}
     setSelectedShop(shop);
     setModalMode('suspend');
     rejectionModalRef.current?.show();
   };
 
   const handleConfirmModal = async (reason: string) => {
-    if (!user || !selectedShop || isSubmitting) return;
-
-    if (modalMode === 'suspend') {
-      try {
-        setIsSubmitting(true);
-        // La callable `suspendShop` notifie le propriétaire côté serveur
-        // (notifyShopOwner — Admin SDK), pas de notification client ici.
-        await ShopService.suspendShop(selectedShop.id, reason);
-        Alert.alert('Succès', 'La boutique a été suspendue');
-        loadShops();
-      } catch (error) {
-        if (__DEV__) console.error('Error suspending shop:', error);
-        Alert.alert('Erreur', 'Impossible de suspendre la boutique');
-        throw error;
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
+    const selection = modalSelection.current;
+    if (!user || !isAdmin || !selectedShop || !selection || selection.shopId !== selectedShop.id || selection.mode !== modalMode || !context.isCurrent(selection.operation)) return;
+    const operation = context.start(); if (!operation) return;
     try {
-      setIsSubmitting(true);
-      await ShopService.rejectShop(selectedShop.id, reason);
-      await NotificationService.notifyShopRejected(selectedShop.id, selectedShop.ownerId, reason);
-      Alert.alert('Succès', 'La boutique a été rejetée');
+      setBusy({frame: context.frame, focus: context.focusRevision, value: true});
+      const options = {expectedUid: operation.session.uid, assertCurrent: () => context.assertCurrent(operation)};
+      if (modalMode === 'suspend') await ShopService.suspendShop(selectedShop.id, reason, options);
+      else await ShopService.rejectShop(selectedShop.id, reason, options);
+      context.assertCurrent(operation);
+      Alert.alert('Succès', modalMode === 'suspend' ? 'La boutique a été suspendue' : 'La boutique a été rejetée');
       loadShops();
     } catch (error) {
+      if (!context.isCurrent(operation)) return;
       if (__DEV__) console.error('Error rejecting shop:', error);
-      Alert.alert('Erreur', 'Impossible de rejeter la boutique');
+      Alert.alert('Erreur', modalMode === 'suspend' ? 'Impossible de suspendre la boutique' : 'Impossible de rejeter la boutique');
       throw error;
     } finally {
-      setIsSubmitting(false);
+      if (context.isCurrent(operation)) setBusy({frame: context.frame, focus: context.focusRevision, value: false});
+      context.finish(operation);
     }
   };
 
   const handleViewDetails = (shop: Shop) => {
+    if (!isAdmin) return;
+    try {context.capture();} catch {return;}
     router.push(`/admin/shop-detail/${shop.id}`);
   };
 
@@ -235,11 +220,16 @@ export default function AdminShopsScreen() {
   if (!isAdmin) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
+        {permission.isError || permission.isSuccess && permission.data !== true ? <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>{permission.isError ? 'Impossible de vérifier les permissions' : 'Accès administratif requis'}</Text>
+          <Pressable onPress={() => {try {context.capture(); void permission.refetch();} catch {/* Inactive operator. */}}}><Text style={styles.emptyText}>Réessayer</Text></Pressable>
+          <Pressable onPress={() => router.back()}><Text style={styles.emptyText}>Retour</Text></Pressable>
+        </View> :
         <View style={styles.skeletonContainer}>
           {Array.from({ length: 3 }).map((_, i) => (
             <ShopCardSkeleton key={i} />
           ))}
-        </View>
+        </View>}
       </SafeAreaView>
     );
   }
@@ -261,6 +251,8 @@ export default function AdminShopsScreen() {
           <Ionicons name="refresh" size={24} color={colors.primary} />
         </Pressable>
       </View>
+
+      <AdminSectionNav />
 
       {/* Tabs */}
       <View style={styles.tabs}>
@@ -327,7 +319,7 @@ export default function AdminShopsScreen() {
             <ShopCardSkeleton key={i} />
           ))}
         </View>
-      ) : (
+      ) : shopsQuery.isError ? <View style={styles.emptyContainer}><Text style={styles.emptyTitle}>Impossible de charger les boutiques</Text><Pressable onPress={loadShops}><Text style={styles.emptyText}>Réessayer</Text></Pressable></View> : (
         <FlashList
           data={shops}
           renderItem={renderShopItem}
@@ -342,6 +334,7 @@ export default function AdminShopsScreen() {
       <RejectionModal
         ref={rejectionModalRef}
         shopName={selectedShop?.name || ''}
+        mode={modalMode}
         onConfirm={handleConfirmModal}
       />
     </SafeAreaView>

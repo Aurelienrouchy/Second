@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { TermsContent } from '@/components/legal';
+import { TermsContent } from '@/features/legal';
 import { ScreenHeader } from '@/components/ui';
 import { colors } from '@/constants/theme';
 

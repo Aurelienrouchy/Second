@@ -1,56 +1,173 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-const state = vi.hoisted(() => ({ files: [] as Array<{ name: string; getMetadata: () => Promise<unknown[]>; delete: ReturnType<typeof vi.fn> }>, protected: new Set<string>(), failReferences: false }));
-vi.mock('../config/firebase', () => ({ storage: { bucket: () => ({ getFiles: async () => [state.files] }) } }));
-vi.mock('../utils/articleMedia', () => ({ publishedDraftPaths: async () => { if (state.failReferences) throw new Error('read failure'); return state.protected; } }));
-vi.mock('firebase-functions/v2/scheduler', () => ({ onSchedule: (_: unknown, handler: unknown) => handler }));
+/**
+ * Le balayage quotidien des images de brouillon (`cleanupExpiredDrafts`).
+ *
+ * Le parcours de vente par défaut téléverse les photos sous
+ * `drafts/{uid}/{draftId}/` pendant l'analyse IA, et la publication réutilise
+ * ces URL telles quelles : les photos d'un article publié VIVENT sous
+ * `drafts/`. L'âge et l'absence de référence ne qualifient pas une autorité
+ * de suppression : le job conserve les fichiers sans IO Storage.
+ */
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { createFirestoreMock } from '../utils/testHelpers/firestoreMock';
+import type { MockFirestore } from '../utils/testHelpers/firestoreMock';
+
+type FakeFile = {
+  name: string;
+  metadata: { timeCreated?: string };
+  getMetadata: () => Promise<[{ timeCreated?: string; generation?: string }]>;
+  delete: () => Promise<void>;
+};
+
+const holder = vi.hoisted(() => ({
+  fs: null as MockFirestore | null,
+  files: [] as FakeFile[],
+  deleted: [] as string[],
+  metadataCalls: 0,
+  articlesUnreadable: false,
+  scheduleOpts: null as Record<string, unknown> | null,
+}));
+
+const fs: MockFirestore = createFirestoreMock();
+holder.fs = fs;
+
+vi.mock('../config/firebase', () => {
+  const failing = {
+    collection: () => {
+      const q = {
+        select: () => q,
+        get: async () => {
+          throw new Error('Firestore indisponible');
+        },
+      };
+      return q;
+    },
+  };
+  return {
+    get db() {
+      return holder.articlesUnreadable ? failing : holder.fs!.db;
+    },
+    storage: {
+      bucket: () => ({ getFiles: async () => [holder.files] }),
+    },
+  };
+});
+
+vi.mock('firebase-functions/v2/scheduler', () => ({
+  onSchedule: (opts: Record<string, unknown>, handler: unknown) => {
+    holder.scheduleOpts = opts;
+    return handler;
+  },
+}));
+
+vi.mock('firebase-functions/logger', () => ({
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {},
+}));
+
 import { cleanupExpiredDrafts } from './cleanupDrafts';
+
 const run = cleanupExpiredDrafts as unknown as () => Promise<void>;
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400_000).toISOString();
-const file = (name: string, timeCreated: string) => ({ name, getMetadata: async () => [{ timeCreated, generation: '100' }], delete: vi.fn() });
-describe('draft cleanup lifecycle', () => {
-  beforeEach(() => { state.files = []; state.protected = new Set(); state.failReferences = false; });
-  it('deletes only abandoned files older than 14 days; preserves published refs and recent files', async () => {
-    state.files = [file('drafts/alice/old/abandoned.jpg', daysAgo(15)), file('drafts/alice/old/published.jpg', daysAgo(90)), file('drafts/alice/new/photo.jpg', daysAgo(13))];
-    state.protected.add(state.files[1].name);
+
+const DAY = 24 * 60 * 60 * 1000;
+
+function file(name: string, ageDays: number): FakeFile {
+  const timeCreated = new Date(Date.now() - ageDays * DAY).toISOString();
+  return {
+    name,
+    metadata: { timeCreated },
+    getMetadata: async () => {
+      holder.metadataCalls++;
+      return [{ timeCreated, generation: '100' }];
+    },
+    delete: async () => {
+      holder.deleted.push(name);
+    },
+  };
+}
+
+/** L'URL exacte que produit `aiService.uploadImageToStorage` (chemin encodé). */
+function downloadUrl(path: string): string {
+  return (
+    'https://firebasestorage.googleapis.com/v0/b/seconde-b47a6.firebasestorage.app/o/' +
+    `${encodeURIComponent(path)}?alt=media&token=tok`
+  );
+}
+
+const PUBLISHED = 'drafts/uid1/draftA/draftA_0_1757000000000.jpg';
+const ABANDONED = 'drafts/uid2/draftB/draftB_0_1757000000000.jpg';
+
+beforeEach(() => {
+  fs.reset();
+  holder.files = [];
+  holder.deleted = [];
+  holder.metadataCalls = 0;
+  holder.articlesUnreadable = false;
+});
+
+describe('cleanupExpiredDrafts', () => {
+  it("n'efface pas les photos d'un article publié, même vieilles de plus de 14 jours", async () => {
+    fs.setDoc('articles/art1', {
+      isActive: true,
+      isSold: false,
+      images: [{ url: downloadUrl(PUBLISHED) }],
+    });
+    holder.files = [file(PUBLISHED, 20)];
+
     await run();
-    expect(state.files.map((f) => f.delete.mock.calls.length)).toEqual([1, 0, 0]);
-    expect(state.files[0].delete).toHaveBeenCalledWith({ ifGenerationMatch: '100' });
+
+    expect(holder.deleted).not.toContain(PUBLISHED);
   });
-  it('fails closed if published references cannot be read', async () => {
-    state.files = [file('drafts/alice/old/photo.jpg', daysAgo(90))]; state.failReferences = true;
+
+  it('protège aussi les photos d’un article désactivé ou vendu, encore affichées dans les conversations', async () => {
+    fs.setDoc('articles/art1', {
+      isActive: false,
+      isSold: true,
+      images: [{ url: downloadUrl(PUBLISHED) }],
+    });
+    holder.files = [file(PUBLISHED, 20)];
+
     await run();
-    expect(state.files[0].delete).not.toHaveBeenCalled();
+
+    expect(holder.deleted).not.toContain(PUBLISHED);
   });
-  it('preserves files with invalid creation metadata', async () => {
-    state.files = [file('drafts/alice/old/photo.jpg', 'invalid')];
+
+  it("conserve aussi les images d'un brouillon abandonné sans autorité de suppression qualifiée", async () => {
+    fs.setDoc('articles/art1', { images: [{ url: downloadUrl(PUBLISHED) }] });
+    holder.files = [file(PUBLISHED, 20), file(ABANDONED, 20)];
+
     await run();
-    expect(state.files[0].delete).not.toHaveBeenCalled();
+
+    expect(holder.deleted).toEqual([]);
   });
-  it('preserves a freshly re-uploaded generation after inspecting an old version', async () => {
-    let currentGeneration = 'old';
-    let deleted = false;
-    const old = {
-      name: 'drafts/alice/old/photo.jpg',
-      getMetadata: async () => {
-        const inspected = { timeCreated: daysAgo(90), generation: currentGeneration };
-        currentGeneration = 'fresh'; // owner replaces it before deletion
-        return [inspected];
-      },
-      delete: vi.fn(async (options?: { ifGenerationMatch?: string }) => {
-        if (options?.ifGenerationMatch && options.ifGenerationMatch !== currentGeneration) throw { code: 412 };
-        deleted = true;
-      }),
-    };
-    state.files = [old];
+
+  it('garde les images récentes, référencées ou non', async () => {
+    holder.files = [file(ABANDONED, 3)];
+
     await run();
-    expect(old.delete).toHaveBeenCalledWith({ ifGenerationMatch: 'old' });
-    expect(currentGeneration).toBe('fresh');
-    expect(deleted).toBe(false);
+
+    expect(holder.deleted).toEqual([]);
   });
-  it('fails closed when the inspected object has no generation', async () => {
-    const unknown = { name: 'drafts/alice/old/photo.jpg', getMetadata: async () => [{ timeCreated: daysAgo(90) }], delete: vi.fn() };
-    state.files = [unknown];
+
+  it("échoue fermé : si les articles sont illisibles, rien n'est effacé", async () => {
+    holder.articlesUnreadable = true;
+    holder.files = [file(PUBLISHED, 20), file(ABANDONED, 20)];
+
     await run();
-    expect(unknown.delete).not.toHaveBeenCalled();
+
+    expect(holder.deleted).toEqual([]);
+  });
+
+  it('ne lit aucune métadonnée Storage tant que la suppression reste non autorisée', async () => {
+    holder.files = [file(ABANDONED, 20), file(PUBLISHED, 3)];
+
+    await run();
+
+    expect(holder.metadataCalls).toBe(0);
+  });
+
+  it('se donne le temps de finir un balayage long', () => {
+    expect(Number(holder.scheduleOpts?.timeoutSeconds ?? 60)).toBeGreaterThanOrEqual(300);
   });
 });

@@ -29,7 +29,8 @@ vi.mock('../config/firebase', () => ({
   },
 }));
 
-vi.mock('firebase-admin/firestore', () => ({
+vi.mock('firebase-admin/firestore', async importOriginal => ({
+  ...await importOriginal<typeof import('firebase-admin/firestore')>(),
   Timestamp: {
     fromMillis: (ms: number) => ({ toMillis: () => ms, __ts: true }),
   },

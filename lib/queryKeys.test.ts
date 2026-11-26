@@ -45,8 +45,9 @@ describe('queryKeys', () => {
       expect(queryKeys.chat.article('a1')).toEqual(['chat', 'article', 'a1']);
     });
 
-    it('transaction includes chat id', () => {
-      expect(queryKeys.chat.transaction('c1')).toEqual(['chat', 'transaction', 'c1']);
+    it('transaction includes user and chat ids', () => {
+      expect(queryKeys.chat.transaction('c1', 'u1')).toEqual(['chat', 'transaction', 'u1', 'c1']);
+      expect(queryKeys.chat.transaction('c1', 'u1')).not.toEqual(queryKeys.chat.transaction('c1', 'u2'));
     });
   });
 
@@ -87,8 +88,8 @@ describe('queryKeys', () => {
   });
 
   describe('payments', () => {
-    it('transaction includes payment id', () => {
-      expect(queryKeys.payments.transaction('t1')).toEqual(['payments', 't1']);
+    it('transaction includes payment and user ids', () => {
+      expect(queryKeys.payments.transaction('t1', 'u1')).toEqual(['payments', 'u1', 't1']);
     });
   });
 

@@ -1,5 +1,5 @@
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 
 import { getTestEnv, teardownTestEnv } from './helpers';
@@ -12,8 +12,8 @@ const ITEM_ID = 'item-1';
 
 // A proposed swap with a paid-status financial top-up. All sensitive
 // transitions (payment_pending / accepted / photos_pending / shipping /
-// completed / disputed / cancelled) are CF-only. The ONLY client write allowed
-// is a participant declining a 'proposed' swap.
+// completed / disputed / cancelled / declined) are CF-only. The callable also
+// records causal financial invalidation for a legacy proposed swap.
 const baseSwap = {
   initiatorId: ALICE,
   receiverId: BOB,
@@ -64,10 +64,10 @@ describe('swaps rules (F53 / F114 / F115)', () => {
     );
   });
 
-  // --- decline (the single allowed client write) --------------------------
-  it('allows a participant to decline a proposed swap', async () => {
+  // --- decline (callable-only, including legacy proposals) ----------------
+  it('denies direct participant decline; the native callable owns its commit', async () => {
     const db = (await getTestEnv()).authenticatedContext(BOB).firestore();
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(db, 'swaps', SWAP_ID), {
         status: 'declined',
         declinedBy: BOB,
@@ -238,8 +238,8 @@ describe('swapParties rules (F114)', () => {
   });
 });
 
-// swapPartyItems — owner may add/remove, but never seed the CF-managed
-// lifecycle flags at create (F112).
+// swapPartyItems — NEW deposits are callable-only (launch admission). Existing
+// owner withdrawal stays available; lifecycle flags/identity remain CF-owned.
 describe('swapPartyItems rules (F112 / F114)', () => {
   beforeAll(async () => {
     await getTestEnv();
@@ -259,12 +259,43 @@ describe('swapPartyItems rules (F112 / F114)', () => {
         isSwapped: false,
         isPending: false,
       });
+      for (const [id, sellerId] of [
+        ['article-1', ALICE],
+        ['article-2', ALICE],
+        ['article-bob', BOB],
+      ]) {
+        await setDoc(doc(ctx.firestore(), 'articles', id), {
+          sellerId,
+          isActive: true,
+          isSold: false,
+          price: 40,
+        });
+      }
     });
   });
 
-  it('allows an owner to deposit their own item', async () => {
+  it('denies depositing an article owned by someone else (FR15)', async () => {
     const db = (await getTestEnv()).authenticatedContext(ALICE).firestore();
-    await assertSucceeds(
+    await assertFails(
+      setDoc(doc(db, 'swapPartyItems', 'squat'), { sellerId: ALICE, articleId: 'article-bob' }),
+    );
+  });
+
+  it('denies depositing an article that does not exist (FR15)', async () => {
+    const db = (await getTestEnv()).authenticatedContext(ALICE).firestore();
+    await assertFails(
+      setDoc(doc(db, 'swapPartyItems', 'ghost'), { sellerId: ALICE, articleId: 'no-such-article' }),
+    );
+  });
+
+  it('denies re-pointing an item to another article on update (FR15)', async () => {
+    const db = (await getTestEnv()).authenticatedContext(ALICE).firestore();
+    await assertFails(updateDoc(doc(db, 'swapPartyItems', ITEM_ID), { articleId: 'article-bob' }));
+  });
+
+  it('denies direct owner deposit, which would bypass private launch admission', async () => {
+    const db = (await getTestEnv()).authenticatedContext(ALICE).firestore();
+    await assertFails(
       setDoc(doc(db, 'swapPartyItems', 'item-new'), {
         sellerId: ALICE,
         articleId: 'article-2',
@@ -315,9 +346,9 @@ describe('swapPartyItems rules (F112 / F114)', () => {
     );
   });
 
-  it('allows seeding isSwapped=false explicitly at create', async () => {
+  it('denies direct owner deposit even with explicit false lifecycle flags', async () => {
     const db = (await getTestEnv()).authenticatedContext(ALICE).firestore();
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(db, 'swapPartyItems', 'item-new'), {
         sellerId: ALICE,
         articleId: 'article-2',
@@ -332,5 +363,19 @@ describe('swapPartyItems rules (F112 / F114)', () => {
     await assertFails(
       updateDoc(doc(db, 'swapPartyItems', ITEM_ID), { isSwapped: true }),
     );
+  });
+
+  it('preserves existing owner withdrawal without new profile admission', async () => {
+    const env = await getTestEnv();
+    await env.withSecurityRulesDisabled(async ctx => {
+      await updateDoc(doc(ctx.firestore(), 'swapPartyItems', ITEM_ID), { isPending: true });
+    });
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertSucceeds(deleteDoc(doc(db, 'swapPartyItems', ITEM_ID)));
+  });
+
+  it('does not let another member remove an existing deposit', async () => {
+    const db = (await getTestEnv()).authenticatedContext(BOB).firestore();
+    await assertFails(deleteDoc(doc(db, 'swapPartyItems', ITEM_ID)));
   });
 });

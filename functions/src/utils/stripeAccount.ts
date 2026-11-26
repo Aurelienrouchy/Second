@@ -9,9 +9,9 @@
  * current_deadline) that the legacy status derivation ignored (F59), in
  * addition to the charges/payouts/details booleans (F62/F117).
  *
- * "No undefined in Firestore": every field returned is a concrete value
- * (string | boolean | array | null) so it is always safe to pass to
- * update()/set() without `|| undefined`.
+ * Persist only stripeAccountFirestoreFields(state), whose concrete values
+ * never include undefined. Verification errors and pending fields are private
+ * owner transport and must not be written to the public user document.
  */
 
 export type StripeAccountStatus =
@@ -21,6 +21,12 @@ export type StripeAccountStatus =
   | 'restricted'
   | 'pending';
 
+/** Owner-only transport. Never copy provider prose or persist on public users. */
+export interface StripeVerificationError {
+  code: string;
+  requirement: string | null;
+}
+
 export interface StripeAccountState {
   status: StripeAccountStatus;
   chargesEnabled: boolean;
@@ -28,6 +34,9 @@ export interface StripeAccountState {
   detailsSubmitted: boolean;
   requirementsCurrentlyDue: string[];
   requirementsPastDue: string[];
+  /** Private callable fields, excluded from stripeAccountFirestoreFields. */
+  verificationErrors: StripeVerificationError[];
+  requirementsPendingVerification: string[];
   /** Stripe's machine reason payouts are disabled, or null when none. */
   disabledReason: string | null;
   /** Unix seconds (Stripe convention) for the next requirement deadline, or null. */
@@ -44,6 +53,38 @@ function toStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
+/** New-charge guard only. A pending verification is not itself a rejection if
+ * Stripe actually permits charges. Payout readiness is a separate permission. */
+export function hasUnrestrictedStripeChargeCapability(state: {
+  chargesEnabled: unknown; status: unknown; disabledReason: unknown; requirementsPastDue: unknown;
+}): boolean {
+  return state.chargesEnabled === true && typeof state.status === 'string' &&
+    ['active', 'partially_active', 'pending_verification', 'pending'].includes(state.status) &&
+    (state.disabledReason === null || state.disabledReason === 'requirements.pending_verification') &&
+    Array.isArray(state.requirementsPastDue) && state.requirementsPastDue.length === 0;
+}
+
+function requirementKey(value: unknown): string | null {
+  return typeof value === 'string' && value.length <= 255 &&
+    /^(?:individual|company|business_profile|external_account|tos_acceptance|settings|documents|person_[A-Za-z0-9]+)(?:\.[a-z0-9_]+)*$/.test(value)
+    ? value : null;
+}
+
+function verificationErrors(value: unknown): StripeVerificationError[] {
+  if (!Array.isArray(value)) return [];
+  const errors: StripeVerificationError[] = [], seen = new Set<string>();
+  for (const error of value) {
+    if (!error || typeof error !== 'object' || Array.isArray(error)) continue;
+    const code = typeof error.code === 'string' && /^[a-z][a-z0-9_]{0,127}$/.test(error.code)
+      ? error.code : 'unknown_verification_error';
+    const requirement = requirementKey(error.requirement), key = JSON.stringify([code, requirement]);
+    if (seen.has(key)) continue;
+    seen.add(key); errors.push({ code, requirement });
+    if (errors.length === 20) break;
+  }
+  return errors;
+}
+
 /**
  * Derive the canonical account state from a Stripe `Account`. Pure & deterministic.
  */
@@ -55,15 +96,18 @@ export function deriveStripeAccountState(account: any): StripeAccountState {
   const requirements = account?.requirements ?? {};
   const requirementsCurrentlyDue = toStringArray(requirements.currently_due);
   const requirementsPastDue = toStringArray(requirements.past_due);
+  const ownerVerificationErrors = verificationErrors(requirements.errors);
+  const requirementsPendingVerification = [...new Set(toStringArray(requirements.pending_verification)
+    .map(requirementKey).filter((key): key is string => key !== null))].slice(0, 50);
   const disabledReason =
     typeof requirements.disabled_reason === 'string' ? requirements.disabled_reason : null;
   const currentDeadline =
     typeof requirements.current_deadline === 'number' ? requirements.current_deadline : null;
 
   const externalAccounts = account?.external_accounts?.data;
-  const hasExternalAccount = Array.isArray(externalAccounts) && externalAccounts.length > 0;
+  const hasExternalAccount = Array.isArray(externalAccounts) && externalAccounts.some((e: any) => e?.object === 'bank_account' && e.country === 'CA' && e.currency === 'cad');
   const defaultBank = hasExternalAccount
-    ? externalAccounts.find((e: any) => e?.default_for_currency === true) ?? externalAccounts[0]
+    ? externalAccounts.find((e: any) => e?.object === 'bank_account' && e.country === 'CA' && e.currency === 'cad' && e.default_for_currency === true)
     : null;
   const bankAccountLast4 =
     defaultBank && typeof defaultBank.last4 === 'string' ? defaultBank.last4 : null;
@@ -75,8 +119,10 @@ export function deriveStripeAccountState(account: any): StripeAccountState {
   // when charges may still be enabled — surface 'restricted' so the app shows
   // the remediation path instead of a misleading "active" (F62/F117).
   let status: StripeAccountStatus;
-  if (disabledReason || requirementsPastDue.length > 0) {
+  if ((disabledReason && disabledReason !== 'requirements.pending_verification') || requirementsPastDue.length > 0) {
     status = 'restricted';
+  } else if (disabledReason === 'requirements.pending_verification') {
+    status = 'pending_verification';
   } else if (chargesEnabled && payoutsEnabled) {
     status = 'active';
   } else if (chargesEnabled) {
@@ -94,6 +140,8 @@ export function deriveStripeAccountState(account: any): StripeAccountState {
     detailsSubmitted,
     requirementsCurrentlyDue,
     requirementsPastDue,
+    verificationErrors: ownerVerificationErrors,
+    requirementsPendingVerification,
     disabledReason,
     currentDeadline,
     bankAccountLast4,

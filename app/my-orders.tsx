@@ -3,24 +3,30 @@
  * Design System: Editorial Luxe — Cream, Charcoal, Rust, Sage
  */
 
-import { useUser } from '@/hooks/useAuth';
+import { useShallow } from 'zustand/react/shallow';
+import { useShippingPurchaseContext } from '@/hooks/useShippingPurchaseContext';
 import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { ArticlesService } from '@/services/articlesService';
-import { hasUserReviewedTransaction } from '@/services/reviewService';
+import { hasUserReviewedTransaction } from '@/features/reviews/services/reviewService';
 import { TransactionService } from '@/services/transactionService';
 import { Article, Transaction, TransactionStatus } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { APP_LOCALE } from '@/constants/locale';
-import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { Badge, ScreenHeader } from '@/components/ui';
-import { getStatusLabel, getStatusVariant } from '@/lib/transactionStatusMeta';
+import { colors, components, radius, sizing, spacing, typography } from '@/constants/theme';
+import { Button, ScreenHeader } from '@/components/ui';
+import { getStatusLabel } from '@/features/orders/lib/transactionStatusMeta';
 import { queryKeys } from '@/lib/queryKeys';
 import { track } from '@/lib/analytics';
+import { hasBankObligation, hasUnsettledRefund } from '@/utils/refundPresentation';
+import { getTransactionFinancialLabel } from '@/utils/transactionFinancialLabel';
 import { formatPrice } from '@/utils/formatPrice';
+import { getTransactionArticlePresentation } from '@/utils/transactionArticlePresentation';
+import { assertTradeSessionCurrent, isTradeProfileCurrent } from '@/services/tradeOperation';
+import { getAuthSessionGeneration, useAuthStore } from '@/store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
-import { useQuery } from '@tanstack/react-query';
+import { CancelledError, useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef } from 'react';
 import {
@@ -38,6 +44,7 @@ interface OrderItem {
   article: Article | null;
   hasReview: boolean;
 }
+const orderKey = (item: OrderItem) => item.transaction.id;
 
 /**
  * Terminal statuses eligible for a review. Mirrors the backend gate in
@@ -63,64 +70,75 @@ function OrderCard({
   onReview?: () => void;
 }) {
   const { transaction, article, hasReview } = item;
-  const firstImage = article?.images?.[0];
-  const dateLabel = transaction.createdAt.toLocaleDateString(APP_LOCALE, {
+  const itemTerms = getTransactionArticlePresentation(transaction, article);
+  const firstImage = itemTerms.images[0];
+  const stepLabel = getTransactionFinancialLabel(transaction, 'buyer') ?? getStatusLabel(transaction.status, 'buyer');
+  const total = transaction.totalAmount;
+  const totalLabel = typeof total === 'number' && Number.isFinite(total) && total > 0
+    ? formatPrice(total) : 'Montant à vérifier';
+  const dateLabel = transaction.createdAtKnown === false ? 'Date indisponible' : transaction.createdAt.toLocaleDateString(APP_LOCALE, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
 
-  const isReviewable = isReviewableStatus(transaction.status) && !hasReview;
+  const isReviewable = !!onReview && isReviewableStatus(transaction.status) && !hasReview && !hasUnsettledRefund(transaction) && !hasBankObligation(transaction);
   const isReviewed = isReviewableStatus(transaction.status) && hasReview;
 
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <Image
-        source={firstImage?.url ? { uri: firstImage.url } : undefined}
-        style={styles.cardImage}
-        contentFit="cover"
-        transition={200}
-        placeholder={firstImage?.blurhash ? { blurhash: firstImage.blurhash } : undefined}
-        cachePolicy="memory-disk"
-      />
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {article?.title || 'Article indisponible'}
-        </Text>
-        <Text style={styles.cardPrice}>{formatPrice(transaction.totalAmount)}</Text>
-        <View style={styles.statusRow}>
-          <Badge variant={getStatusVariant(transaction.status)}>
-            {getStatusLabel(transaction.status, 'buyer')}
-          </Badge>
-        </View>
-        <Text style={styles.cardDate}>{dateLabel}</Text>
-        {isReviewable && (
-          <Pressable
-            style={styles.reviewButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              onReview?.();
-            }}
-            hitSlop={4}
-          >
-            <Ionicons name="star-outline" size={12} color={colors.rust} />
-            <Text style={styles.reviewButtonText}>Laisser un avis</Text>
-          </Pressable>
-        )}
-        {isReviewed && (
-          <View style={styles.reviewDoneRow}>
-            <Ionicons name="checkmark-circle" size={12} color={colors.success} />
-            <Text style={styles.reviewDoneText}>Avis laissé</Text>
+    <View style={styles.card} accessible={false}>
+      <View style={styles.cardRow} accessible={false}>
+        <Pressable
+          accessible
+          style={styles.cardMain}
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={`Ouvrir ${itemTerms.title}, ${totalLabel}, ${stepLabel}, ${dateLabel}`}
+        >
+          <Image
+            source={firstImage?.url ? {uri: firstImage.url} : undefined}
+            style={styles.cardImage}
+            contentFit="cover"
+            transition={200}
+            placeholder={firstImage?.blurhash ? {blurhash: firstImage.blurhash} : undefined}
+            cachePolicy="memory-disk"
+          />
+          <View style={styles.cardInfo}>
+            <Text style={styles.cardTitle} numberOfLines={2}>{itemTerms.title}</Text>
+            <Text style={styles.cardPrice}>{totalLabel}</Text>
+            <Text style={styles.cardStep}>{stepLabel}</Text>
+            <Text style={styles.cardDate}>{dateLabel}</Text>
+            {isReviewed ? <View style={styles.reviewDoneRow}>
+              <Ionicons name="checkmark-circle" size={sizing.iconSM} color={colors.success} />
+              <Text style={styles.reviewDoneText}>Avis laissé</Text>
+            </View> : null}
           </View>
-        )}
+          <Ionicons name="chevron-forward" size={sizing.iconSM} color={colors.muted} />
+        </Pressable>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-    </Pressable>
+      {isReviewable ? (
+        <Pressable
+          accessible
+          style={styles.reviewButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Laisser un avis pour ${itemTerms.title}`}
+          onPress={(event) => {
+            event.stopPropagation();
+            onReview?.();
+          }}
+          hitSlop={spacing.xs}
+        >
+          <Ionicons name="star-outline" size={sizing.iconSM} color={colors.rust} />
+          <Text style={styles.reviewButtonText}>Laisser un avis</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
 export default function MyOrdersScreen() {
-  const user = useUser();
+  const {uid, normalUser, generation} = useAuthStore(useShallow(state => ({uid: state.authenticatedUid, normalUser: state.user, generation: getAuthSessionGeneration()})));
+  const context = useShippingPurchaseContext('historical-orders', uid);
   const { showAuthSheet } = useRequireAuth();
   const router = useRouter();
   // Deep-link target from order_* / funds_released push notifications
@@ -133,98 +151,122 @@ export default function MyOrdersScreen() {
   const {
     data: orders = [],
     isLoading: loading,
+    isError,
     isRefetching: refreshing,
     refetch,
   } = useQuery<OrderItem[]>({
-    queryKey: queryKeys.orders.list(user?.id ?? ''),
-    queryFn: async () => {
-      const allTx = await TransactionService.getUserTransactions(user!.id);
-      const purchases = allTx.filter((t) => t.buyerId === user!.id);
+    queryKey: [...queryKeys.orders.list(uid ?? ''), generation, context.focusRevision],
+    queryFn: async ({signal}) => {
+      try {
+        if (signal.aborted) throw new CancelledError({revert: true});
+        const operation = context.capture();
+        const session = operation.session;
+        const allTx = await TransactionService.getUserTransactions(session.uid);
+        assertTradeSessionCurrent(session); context.assertCurrent(operation);
+        const purchases = allTx.filter(t => t.buyerId === session.uid);
 
-      // Batch the article reads (one `in` query per 30 ids) instead of an N+1
-      // of getArticleById (F130).
-      const articlesById = await ArticlesService.getArticlesByIds(
-        purchases.map((t) => t.articleId),
-      ).catch(() => new Map<string, Article>());
+        // Batch the article reads (one `in` query per 30 ids) instead of an N+1
+        // of getArticleById (F130).
+        const articlesById = await ArticlesService.getArticlesByIds(
+          purchases.filter(t => !t.articleSnapshot).map(t => t.articleId),
+        ).catch(() => new Map<string, Article>());
+        assertTradeSessionCurrent(session); context.assertCurrent(operation);
 
-      // Review checks only run for reviewable (terminal) statuses — a small
-      // subset, so this is not the N+1 driver.
-      const reviewChecks = await Promise.all(
-        purchases.map((tx) => {
-          if (!isReviewableStatus(tx.status)) return Promise.resolve(false);
-          return hasUserReviewedTransaction(user!.id, tx.id);
-        }),
-      );
+        // Review checks only run for reviewable (terminal) statuses — a small
+        // subset, so this is not the N+1 driver.
+        const reviewChecks = await Promise.all(
+          purchases.map((tx) => {
+            if (!isReviewableStatus(tx.status)) return Promise.resolve(false);
+            return hasUserReviewedTransaction(session.uid, tx.id);
+          }),
+        );
+        assertTradeSessionCurrent(session); context.assertCurrent(operation);
 
-      return purchases.map((tx, i) => ({
-        transaction: tx,
-        article: articlesById.get(tx.articleId) ?? null,
-        hasReview: reviewChecks[i],
-      }));
+        return purchases.map((tx, i) => ({
+          transaction: tx,
+          article: articlesById.get(tx.articleId) ?? null,
+          hasReview: reviewChecks[i],
+        }));
+      } catch (error) {
+        if (signal.aborted || error && typeof error === 'object' && 'code' in error && error.code === 'client/stale-operation') {
+          throw new CancelledError({revert: true});
+        }
+        throw error;
+      }
     },
-    enabled: !!user,
-    staleTime: 5 * 60 * 1000,
+    enabled: !!uid && context.focused,
+    staleTime: 0, gcTime: 0, retry: false,
+  });
+
+  // The committed focus/generation key starts and refreshes this read. A
+  // manual focus refetch would bypass enabled before capture is admissible.
+  const targetedOrder = useQuery({
+    queryKey: ['orders', uid ?? '', 'deep-link', deepLinkTransactionId ?? '', generation, context.focusRevision],
+    enabled: !!uid && context.focused && !!deepLinkTransactionId,
+    queryFn: async ({signal}) => {
+      try {
+        if (signal.aborted) throw new CancelledError({revert: true});
+        const operation = context.capture();
+        const session = operation.session;
+        const transaction = await TransactionService.getTransaction(deepLinkTransactionId!, {expectedUid: session.uid, assertCurrent: () => context.assertCurrent(operation)});
+        assertTradeSessionCurrent(session); context.assertCurrent(operation);
+        if (!transaction || transaction.buyerId !== session.uid) throw new Error('Commande inaccessible.');
+        return transaction;
+      } catch (error) {
+        if (signal.aborted || error && typeof error === 'object' && 'code' in error && error.code === 'client/stale-operation') {
+          throw new CancelledError({revert: true});
+        }
+        throw error;
+      }
+    }, staleTime: 30_000,
   });
 
   const handleOrderPress = useCallback(
     (orderItem: OrderItem, fromDeepLink = false) => {
       const { transaction } = orderItem;
-      const destination: 'payment' | 'chat' | 'article' =
-        transaction.status === 'pending_payment'
-          ? 'payment'
-          : transaction.chatId
-            ? 'chat'
-            : 'article';
+      if (!uid || transaction.buyerId !== uid) return;
+      try { context.capture(); } catch { return; }
       track('order_card_tapped', {
         role: 'buyer',
         transaction_id: transaction.id,
         status: transaction.status,
         delivery_type: transaction.deliveryType,
-        destination,
+        destination: 'order',
         from_deep_link: fromDeepLink,
       });
-      if (transaction.status === 'pending_payment') {
-        router.push(`/payment/${transaction.id}`);
-        return;
-      }
-      // The chat hosts the automated-decision transparency + contestation
-      // surface (ShipmentTracking, Loi 25 art. 12.1) — the natural landing for
-      // an order whose status was changed by an automated decision.
-      if (transaction.chatId) {
-        router.push(`/chat/${transaction.chatId}`);
-        return;
-      }
-      if (orderItem.article) {
-        router.push(`/article/${orderItem.article.id}`);
-      }
+      router.push({ pathname: '/orders/[id]', params: { id: transaction.id } });
     },
-    [router],
+    [router, uid, context.frame, context.focusRevision],
   );
 
-  // Consume the deep-link param once orders are loaded: route the buyer to the
-  // targeted order's chat, where the "Pourquoi cette décision ? / Contester"
-  // surface lives. Falls back to the plain list when the chat is unavailable.
+  // Open the exact private order from a notification, including orders whose
+  // listing or conversation is unavailable.
   useEffect(() => {
-    if (!deepLinkTransactionId || loading) return;
-    if (handledDeepLinkRef.current === deepLinkTransactionId) return;
+    if (!deepLinkTransactionId || loading || !context.focused || targetedOrder.isFetching) return;
+    const deepLinkKey = JSON.stringify([uid, generation, deepLinkTransactionId]);
+    if (handledDeepLinkRef.current === deepLinkKey) return;
 
-    const target = orders.find(
+    const target = targetedOrder.data ? {transaction: targetedOrder.data, article: null, hasReview: false} : orders.find(
       (o) => o.transaction.id === deepLinkTransactionId,
     );
     if (!target) return;
 
-    handledDeepLinkRef.current = deepLinkTransactionId;
+    handledDeepLinkRef.current = deepLinkKey;
     handleOrderPress(target, true);
-  }, [deepLinkTransactionId, loading, orders, handleOrderPress]);
+  }, [deepLinkTransactionId, loading, orders, targetedOrder.data, targetedOrder.isFetching, handleOrderPress, uid, generation, context.focused]);
 
   const handleReview = useCallback(
     (transactionId: string) => {
+      try {const operation = context.capture(); if (!isTradeProfileCurrent(operation.session)) return;} catch {return;}
       router.push(`/review/${transactionId}`);
     },
-    [router],
+    [router, normalUser?.id, context.frame, context.focusRevision],
   );
+  const renderOrder = useCallback(({ item }: { item: OrderItem }) => <OrderCard
+    item={item} onPress={() => handleOrderPress(item)} onReview={normalUser?.id === uid ? () => handleReview(item.transaction.id) : undefined}
+  />, [handleOrderPress, handleReview, normalUser?.id, uid]);
 
-  if (!user) {
+  if (!uid) {
     return (
       <View style={styles.container}>
         <ScreenHeader title="Mes commandes" onBack={() => router.back()} />
@@ -233,12 +275,7 @@ export default function MyOrdersScreen() {
           <Text style={styles.emptyText}>
             Connectez-vous pour voir vos commandes
           </Text>
-          <Pressable
-            style={styles.connectButton}
-            onPress={() => showAuthSheet(AUTH_MESSAGES.default)}
-          >
-            <Text style={styles.connectButtonText}>SE CONNECTER</Text>
-          </Pressable>
+          <Button onPress={() => showAuthSheet(AUTH_MESSAGES.default)}>Se connecter</Button>
         </View>
       </View>
     );
@@ -249,18 +286,18 @@ export default function MyOrdersScreen() {
       <ScreenHeader title="Mes commandes" onBack={() => router.back()} />
 
       {loading ? (
-        <View style={{ paddingVertical: spacing.sm }}>
+        <View style={styles.loadingContent}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <View key={i} style={styles.card}>
+            <View key={i} style={[styles.card, styles.cardRow]}>
               <Skeleton
-                width={72}
-                height={72}
-                borderRadius={radius.sm}
+                width={spacing['4xl']}
+                height={spacing['4xl'] + spacing.lg}
+                borderRadius={radius.none}
               />
-              <View style={[styles.cardInfo, { gap: 6 }]}>
+              <View style={[styles.cardInfo, styles.skeletonInfo]}>
                 <Skeleton width="70%" height={14} />
                 <Skeleton width="35%" height={16} />
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={styles.skeletonRow}>
                   <Skeleton width={8} height={8} borderRadius={4} />
                   <Skeleton width="50%" height={11} />
                 </View>
@@ -268,6 +305,16 @@ export default function MyOrdersScreen() {
               </View>
             </View>
           ))}
+        </View>
+      ) : isError && orders.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="cloud-offline-outline" size={sizing.iconLG} color={colors.muted} />
+          <Text style={styles.emptyTitle}>Consultation indisponible</Text>
+          <Text style={styles.emptyText}>Impossible de charger vos commandes pour le moment.</Text>
+          <Button variant="secondary" onPress={() => {
+            try {context.capture();} catch {return;}
+            void refetch();
+          }}>Réessayer</Button>
         </View>
       ) : orders.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -281,20 +328,24 @@ export default function MyOrdersScreen() {
       ) : (
         <FlashList
           data={orders}
-          keyExtractor={(item) => item.transaction.id}
-          renderItem={({ item }) => (
-            <OrderCard
-              item={item}
-              onPress={() => handleOrderPress(item)}
-              onReview={() => handleReview(item.transaction.id)}
-            />
-          )}
+          keyExtractor={orderKey}
+          renderItem={renderOrder}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.listContent}
+          ListHeaderComponent={isError ? (
+            <View style={styles.refreshError}>
+              <Text style={styles.emptyText}>Actualisation indisponible.</Text>
+              <Button variant="ghost" size="small" onPress={() => {
+                try {context.capture();} catch {return;}
+                void refetch();
+              }}>Réessayer</Button>
+            </View>
+          ) : null}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => {
+                try {context.capture();} catch {return;}
                 track('list_refreshed', { screen: 'my_orders', items_count: orders.length });
                 refetch();
               }}
@@ -308,91 +359,43 @@ export default function MyOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  listContent: {
-    paddingVertical: spacing.sm,
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    gap: spacing.md,
-  },
+  container: {flex: 1, backgroundColor: colors.background},
+  listContent: {paddingVertical: spacing.sm},
+  loadingContent: {paddingVertical: spacing.sm},
+  skeletonInfo: {gap: spacing.sm},
+  skeletonRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+  card: {paddingHorizontal: spacing.md, paddingVertical: spacing.lg, gap: spacing.xs},
+  cardRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
+  cardMain: {flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md},
   cardImage: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.sm,
+    width: spacing['4xl'],
+    height: spacing['4xl'] + spacing.lg,
+    borderRadius: radius.none,
     backgroundColor: colors.borderLight,
   },
-  cardInfo: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 14,
-    lineHeight: 19,
-    color: colors.charcoal,
-    marginBottom: 4,
-  },
-  cardPrice: {
-    fontFamily: fonts.displaySemiBold,
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.primary,
-    marginBottom: 6,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  cardDate: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    lineHeight: 15,
-    color: colors.muted,
-  },
+  cardInfo: {flex: 1, minWidth: 0, gap: spacing.xs},
+  cardTitle: {...typography.label, color: colors.foreground},
+  cardPrice: {...typography.h2, color: colors.foreground},
+  cardStep: {...typography.bodySmall, color: colors.primaryDark},
+  cardDate: {...typography.caption, color: colors.foregroundSecondary},
   reviewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 6,
+    ...components.button.container,
+    ...components.button.small,
+    ...components.button.ghost,
     alignSelf: 'flex-start',
-    paddingVertical: 4,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.rust,
-    backgroundColor: colors.primaryLight,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 0,
+    marginLeft: spacing['4xl'] + spacing.md,
   },
-  reviewButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    lineHeight: 15,
-    color: colors.rust,
-  },
-  reviewDoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  reviewDoneText: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    lineHeight: 15,
-    color: colors.success,
-  },
+  reviewButtonText: {...components.button.smallLabel, ...components.button.ghostLabel},
+  reviewDoneRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs},
+  reviewDoneText: {...typography.caption, color: colors.foregroundSecondary},
   separator: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
-    marginLeft: spacing.md + 72 + spacing.md,
+    marginHorizontal: spacing.md,
   },
+  refreshError: {padding: spacing.md, alignItems: 'center', gap: spacing.xs},
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -400,34 +403,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     gap: spacing.md,
   },
-  emptyTitle: {
-    fontFamily: fonts.displaySemiBold,
-    fontSize: 22,
-    lineHeight: 28,
-    color: colors.charcoal,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  connectButton: {
-    backgroundColor: colors.charcoal,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: 14,
-    borderRadius: radius.sm,
-    minWidth: 200,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  connectButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    lineHeight: 15,
-    letterSpacing: 2.16,
-    color: colors.cream,
-  },
+  emptyTitle: {...typography.h2, color: colors.foreground, textAlign: 'center'},
+  emptyText: {...typography.body, color: colors.foregroundSecondary, textAlign: 'center'},
 });

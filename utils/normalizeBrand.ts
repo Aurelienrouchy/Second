@@ -51,3 +51,12 @@ export function brandDisplay(brand: string | null | undefined): string {
     .map((word) => titleCaseWord(word))
     .join(' ');
 }
+
+/**
+ * Identifiant du document `brands`. Doit rester identique a celui de
+ * scripts/import-brands.js : une marque ajoutee a la main sous un autre
+ * identifiant que celui du catalogue cree un doublon invisible.
+ */
+export function brandDocId(brand: string | null | undefined): string {
+  return brandKey(brand).replace(/\//g, '_').replace(/\s/g, '-');
+}

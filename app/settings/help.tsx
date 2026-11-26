@@ -15,9 +15,18 @@ import {
 } from 'react-native';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { track } from '@/lib/analytics';
+import { useAuthenticatedUid } from '@/hooks/useAuth';
+import { captureTradeSession } from '@/services/tradeOperation';
 import { Text, Label, Caption, ScreenHeader, Button } from '@/components/ui';
+import { AccountRelationshipPurchaseJournal } from '@/components/AccountRelationshipPurchaseJournal';
+import { AdminFinancialReauthentication, AdminAuthorityRequestJournal } from '@/features/admin';
 
 const FAQ_ITEMS = [
+  {
+    icon: 'key-outline' as const,
+    question: 'Je n’ai plus accès à mon courriel. Comment demander de l’aide ?',
+    answer: 'Si vous utilisez déjà Apple ou Google pour ce compte, essayez cette même méthode de connexion. Sinon, contactez notre équipe depuis une adresse à laquelle vous avez accès et expliquez la difficulté. Ne transmettez pas de mot de passe ni de code de connexion. La prise de contact ne rétablit pas automatiquement l’accès au compte.',
+  },
   {
     icon: 'bag-add-outline' as const,
     question: 'Comment vendre un article ?',
@@ -35,13 +44,13 @@ const FAQ_ITEMS = [
   },
   {
     icon: 'swap-horizontal-outline' as const,
-    question: 'Comment fonctionne le Swap ?',
-    answer: 'Le Swap permet d\'échanger des articles avec d\'autres utilisateurs sans utiliser d\'argent.',
+    question: 'Comment fonctionne Le Troc ?',
+    answer: 'Le Troc permet d\'échanger des articles avec d\'autres utilisateurs sans utiliser d\'argent.',
   },
   {
     icon: 'shield-checkmark-outline' as const,
     question: 'Comment sécuriser mon compte ?',
-    answer: 'Activez la vérification email et utilisez un mot de passe fort unique à Seconde.',
+    answer: 'Si vous êtes encore connecté au compte concerné et soupçonnez une utilisation non autorisée, utilisez « Sécuriser mon compte » pour demander le blocage des nouvelles opérations et la révocation des sessions. Pour demander la reprise, reconnectez-vous avec une méthode de connexion déjà liée au compte, puis confirmez séparément dans cet écran que vous avez sécurisé le compte. L’application vérifie la nouvelle connexion et le résultat serveur ; elle ne vérifie pas un changement de mot de passe chez Google ou Apple. Si vous ne pouvez plus vous connecter, utilisez un moyen de récupération déjà lié au compte ou déclarez votre difficulté sans transmettre de mot de passe ni de code. Le support ne réattribue pas le compte manuellement.',
   },
 ];
 
@@ -86,6 +95,7 @@ const FAQItem = ({ icon, question, answer, faqKey }: FAQItemProps) => {
 
 export default function HelpSettingsScreen() {
   const router = useRouter();
+  const uid = useAuthenticatedUid();
 
   const handleContact = async () => {
     const email = 'contact@seconde.ca';
@@ -110,7 +120,7 @@ export default function HelpSettingsScreen() {
       track('support_contacted', { outcome: 'error' });
       Alert.alert(
         'Erreur',
-        'Impossible d\'ouvrir l\'application email',
+        'Impossible d’ouvrir l’application email. Vous pouvez écrire à contact@seconde.ca depuis une autre adresse à laquelle vous avez accès.',
         [{ text: 'OK' }]
       );
     }
@@ -125,6 +135,8 @@ export default function HelpSettingsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {uid ? <AccountRelationshipPurchaseJournal uid={uid} renderReauthentication={props => <AdminFinancialReauthentication {...props} purpose="relationship" />} /> : null}
+        {uid ? <AdminAuthorityRequestJournal uid={uid} /> : null}
         {/* Info Box */}
         <View style={styles.infoBox}>
           <Ionicons name="help-circle-outline" size={20} color={colors.primary} />
@@ -147,8 +159,23 @@ export default function HelpSettingsScreen() {
           ))}
         </View>
 
+        <View style={styles.contactSection}><Text variant="bodySmall">Vous contrôlez deux comptes et souhaitez en conserver un ? Chaque compte doit consentir avec sa propre connexion à Seconde ; les fonds et les contrats restent séparés.</Text><Button variant="secondary" onPress={() => router.push('/settings/account-control' as never)}>Conserver un compte et mettre l’autre en pause</Button></View>
         {/* Contact Section */}
         <Label style={styles.sectionHeader}>Besoin d&apos;aide ?</Label>
+        {!uid && <View style={styles.contactSection}>
+          <Text variant="bodySmall">Vous ne pouvez plus vous connecter ? Déclarez votre difficulté avant connexion et conservez le reçu du dépôt. Ce reçu ne prouve pas la possession d’un compte.</Text>
+          <Button variant="secondary" onPress={() => router.push('/settings/account-access' as never)}>Demander de l’aide avant connexion</Button>
+        </View>}
+        {!!uid && <View style={styles.contactSection}>
+          <Text variant="bodySmall">Vous soupçonnez une utilisation non autorisée de ce compte ? Demandez sa sécurisation et suivez le résultat serveur.</Text>
+          <Button variant="secondary" onPress={() => {try {captureTradeSession(uid); router.push('/settings/account-security' as never);} catch { /* Stale SDK identity. */ }}}>Sécuriser mon compte</Button>
+        </View>}
+        {!!uid && <View style={styles.contactSection}>
+          <Text variant="bodySmall">Déposez une demande privée et conservez sa référence. Son reçu confirme le dépôt ; il ne décide pas d’un remboursement, de vos droits ou d’un rétablissement d’accès.</Text>
+          <Button onPress={() => { try { captureTradeSession(uid); router.push('/settings/support' as never); } catch { /* Stale SDK identity. */ } }}>
+            Mes demandes et recours
+          </Button>
+        </View>}
         <View style={styles.contactSection}>
           <View style={styles.contactInfo}>
             <View style={styles.contactIconContainer}>
@@ -156,14 +183,15 @@ export default function HelpSettingsScreen() {
             </View>
             <View style={styles.contactTextContainer}>
               <Text variant="body" style={styles.contactTitle}>Contactez-nous</Text>
-              <Caption>Notre équipe répond généralement sous 24h</Caption>
+              <Caption>Expliquez votre difficulté à notre équipe. L’ouverture du courriel ne confirme ni sa réception ni la possession du compte.</Caption>
+              <Text selectable variant="bodySmall">contact@seconde.ca</Text>
             </View>
           </View>
           <Button
             variant="primary"
             fullWidth
             onPress={handleContact}
-            leftIcon={<Ionicons name="send-outline" size={18} color={colors.white} />}
+            leftIcon={<Ionicons name="send-outline" size={18} color={colors.foreground} />}
             style={styles.contactButton}
           >
             Nous contacter

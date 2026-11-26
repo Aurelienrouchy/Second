@@ -3,12 +3,54 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // Helper functions for validation and authorization
+    // Auth token revocation alone does not invalidate a cached JWT in Rules.
+    // The server-only containment marker also fences private reads/writes.
+    // A later sign-in restores historical access, not commercial permission.
+    function sessionAfterSecurityBarrier(profile) {
+      let barrier = profile.get('accountSecurityBarrier', null);
+      // Legacy deletion is permanent for every cached/new JWT. Even malformed
+      // or null native markers stay closed after users/{uid} is removed.
+      return !('accountErasureFence' in profile) && !('legacyDeletionFence' in profile) &&
+        (!('accountSecurityBarrier' in profile) ||
+        (barrier is map && barrier.schemaVersion == 1 &&
+         barrier.ownerId == request.auth.uid &&
+         barrier.source == 'owner_security_request' && barrier.accepted == true &&
+         barrier.statementVersion == 'account_security_containment_v1' &&
+         barrier.newEffectsBlocked == true &&
+         barrier.requestId is string && barrier.requestId.matches('[A-Za-z0-9_-]{1,128}') &&
+         barrier.commandId is string && barrier.commandId.matches('security_[a-f0-9]{64}') &&
+         barrier.inputHash is string && barrier.inputHash.matches('[a-f0-9]{64}') &&
+         barrier.recordedAt is timestamp && barrier.recordedAt.toMillis() > 0 &&
+         barrier.recordedAt <= request.time && request.auth.token.auth_time is int &&
+         request.auth.token.auth_time * 1000 > barrier.recordedAt.toMillis()));
+    }
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null &&
+        (!exists(/databases/$(database)/documents/eligibility_profiles/$(request.auth.uid)) ||
+         sessionAfterSecurityBarrier(get(/databases/$(database)/documents/eligibility_profiles/$(request.auth.uid)).data));
     }
     
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
+    }
+    function accountHasNoErasureFence(userId) {
+      return !exists(/databases/$(database)/documents/eligibility_profiles/$(userId)) ||
+        !('accountErasureFence' in get(/databases/$(database)/documents/eligibility_profiles/$(userId)).data);
+    }
+
+    // Server-only permanent closure survives deletion of users/{uid}. A cached
+    // signed Auth token cannot recreate the public account after its removal.
+    function accountHasNoClosure(userId) {
+      return !exists(/databases/$(database)/documents/eligibility_profiles/$(userId)) ||
+        !('accountClosure' in get(/databases/$(database)/documents/eligibility_profiles/$(userId)).data) ||
+        get(/databases/$(database)/documents/eligibility_profiles/$(userId)).data.accountClosure == null;
+    }
+    function canUpdateOwnerSource(userId) {
+      return accountHasNoClosure(userId) ||
+        (get(/databases/$(database)/documents/eligibility_profiles/$(userId)).data.accountClosure is map &&
+         get(/databases/$(database)/documents/eligibility_profiles/$(userId)).data.accountClosure.schemaVersion == 1 &&
+         get(/databases/$(database)/documents/eligibility_profiles/$(userId)).data.accountClosure.ownerId == userId &&
+         get(/databases/$(database)/documents/eligibility_profiles/$(userId)).data.accountClosure.phase == 'paused');
     }
     
     function isValidEmail(email) {
@@ -19,17 +61,61 @@ service cloud.firestore {
       return price is number && price >= 0.01 && price <= 10000;
     }
     
+    // ── Bascule de déploiement échelonné ────────────────────────────────────
+    // Trois verrous ci-dessous dépendent d'un code CLIENT qui voyage dans le
+    // BUILD de l'application, pas dans ce déploiement. Les builds déjà installés
+    // sur les téléphones écrivent encore eux-mêmes, à la finalisation d'une
+    // rencontre, `offer.meetup.completedAt` et `offer.status = 'completed'`, et
+    // postent eux-mêmes les messages « système » de la conversation. Les activer
+    // maintenant ferait échouer ces écritures : messages d'information perdus en
+    // silence, et erreur affichée à l'utilisateur APRÈS une finalisation
+    // pourtant réussie côté serveur — l'état resterait correct, le message
+    // serait faux.
+    //
+    // PASSER À `true` dès qu'un build embarquant le routage serveur est en
+    // circulation, et réactiver au même moment les trois groupes de tests
+    // marqués « TRANSITOIRE » dans tests/security/messages.rules.test.ts.
+    function strictOfferClientWrites() {
+      return true;
+    }
+
+    // ── Deuxième bascule : l'écriture cliente directe d'un ARTICLE ──────────
+    // L'app n'écrit plus un article qu'à travers les callables `createArticle`,
+    // `updateArticle` et `toggleArticleSold` depuis le 2026-05-25. Les builds
+    // antérieurs, eux, créent l'article par `addDoc` (date posée par le
+    // téléphone, `images: []`) puis y posent les images par `updateDoc`, et
+    // éditent par `updateDoc`. Fermer maintenant leur interdirait de publier.
+    //
+    // En attendant, la règle refuse tout ce qu'aucun client légitime, ancien
+    // ou actuel, n'écrit : un article qui naît vendu, une date qui n'en est
+    // pas une ou qui est dans le futur, une boutique, une baisse de prix,
+    // l'identité affichée du vendeur, l'édition d'un article vendu, la
+    // suppression dure (tests/security/articles.rules.test.ts).
+    //
+    // PASSER À `true` quand plus aucun build antérieur au 2026-05-25 ne
+    // circule : toute écriture cliente d'article sera alors refusée.
+    function strictArticleClientWrites() {
+      return true;
+    }
+
     function isAdmin() {
-      // Prefer the `admin` custom claim (set server-side via Admin SDK, not
-      // user-writable). Fall back to the Firestore `isAdmin` field for parity
-      // with the rest of the codebase (privacyIncidents / search / payments /
-      // wallet callables all use this same dual check). The `isAdmin` field on
-      // users/{uid} is itself write-protected by the users update rule, so the
-      // fallback cannot be self-granted.
-      return request.auth != null &&
-             (request.auth.token.admin == true ||
-              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true));
+      // A present native field is authoritative, including explicit revocation
+      // or malformed values. Absent fields retain historical claims-only use.
+      let privateUser = request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data : {};
+      return isAuthenticated() &&
+        (!('isActive' in privateUser) || privateUser.isActive == true) &&
+        ('isAdmin' in privateUser ? privateUser.isAdmin == true : request.auth.token.get('admin', false) == true);
+    }
+
+    // This check grants no role. It only fences existing moderator claims
+    // when the native account has been deactivated or its state is malformed.
+    function administrativeAccountActive() {
+      let privateUser = request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data : {};
+      return isAuthenticated() && (!('isActive' in privateUser) || privateUser.isActive == true);
     }
 
     // True when `viewerUid` is NOT blocked by `ownerUid`. Reads the owner's
@@ -61,24 +147,38 @@ service cloud.firestore {
         : get(/databases/$(database)/documents/chats/$(chatId)).data.participants[0];
     }
 
+    // L'autre participant, lu dans un document `chats` DÉJÀ chargé — donc sans
+    // `get()`, contrairement à `chatCounterparty` qui en consomme jusqu'à trois.
+    function chatOtherOf(participants, uid) {
+      return participants[0] == uid ? participants[1] : participants[0];
+    }
+
     function isValidString(str, minLen, maxLen) {
       return str is string && str.size() >= minLen && str.size() <= maxLen;
     }
     
     function isValidCondition(condition) {
-      return condition in ['neuf', 'très bon état', 'bon état', 'satisfaisant'];
+      return condition in ['neuf', 'neuf sans étiquette', 'très bon état',
+                          'bon état', 'satisfaisant'];
     }
     
     function isValidCoordinates(coords) {
-      return coords.keys().hasAll(['lat', 'lon']) &&
+      return coords is map &&
+             coords.keys().hasAll(['lat', 'lon']) &&
              coords.lat is number && coords.lat >= -90 && coords.lat <= 90 &&
              coords.lon is number && coords.lon >= -180 && coords.lon <= 180;
     }
     
     // Shops Collection Rules
     match /shops/{shopId} {
-      // Allow read for everyone (to find shops near them)
-      allow read: if true;
+      function serverFinancialFields() {
+        return ['plan', 'forfait', 'tier', 'tierPaidUntil', 'tierPaymentIntentId',
+                'tierChargeId', 'feesTier', 'buyerFeePercent', 'financialRecoveryWitness'];
+      }
+      // Whole legacy documents may contain fiscal/bank information. Public
+      // discovery uses the server allowlist, never a field-masking rule.
+      allow read: if isAuthenticated() &&
+        (isAdmin() || resource.data.get('ownerId', null) == request.auth.uid);
 
       // Allow create for authenticated users — but the owner can NEVER
       // self-approve at creation. SECURITY (B1): the validation/moderation
@@ -92,18 +192,23 @@ service cloud.firestore {
                        (!('status' in request.resource.data) ||
                         request.resource.data.status == 'pending') &&
                        !request.resource.data.keys().hasAny(
-                         ['verificationDetails', 'plan', 'forfait', 'tier',
-                          'tierPaidUntil', 'tierPaymentIntentId', 'tierChargeId',
-                          'feesTier', 'buyerFeePercent', 'isVerified']);
+                         ['legalInfo', 'verificationDetails', 'isVerified']) &&
+                       !request.resource.data.keys().hasAny(serverFinancialFields());
 
-      // Allow update either by an admin (full moderation: approve / reject /
-      // suspend, set the paid forfait) OR by the owner for non-sensitive
+      // Allow update either by an admin (moderation: approve / reject /
+      // suspend) OR by the owner for non-sensitive
       // fields only. SECURITY (B1/B2/B3): a shop owner can edit their profile
       // (name, description, images, hours, contact…) but can NEVER mutate the
       // validation status, the verification metadata, or the paid forfait /
       // fee tier. Self-approval and self-upgrade are rejected; those mutations
-      // are reserved to admins (and Cloud Functions, which bypass these rules).
+      // are reserved to Cloud Functions. Even an admin client cannot grant a
+      // paid entitlement or forge an epoch/source witness on restored data.
+      // Launch exclusion: no client, including an admin, may ingest/change
+      // these identifiers. An unchanged historical map remains readable only
+      // by its owner/admin and does not block unrelated profile moderation.
       allow update: if isAuthenticated() &&
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['legalInfo']) &&
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(serverFinancialFields()) &&
                        (
                          isAdmin() ||
                          (request.auth.uid == resource.data.ownerId &&
@@ -143,11 +248,143 @@ service cloud.firestore {
       // Public read (browse / discovery uses unauthenticated reads).
       allow read: if true;
 
-      // All current client edits and soft deletes already use updateArticle.
-      // Only the server can atomically check legacy transactions (including
-      // missing article locks), validate fields and promote staged images.
-      // A direct image update would otherwise bypass that promotion entirely.
-      allow create, update, delete: if false;
+      // Écriture directe tolérée pour les builds antérieurs au 2026-05-25 —
+      // voir strictArticleClientWrites().
+      allow create: if !strictArticleClientWrites() &&
+                       isAuthenticated() &&
+                       request.auth.uid == request.resource.data.sellerId &&
+                       isValidArticleData(request.resource.data);
+
+      allow update: if !strictArticleClientWrites() &&
+                       isAuthenticated() &&
+                       request.auth.uid == resource.data.sellerId &&
+                       isValidArticleUpdate(resource.data, request.resource.data);
+
+      // Aucun client n'a jamais supprimé un article en dur : les builds
+      // antérieurs le désactivaient déjà (`isActive: false`) et l'app actuelle
+      // passe par la callable `updateArticle`. Une suppression dure échappait
+      // au verrou « transaction en cours » et ne nettoyait rien derrière elle.
+      allow delete: if false;
+
+      // Champs que SEUL le serveur pose.
+      function serverOnlyArticleFields() {
+        return ['shopId', 'originalPrice', 'priceDropPercent', 'lastPriceDropAt', 'isPromoted', 'privacyWithdrawal'];
+      }
+
+      // Une liste, jamais plus de dix : une valeur d'un autre type faisait
+      // planter le parcours et la recherche de TOUS les utilisateurs.
+      function isValidArticleImages(images) {
+        return images is list && images.size() <= 10;
+      }
+
+      function isValidArticleData(data) {
+        return data.keys().hasAll(['title', 'price', 'sellerId', 'isActive', 'isSold', 'createdAt', 'images']) &&
+               isValidString(data.title, 3, 200) &&
+               isValidPrice(data.price) &&
+               data.sellerId == request.auth.uid &&
+               data.isActive is bool &&
+               // Un article ne naît jamais vendu : le passage à « vendu » est
+               // réservé aux callables serveur. Sans cela, n'importe qui
+               // fabriquait son compteur public « articles vendus ».
+               data.isSold == false &&
+               // Une date, et pas dans le futur : une date d'une autre nature
+               // faisait planter le catalogue pour tous, une date lointaine
+               // épinglait l'annonce en tête des tris par récence. Les builds
+               // antérieurs posent une date CLIENT, d'où une tolérance d'horloge
+               // plutôt qu'une égalité à request.time.
+               data.createdAt is timestamp &&
+               data.createdAt <= request.time + duration.value(5, 'm') &&
+               // Le champ existe toujours, fût-il vide : les builds antérieurs
+               // au 2026-05-25 créent l'annonce avec `images: []` puis y posent
+               // les photos par un second appel. Exiger une photo DÈS la
+               // création casserait leur publication ; la garde « en ligne ⇒ au
+               // moins une photo » vit donc côté mise à jour, et la naissance
+               // sans photo ne se ferme qu'avec strictArticleClientWrites().
+               isValidArticleImages(data.images) &&
+               !data.keys().hasAny(serverOnlyArticleFields()) &&
+               (!('description' in data) || isValidString(data.description, 0, 5000)) &&
+               // L'état et les coordonnées n'étaient validés nulle part : un état
+               // inventé sortait l'annonce du filtre « État », et une latitude
+               // texte empoisonnait le géohash que la recherche par proximité
+               // recalcule à chaque écriture.
+               (!('condition' in data) || isValidCondition(data.condition)) &&
+               (!('location' in data) || !(data.location is map) ||
+                !('coordinates' in data.location) ||
+                isValidCoordinates(data.location.coordinates)) &&
+               // moderationStatus must be 'approved' if provided (auto-approved for now)
+               (!('moderationStatus' in data) || data.moderationStatus == 'approved') &&
+               // Server-managed counters must start at zero
+               (!('views' in data) || data.views == 0) &&
+               (!('likes' in data) || data.likes == 0) &&
+               (!('favoritesCount' in data) || data.favoritesCount == 0);
+      }
+
+      function isValidArticleUpdate(oldData, newData) {
+        // Un article vendu ne se modifie plus — le serveur le refuse aussi
+        // (`updateArticle`). Sans cette garde, un vendeur réécrivait titre,
+        // photos et prix d'un article vendu, et la réécriture se propageait
+        // dans la conversation de l'acheteur.
+        return !('privacyWithdrawal' in oldData) &&
+               !('privacyWithdrawal' in newData) &&
+               oldData.get('isSold', false) != true &&
+               newData.sellerId == oldData.sellerId &&
+               isValidString(newData.title, 3, 200) &&
+               isValidPrice(newData.price) &&
+               (!('description' in newData) || isValidString(newData.description, 0, 5000)) &&
+               (!('images' in newData) || isValidArticleImages(newData.images)) &&
+               // Une annonce EN LIGNE porte au moins une photo. Le serveur le
+               // refuse déjà (`updateArticle`) ; la règle, elle, laissait vider
+               // la galerie ou effacer le champ — fiche sans image au catalogue,
+               // dans la recherche et dans la conversation. La garde ne mord que
+               // sur un article qui en avait un (les documents antérieurs sans
+               // champ `images` restent modifiables), et retirer l'annonce de la
+               // vitrine reste toujours possible : c'est ainsi que les builds
+               // antérieurs suppriment.
+               (!('images' in oldData) ||
+                newData.get('isActive', false) != true ||
+                newData.get('images', []).size() >= 1) &&
+               (!('condition' in newData) || isValidCondition(newData.condition)) &&
+               (!('location' in newData) || !(newData.location is map) ||
+                !('coordinates' in newData.location) ||
+                isValidCoordinates(newData.location.coordinates)) &&
+               // Posés par le serveur, jamais par le client : date de création,
+               // boutique, suivi de baisse de prix, identité affichée du vendeur
+               // (relue du profil par le serveur à chaque changement).
+               fieldPreserved(oldData, newData, 'createdAt') &&
+               fieldPreserved(oldData, newData, 'shopId') &&
+               fieldPreserved(oldData, newData, 'originalPrice') &&
+               fieldPreserved(oldData, newData, 'priceDropPercent') &&
+               fieldPreserved(oldData, newData, 'lastPriceDropAt') &&
+               fieldPreserved(oldData, newData, 'isPromoted') &&
+               fieldPreserved(oldData, newData, 'sellerName') &&
+               fieldPreserved(oldData, newData, 'sellerImage') &&
+               // Protect server-managed fields from client mutation
+               // La forme `!('X' in newData) || newData.X == oldData.X` était
+               // contournable par SUPPRESSION : `newData` est le document tel
+               // qu'il sera APRÈS écriture, donc un `update({X: deleteField()})`
+               // rend `'X' in newData` faux et la garde passe. Un vendeur
+               // pouvait ainsi effacer `isSold` d'un article verrouillé par une
+               // rencontre en cours et le remettre en vente, ou effacer
+               // `moderationStatus` pour sortir de la modération.
+               // On exige donc que le champ SURVIVE et reste égal dès lors
+               // qu'il existait.
+               fieldPreserved(oldData, newData, 'views') &&
+               fieldPreserved(oldData, newData, 'likes') &&
+               fieldPreserved(oldData, newData, 'favoritesCount') &&
+               fieldPreserved(oldData, newData, 'moderationStatus') &&
+               fieldPreserved(oldData, newData, 'isSold');
+      }
+
+      /**
+       * Vrai si `field` est resté strictement identique — présent des deux
+       * côtés avec la même valeur, ou absent des deux côtés. Interdit donc
+       * autant la modification que la SUPPRESSION du champ.
+       */
+      function fieldPreserved(oldData, newData, field) {
+        return (field in oldData)
+          ? ((field in newData) && newData[field] == oldData[field])
+          : !(field in newData);
+      }
     }
 
     // Products Collection Rules
@@ -177,17 +414,18 @@ service cloud.firestore {
       // after the doc is created. The client creates the users doc WITHOUT a
       // username, so it must be absent at create time.
       //
-      // `id` and `createdAt` are the ONLY two fields the client legitimately seeds
-      // at create time (the 3 signup setDoc paths write them), so they are removed
+      // `id`, `createdAt` and `isActive` are legitimately initialized by the
+      // three signup setDoc paths, so they are removed
       // from the forbidden-at-create set — but kept anti-forge:
       //   - if `id` is present it MUST equal userId (== request.auth.uid via
       //     isOwner), so a client can't seed a foreign id; and
       //   - if `createdAt` is present it MUST equal request.time, which is exactly
       //     what a client serverTimestamp() resolves to at create, blocking any
       //     backdating/forging of the creation timestamp.
-      // After creation both are immutable: the update rule still uses the full
-      // protectedUserFields() set (which includes id + createdAt).
+      // isActive may be absent for legacy compatibility, or exactly true at
+      // creation. After creation all three are immutable to clients.
       allow create: if isOwner(userId) &&
+                       accountHasNoClosure(userId) &&
                        isValidUserData(request.resource.data) &&
                        !request.resource.data.keys().hasAny(createForbiddenUserFields()) &&
                        (!('id' in request.resource.data) ||
@@ -202,9 +440,39 @@ service cloud.firestore {
       // `username` is in the protected set: it is server-assigned and IMMUTABLE,
       // so a client can never add it, change it, or remove it.
       allow update: if isOwner(userId) &&
+                       canUpdateOwnerSource(userId) &&
                        !request.resource.data.diff(resource.data)
                           .affectedKeys()
-                          .hasAny(protectedUserFields());
+                          .hasAny(protectedUserFields()) &&
+                       // `displayName` n'était validé qu'à la CRÉATION. Il pouvait
+                       // ensuite devenir n'importe quoi — une chaîne vide, mille
+                       // caractères, ou « Second — Support ». Ce nom est propagé
+                       // par un trigger dans l'instantané `participantsInfo` de
+                       // TOUTES les conversations, et c'est le seul nom que voit
+                       // l'autre partie. Sur un échange comptant sans séquestre,
+                       // se faire passer pour la plateforme est le levier
+                       // d'arnaque le plus direct qui soit.
+                       // Borne haute à 150, et non 50 comme à la création.
+                       //
+                       // Les connexions Google et Apple rattrapent un nom
+                       // « générique » en écrivant celui du fournisseur, qui n'est
+                       // borné par rien (`services/authService.ts`). Le client le
+                       // tronque désormais à 50 — mais les BUILDS INSTALLÉS, où ce
+                       // code vit depuis le 2026-05-23, ne le tronquent pas. Une
+                       // borne à 50 aurait fait ÉCHOUER leur connexion : le
+                       // `updateDoc` lève, le `catch` rend « Erreur lors de la
+                       // connexion. Veuillez réessayer. », et le retry échoue à
+                       // l'identique — la personne est enfermée dehors de son
+                       // compte.
+                       //
+                       // 150 ne coûte rien à l'objectif, qui est d'empêcher un nom
+                       // VIDE et l'usurpation : se faire passer pour « Second —
+                       // Support » demande un nom court et crédible, jamais un nom
+                       // de cent cinquante caractères. Ce qui protège, c'est le
+                       // minimum de 1 et le fait que le champ soit typé.
+                       (!request.resource.data.diff(resource.data)
+                          .affectedKeys().hasAny(['displayName']) ||
+                        isValidString(request.resource.data.displayName, 1, 150));
 
       // Single source of truth for fields the CLIENT may never set or mutate on
       // its own user doc — applied identically to create and update so a forged
@@ -212,7 +480,7 @@ service cloud.firestore {
       //
       // - isAdmin/role/customClaims : privilege escalation (see isAdmin()).
       // - username                  : server-assigned, persistent, IMMUTABLE handle.
-      // - onboardingCompleted/createdAt/id : server-managed lifecycle/identity fields.
+      // - onboardingCompleted/createdAt/id/isActive : server-managed lifecycle/identity fields.
       // - stripe*                   : the ONLY financial gates read by walletWithdraw /
       //   createTransaction / swaps. Written EXCLUSIVELY by the Stripe webhook +
       //   onboarding callables (Admin SDK, which bypasses these rules). Leaving them
@@ -229,23 +497,25 @@ service cloud.firestore {
       function protectedUserFields() {
         return [
           'isAdmin', 'role', 'customClaims', 'username',
-          'onboardingCompleted', 'createdAt', 'id',
+          'onboardingCompleted', 'createdAt', 'id', 'isActive',
           'stripeAccountId', 'stripeChargesEnabled', 'stripePayoutsEnabled',
           'stripeAccountStatus', 'stripeDetailsSubmitted', 'stripeBankAccountAdded',
           'stripeBankAccountLast4', 'stripeBankAccountStatus',
           'stripeRequirementsCurrentlyDue', 'stripeRequirementsPastDue',
           'stripeRequirementsDisabledReason', 'stripeRequirementsCurrentDeadline',
-          'stripeAccountCreatedAt',
-          'dateOfBirth',
-          'isVerified', 'rating', 'reviewCount', 'sellerLikesCount'
+          'stripeAccountCreatedAt', 'stripeAccountCreationStartedAt',
+          'dateOfBirth', 'dateOfBirthVersion', 'eligibility', 'sellerActivity', 'sellerAdmission',
+          'sellerQuebecEvidence', 'connectOperation',
+          'isVerified', 'rating', 'reviewCount', 'reviewStatsQualification', 'sellerLikesCount'
         ];
       }
 
       // Fields the CLIENT may never set AT CREATE. Identical to
-      // protectedUserFields() MINUS 'id' and 'createdAt', which are the only two
+      // protectedUserFields() MINUS 'id', 'createdAt' and 'isActive', which are the
       // privileged-by-default fields a legitimate signup setDoc seeds. They are
       // not free-form at create: the create rule additionally enforces
-      // id == userId and createdAt == request.time (see above). Every other
+      // id == userId, createdAt == request.time and isActive == true if present.
+      // Every other
       // privilege/financial/trust field stays forbidden at create, exactly as in
       // protectedUserFields().
       function createForbiddenUserFields() {
@@ -257,19 +527,21 @@ service cloud.firestore {
           'stripeBankAccountLast4', 'stripeBankAccountStatus',
           'stripeRequirementsCurrentlyDue', 'stripeRequirementsPastDue',
           'stripeRequirementsDisabledReason', 'stripeRequirementsCurrentDeadline',
-          'stripeAccountCreatedAt',
-          'dateOfBirth',
-          'isVerified', 'rating', 'reviewCount', 'sellerLikesCount'
+          'stripeAccountCreatedAt', 'stripeAccountCreationStartedAt',
+          'dateOfBirth', 'dateOfBirthVersion', 'eligibility', 'sellerActivity', 'sellerAdmission',
+          'sellerQuebecEvidence', 'connectOperation',
+          'isVerified', 'rating', 'reviewCount', 'reviewStatsQualification', 'sellerLikesCount'
         ];
       }
 
-      // No delete allowed (soft delete by setting isActive = false)
+      // No client delete or client account-standing transition.
       allow delete: if false;
 
       function isValidUserData(data) {
         return data.keys().hasAll(['email', 'displayName']) &&
                isValidEmail(data.email) &&
-               isValidString(data.displayName, 1, 50);
+               isValidString(data.displayName, 1, 50) &&
+               (!('isActive' in data) || data.isActive == true);
       }
 
       // Saved Searches Subcollection Rules
@@ -278,10 +550,10 @@ service cloud.firestore {
         allow read: if isOwner(userId);
 
         // Allow create by owner
-        allow create: if isOwner(userId);
+        allow create: if isOwner(userId) && canUpdateOwnerSource(userId);
 
         // Allow update by owner
-        allow update: if isOwner(userId);
+        allow update: if isOwner(userId) && canUpdateOwnerSource(userId);
 
         // Allow delete by owner
         allow delete: if isOwner(userId);
@@ -293,12 +565,12 @@ service cloud.firestore {
         allow read: if isOwner(userId);
 
         // Allow create by owner
-        allow create: if isOwner(userId);
+        allow create: if isOwner(userId) && canUpdateOwnerSource(userId);
 
         // Allow update by owner — the recent-search dedup path re-stamps an
         // existing entry (e.g. searchedAt) via updateDoc; without this the
         // dedup write is denied. Mirrors the savedSearches update rule above.
-        allow update: if isOwner(userId);
+        allow update: if isOwner(userId) && canUpdateOwnerSource(userId);
 
         // Allow delete by owner
         allow delete: if isOwner(userId);
@@ -405,6 +677,7 @@ service cloud.firestore {
 
       function isValidMessageCreate(data) {
         return data.senderId == request.auth.uid &&
+               accountHasNoErasureFence(data.receiverId) &&
                data.keys().hasOnly(['chatId', 'senderId', 'receiverId', 'participants', 'type', 'content', 'text', 'timestamp', 'status', 'isRead', 'image']) &&
                (!('content' in data) || isValidString(data.content, 0, 5000)) &&
                (!('text' in data) || isValidString(data.text, 0, 5000)) &&
@@ -455,6 +728,29 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Complete source snapshots and token/generation lineage are private.
+    // Only allowlisted owner/actual-party callables expose qualified evidence.
+    match /article_privacy_evidence/{articleId} {
+      allow read: if isAdmin();
+      allow write: if false;
+      match /public_projection_evidence/{projectionId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+    match /profile_privacy_media/{uid}/{allPaths=**} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /article_media_promotions/{promotionId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /article_privacy_commands/{commandId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // Embeddings Collection Rules (for AI-powered similarity search)
     match /embeddings/{articleId} {
       // Allow read for similarity search queries
@@ -490,30 +786,23 @@ service cloud.firestore {
     }
 
     // Swap Zone Items
-    // The Swap Zone is open to all — no participants. Depositing an item only
-    // requires owning the article. Items are created/removed via Cloud
-    // Functions (addItemToPartySecure / removeItemFromPartySecure) which keep
-    // itemsCount in sync; the rules below still allow a direct owner write as a
-    // safety net but forbid mutating server-managed flags.
+    // Public discovery has no membership requirement. NEW deposits must pass
+    // addItemToPartySecure, which checks native ownership and private launch
+    // admission (18+, personal activity, declared Québec residence) and keeps
+    // itemsCount in sync. Existing owner withdrawal remains accessible.
     match /swapPartyItems/{itemId} {
       // Anyone can read items in the zone (public discovery + home preview).
       allow read: if true;
+      function respectsPublicPhoto(data, userId) {
+        return data.get('sellerImage', null) == null ||
+          (exists(/databases/$(database)/documents/users/$(userId)) &&
+           get(/databases/$(database)/documents/users/$(userId)).data.get('preferences', {}).get('privacy', {}).get('showProfilePhoto', false) == true &&
+           data.sellerImage == get(/databases/$(database)/documents/users/$(userId)).data.get('profileImage', null));
+      }
 
-      // Owners can add/remove their own items.
-      // SECURITY (F112): a direct owner create must NOT be able to short-circuit
-      // the addItemToPartySecure Cloud Function by seeding the server-managed
-      // swap-lifecycle flags. isSwapped / isPending are CF-owned (Admin SDK), so
-      // a client create must leave them absent or forced to false; it may also
-      // never seed the CF-managed swap pointers (swapId / swappedWith /
-      // swappedAt / pendingSwapId). The owner is pinned to the caller.
-      allow create: if isAuthenticated() &&
-                       request.resource.data.sellerId == request.auth.uid &&
-                       (!('isSwapped' in request.resource.data) ||
-                        request.resource.data.isSwapped == false) &&
-                       (!('isPending' in request.resource.data) ||
-                        request.resource.data.isPending == false) &&
-                       !request.resource.data.keys().hasAny(
-                         ['swapId', 'swappedWith', 'swappedAt', 'pendingSwapId']);
+      // Admin SDK callable only. Direct creation would bypass the private
+      // participant admission even with correct ownership and false flags.
+      allow create: if false;
       allow delete: if isAuthenticated() &&
                        resource.data.sellerId == request.auth.uid;
 
@@ -522,19 +811,18 @@ service cloud.firestore {
       // the pending lock.
       allow update: if isAuthenticated() &&
                        resource.data.sellerId == request.auth.uid &&
+                       !('privacyWithdrawal' in resource.data) &&
+                       !('privacyWithdrawal' in request.resource.data) &&
+                       !('privacyWithdrawal' in get(/databases/$(database)/documents/articles/$(resource.data.articleId)).data) &&
+                       respectsPublicPhoto(request.resource.data, request.auth.uid) &&
                        !request.resource.data.diff(resource.data).affectedKeys()
-                          .hasAny(['isSwapped', 'isPending']);
+                          .hasAny(['isSwapped', 'isPending', 'articleId', 'sellerId', 'partyId']);
     }
 
     // Swaps Collection Rules
     //
-    // SECURITY MODEL: all sensitive transitions — payment_pending (top-up
-    // accept), accepted (post-payment), photos_pending, shipping, completed,
-    // disputed, cancelled — are owned by Cloud Functions (Admin SDK, which
-    // bypasses rules). The ONLY client-allowed transition here is a participant
-    // declining a 'proposed' swap (a pure social action with no money/state
-    // side-effects). Everything else MUST go through a callable so invariants
-    // (Stripe payment, escrow ledger, item locks) are enforced atomically.
+    // Every swap mutation uses its callable. This includes declining a
+    // legacy proposal: the native counter and item releases share its commit.
     match /swaps/{swapId} {
       // Participants can read their swaps.
       allow read: if isAuthenticated() &&
@@ -545,42 +833,7 @@ service cloud.firestore {
       // article availability, blocking, and cashTopUp via Admin SDK).
       allow create: if false;
 
-      // Participants may ONLY decline a proposed swap client-side. All other
-      // transitions are CF-only (Admin SDK bypasses these rules).
-      //
-      // SECURITY (F53): the financial / lifecycle fields (cashTopUp, every
-      // topUp* field, and the paid-tier fields) are CF-only. The previous guard
-      // protected cashTopUp by OBJECT EQUALITY, which is brittle: a client could
-      // mutate a topUp* sibling, the tier, or add an arbitrary financial field
-      // and still pass. The ALLOWLIST below (hasOnly on the decline fields) is
-      // now the primary guard — it rejects ANY key outside the decline set —
-      // and we keep an explicit denylist via affectedKeys() as belt-and-braces
-      // so the intent (these fields are CF-only) is documented and enforced even
-      // if the allowlist were ever loosened.
-      allow update: if isAuthenticated() &&
-                       (resource.data.initiatorId == request.auth.uid ||
-                        resource.data.receiverId == request.auth.uid) &&
-                       // Immutable identity fields
-                       request.resource.data.initiatorId == resource.data.initiatorId &&
-                       request.resource.data.receiverId == resource.data.receiverId &&
-                       // Only these fields may change in a client decline (ALLOWLIST).
-                       request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['status', 'updatedAt', 'declinedBy', 'declinedAt']) &&
-                       // CF-only financial / tier fields can never be touched by a
-                       // client write (belt-and-braces denylist; F53).
-                       !request.resource.data.diff(resource.data).affectedKeys()
-                         .hasAny(['cashTopUp', 'topUpAmount', 'topUpPaymentIntentId',
-                                  'topUpChargeId', 'topUpPaidAt', 'topUpReleasedAt',
-                                  'topUpRefundedAt', 'topUpRefundId', 'tier',
-                                  'feesTier', 'serviceFee']) &&
-                       // Single permitted transition: proposed -> declined
-                       resource.data.status == 'proposed' &&
-                       request.resource.data.status == 'declined' &&
-                       // SECURITY (F115): declinedBy must identify the acting
-                       // participant — a client cannot attribute the decline to
-                       // the other party. When present it MUST be the caller.
-                       (!('declinedBy' in request.resource.data) ||
-                        request.resource.data.declinedBy == request.auth.uid);
+      allow update: if false;
 
       // No client delete — cancellation goes through the cancelSwap callable
       // (which may need to refund a paid top-up via Stripe).
@@ -591,38 +844,64 @@ service cloud.firestore {
     match /admin/{document=**} {
       // Only allow access for admin users
       allow read, write: if isAuthenticated() && 
-                            request.auth.token.admin == true;
+                            isAdmin();
     }
     
     // Moderation Collection Rules
     match /moderation/{document=**} {
       // Allow read for moderators
       allow read: if isAuthenticated() && 
-                     (request.auth.token.admin == true || 
-                      request.auth.token.moderator == true);
+                     (isAdmin() ||
+                      (request.auth.token.moderator == true && administrativeAccountActive()));
       
       // Allow write for moderators
       allow write: if isAuthenticated() && 
-                      (request.auth.token.admin == true || 
-                       request.auth.token.moderator == true);
+                      (isAdmin() ||
+                       (request.auth.token.moderator == true && administrativeAccountActive()));
     }
     
     // Reports Collection Rules
     match /reports/{reportId} {
-      // Allow create for authenticated users
+      // Capture provenance is created atomically by Admin SDK only. A prior
+      // client-writable report body is never sufficient to qualify a witness.
+      match /native_evidence/{captureId} {
+        allow read, write: if false;
+      }
+      // TRANSITOIRE — la création CLIENTE d'un signalement reste ouverte.
+      //
+      // Le rail serveur `submitReport` existe, est DÉPLOYÉ, et le client passe
+      // désormais par lui : il valide les champs, borne les longueurs, dérive
+      // le nom du signaleur du document utilisateur — que le client ne peut pas
+      // falsifier — et impose « un signalement par personne et par cible » via
+      // un identifiant déterministe posé dans une transaction. Rien de tout
+      // cela n'est exprimable dans une règle : un client peut encore signaler
+      // cent fois la même cible et se déclarer sous n'importe quel nom.
+      //
+      // La fermeture est différée pour la même raison que
+      // `strictOfferClientWrites()` : le code qui délègue au serveur voyage
+      // dans le BUILD, pas dans le déploiement des règles. Les builds installés
+      // écrivent encore ici en direct ; fermer maintenant leur ferait perdre le
+      // signalement d'article, seul chemin qui fonctionne encore chez eux.
+      //
+      // À FERMER en même temps que `strictOfferClientWrites()`, en remplaçant
+      // ce bloc par `allow create: if false;`.
       allow create: if isAuthenticated() && 
                        request.auth.uid == request.resource.data.reporterId &&
                        isValidReportData(request.resource.data);
       
       // Allow read for admins and moderators
       allow read: if isAuthenticated() && 
-                     (request.auth.token.admin == true || 
-                      request.auth.token.moderator == true);
+                     (isAdmin() ||
+                      (request.auth.token.moderator == true && administrativeAccountActive()));
       
       // Allow update for admins and moderators
       allow update: if isAuthenticated() && 
-                       (request.auth.token.admin == true || 
-                        request.auth.token.moderator == true);
+                       (isAdmin() ||
+                        (request.auth.token.moderator == true && administrativeAccountActive())) &&
+                       // Native content/media witnesses are callable-owned.
+                       // Even an administrative client cannot add, alter or
+                       // erase a server capture through a document write.
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['articleEvidence','messageEvidence','contentEvidence','contentSafety','contentDecision']);
       
       function isValidReportData(data) {
         // Aligned with services/moderationService.ts: reports use
@@ -639,7 +918,7 @@ service cloud.firestore {
                isValidString(data.reason, 1, 100) &&
                data.targetType in ['user', 'article', 'message', 'review'] &&
                (!('status' in data) || data.status == 'pending') &&
-               !data.keys().hasAny(['reviewedBy', 'reviewedAt', 'resolution']);
+               !data.keys().hasAny(['reviewedBy', 'reviewedAt', 'resolution', 'articleEvidence','messageEvidence','contentEvidence','contentSafety','contentDecision']);
       }
     }
     
@@ -659,7 +938,7 @@ service cloud.firestore {
     // Analytics Collection Rules (Read-only for admins)
     match /analytics/{document=**} {
       allow read: if isAuthenticated() &&
-                     request.auth.token.admin == true;
+                     isAdmin();
       allow write: if false; // Managed by Cloud Functions
     }
     
@@ -671,7 +950,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() &&
                      (request.auth.uid == resource.data.buyerId ||
                       request.auth.uid == resource.data.sellerId ||
-                      request.auth.token.admin == true);
+                      isAdmin());
 
       // No client creates — all transaction creation goes through Cloud
       // Functions (Admin SDK bypasses rules).
@@ -719,36 +998,17 @@ service cloud.firestore {
         let onlyUpdatedAtTouched =
           newData.diff(oldData).affectedKeys().hasOnly(['updatedAt']);
 
-        // Meetup status transition: ONLY the seller can confirm a meetup
-        // (meetup_pending -> meetup_confirmed). The meetup_confirmed ->
-        // meetup_completed transition is CF-only (completeMeetupTransaction),
-        // which unlocks the review. `status` is outside the allowlist above, so
-        // a meetup confirmation is permitted ONLY via this exact key set
-        // {status, meetupConfirmedAt, updatedAt}, re-validated below.
-        //
-        // SECURITY (P1-5): the canonical path is the confirmMeetupTransaction
-        // callable (Admin SDK, runTransaction) which stamps meetupConfirmedAt +
-        // meetupConfirmedBy server-side. The client-side seller fallback MAY
-        // carry meetupConfirmedAt; when it does it MUST be a timestamp so a
-        // seller cannot stamp a forged / non-timestamp confirmation time (which
-        // the 7d expiry sweep and the review unlock both key off). The key set
-        // is still bounded to {status, meetupConfirmedAt, updatedAt} so no other
-        // field can ride along, and the transition is restricted to the seller
-        // moving meetup_pending -> meetup_confirmed.
-        let isMeetupConfirmation =
-          oldData.status == 'meetup_pending' &&
-          newData.status == 'meetup_confirmed' &&
-          request.auth.uid == oldData.sellerId &&
-          newData.diff(oldData).affectedKeys()
-            .hasOnly(['status', 'meetupConfirmedAt', 'updatedAt']) &&
-          (!('meetupConfirmedAt' in newData) ||
-           newData.meetupConfirmedAt is timestamp);
 
-        // Path A: only `updatedAt` touched (idle re-stamp).
-        // Path B: the single legitimate meetup confirmation by the seller.
-        // Anything else is denied — it must go through a Cloud Function.
-        return coreFieldsUnchanged &&
-          (onlyUpdatedAtTouched || isMeetupConfirmation);
+        // Un client ne peut plus toucher QUE `updatedAt`. La branche qui
+        // autorisait le vendeur à écrire lui-même meetup_pending ->
+        // meetup_confirmed a été supprimée : plus aucun code applicatif ne
+        // l'emprunte depuis le 2026-06-02, date où `confirmMeetup` est passé par
+        // la callable `confirmMeetupTransaction`. Elle laissait par ailleurs
+        // passer une confirmation SANS auteur — `meetupConfirmedBy`, que le
+        // serveur écrit, était hors de l'ensemble de clés autorisé — et sans
+        // contrainte d'horodatage, alors que la fenêtre d'avis et le balayage à
+        // 7 jours se calent sur `meetupConfirmedAt`.
+        return coreFieldsUnchanged && onlyUpdatedAtTouched;
       }
     }
     
@@ -776,7 +1036,7 @@ service cloud.firestore {
     match /withdrawal_requests/{withdrawalId} {
       allow read: if isAuthenticated() &&
                      (resource.data.userId == request.auth.uid ||
-                      request.auth.token.admin == true);
+                      isAdmin());
       allow create, update, delete: if false;
     }
 
@@ -784,6 +1044,37 @@ service cloud.firestore {
     // by the stripeWebhook handler (Admin SDK). No owner concept; never read or
     // written by a client. Fully server-only.
     match /stripe_events/{eventId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // Admission foundations: INTERNAL documents may contain signals/notes/DOB.
+    // Owners use server callables with allowlisted DTOs; no mixed field-level ACL.
+    match /eligibility_profiles/{uid} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+    match /eligibility_requests/{requestId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+    match /eligibility_audit/{eventId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // Payable shipping preparation: quotes contain private source fingerprints,
+    // origin contacts and eligibility lineage; owners use allowlisted callables.
+    // Manual-confirmation authorization/unknown outcomes: private server evidence.
+    match /stripe_checkout_intents/{transactionId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+    match /shipping_quotes/{quoteId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+    match /shipping_packages/{articleId} {
       allow read: if isAdmin();
       allow create, update, delete: if false;
     }
@@ -821,10 +1112,18 @@ service cloud.firestore {
     // resolve. No client writes — creation, status changes and resolution are
     // CF-owned so the linked transaction freeze stays authoritative.
     match /disputes/{disputeId} {
+      // `isAdmin()` et non `request.auth.token.admin` : AUCUN code du dépôt
+      // n'appelle setCustomUserClaims, donc ce claim est toujours faux et la
+      // console de modération (app/admin/disputes.tsx, requête client directe)
+      // ne pouvait lire AUCUN litige. Les signalements d'absence — seul recours
+      // du parcours meetup, le seul parcours d'achat actif — n'étaient donc
+      // visibles de personne. `isAdmin()` reconnaît en plus le champ
+      // `users/{uid}.isAdmin`, mécanisme réellement utilisé partout ailleurs et
+      // lui-même protégé en écriture (protectedUserFields).
       allow read: if isAuthenticated() &&
                      (request.auth.uid == resource.data.buyerId ||
                       request.auth.uid == resource.data.sellerId ||
-                      request.auth.token.admin == true);
+                      isAdmin());
       allow create, update, delete: if false;
     }
 
@@ -842,7 +1141,7 @@ service cloud.firestore {
     // authorises them correctly.
     match /automatic_decisions_log/{logId} {
       allow read: if isAuthenticated() &&
-                     (request.auth.token.admin == true ||
+                     (isAdmin() ||
                       ('buyerId' in resource.data &&
                        request.auth.uid == resource.data.buyerId) ||
                       ('sellerId' in resource.data &&
@@ -868,7 +1167,7 @@ service cloud.firestore {
     match /automated_decision_contestations/{contestationId} {
       allow read: if isAuthenticated() &&
                      (request.auth.uid == resource.data.userId ||
-                      request.auth.token.admin == true);
+                      isAdmin());
       allow create, update, delete: if false;
     }
 
@@ -895,6 +1194,8 @@ service cloud.firestore {
       allow create: if isAuthenticated() &&
                        request.auth.uid in request.resource.data.participants &&
                        isValidChatData(request.resource.data) &&
+                       accountHasNoErasureFence(request.resource.data.participants[0]) &&
+                       accountHasNoErasureFence(request.resource.data.participants[1]) &&
                        neitherBlocks(request.resource.data.participants[0],
                                      request.resource.data.participants[1]);
       
@@ -903,19 +1204,70 @@ service cloud.firestore {
       // participants, participantsInfo, articleId, etc.
       allow update: if isAuthenticated() &&
                        request.auth.uid in resource.data.participants &&
+                       accountHasNoErasureFence(chatOtherOf(resource.data.participants, request.auth.uid)) &&
                        request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['unreadCount', 'lastMessage', 'lastMessageType', 'lastMessageTimestamp', 'updatedAt']);
+                         .hasOnly(['unreadCount', 'lastMessage', 'lastMessageType', 'lastMessageTimestamp', 'updatedAt']) &&
+                       // L'APERÇU est un canal de texte libre vers la liste de
+                       // conversations de l'autre. Les règles refusent le MESSAGE
+                       // d'une personne bloquée, mais l'aperçu est une écriture
+                       // DISTINCTE, sur le document `chats` : sans cette garde, une
+                       // personne bloquée pouvait continuer d'afficher son texte et
+                       // une pastille de non-lu chez sa victime, indéfiniment, sans
+                       // qu'aucun message n'existe dans le fil. Directionnel, pour
+                       // que celle qui bloque garde la main sur son propre fil.
+                       (!request.resource.data.diff(resource.data).affectedKeys()
+                          .hasAny(['lastMessage', 'lastMessageType', 'lastMessageTimestamp']) ||
+                        (resource.data.get('contentPreviewRestricted', false) == false &&
+                         isNotBlockedBy(chatOtherOf(resource.data.participants, request.auth.uid),
+                                        request.auth.uid) &&
+                         // Borne ANTI-ABUS de l'aperçu, délibérément large.
+                         //
+                         // Le client tronque désormais à 200 caractères
+                         // (`CHAT_PREVIEW_MAX_LENGTH`) — c'est un aperçu d'une
+                         // ligne. Mais les BUILDS INSTALLÉS ne tronquent pas, et
+                         // les champs de contre-offre n'y ont aucun plafond de
+                         // saisie : un message collé pouvait produire un contenu
+                         // de plusieurs milliers de caractères. Une borne serrée
+                         // aurait refusé cette écriture chez eux — et comme le
+                         // compteur de non-lus voyage dans le MÊME `updateDoc`,
+                         // le destinataire aurait perdu sa pastille sans que
+                         // personne ne comprenne pourquoi.
+                         // 2000 ne peut être atteint par aucun usage plausible et
+                         // borne malgré tout ce qu'on peut verser dans un document
+                         // que les deux parties gardent en écoute permanente.
+                         (!('lastMessage' in request.resource.data) ||
+                          (request.resource.data.lastMessage is string &&
+                           request.resource.data.lastMessage.size() <= 2000))));
       
       // No delete allowed
       allow delete: if false;
       
       function isValidChatData(data) {
         return data.keys().hasAll(['participants', 'participantsInfo', 'unreadCount']) &&
+               !data.keys().hasAny(['contentPreviewRestricted']) &&
                data.participants is list &&
                data.participants.size() == 2 &&
                request.auth.uid in data.participants &&
                data.participantsInfo is list &&
-               data.unreadCount is map;
+               data.unreadCount is map &&
+               // Le compteur de non-lus démarre à ZÉRO pour les deux. Il était
+               // libre à la création : on pouvait faire naître une conversation
+               // avec une pastille déjà à 99 chez l'autre, sans lui avoir écrit.
+               (!(data.participants[0] in data.unreadCount) ||
+                data.unreadCount[data.participants[0]] == 0) &&
+               (!(data.participants[1] in data.unreadCount) ||
+                data.unreadCount[data.participants[1]] == 0) &&
+               // `sellerId` décide de l'onglet (VENTES / ACHATS / AUTRES) et sert
+               // de dérivation du rôle dans la bulle d'offre. Il n'était validé
+               // nulle part : on pouvait se déclarer vendeur de l'article d'autrui,
+               // ou désigner un tiers étranger à la conversation. Il doit être un
+               // participant, et — quand l'article existe — son vrai propriétaire.
+               (!('sellerId' in data) ||
+                (data.sellerId in data.participants &&
+                 (!('articleId' in data) ||
+                  !exists(/databases/$(database)/documents/articles/$(data.articleId)) ||
+                  get(/databases/$(database)/documents/articles/$(data.articleId)).data.sellerId ==
+                    data.sellerId)));
       }
     }
   }

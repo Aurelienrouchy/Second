@@ -93,8 +93,15 @@ export const checkSavedSearchNotifications = onSchedule(
           );
         }
 
-        // Limit results
-        articlesQuery = articlesQuery.limit(50);
+        // Les plus RÉCENTES d'abord. L'inégalité sur `createdAt` fait que
+        // Firestore ordonnait implicitement par date CROISSANTE : le plafond
+        // retenait les cinquante plus anciennes correspondances, et les filtres
+        // fins s'appliquaient ensuite en mémoire sur ce paquet — un vendeur
+        // actif repoussait donc les nouveautés hors de la fenêtre, et l'alerte
+        // ne partait jamais. Au-delà de cinquante, ce sont désormais les plus
+        // anciennes qui sont sacrifiées, ce que `lastNotifiedAt` condamnait de
+        // toute façon. Index déjà présents, dans les deux formes de la requête.
+        articlesQuery = articlesQuery.orderBy('createdAt', 'desc').limit(50);
 
         const matchingArticlesSnapshot = await articlesQuery.get();
 

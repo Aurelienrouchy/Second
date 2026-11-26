@@ -21,19 +21,21 @@
  * -----
  * ShipEngine sends `{ resource_type: 'API_TRACK', resource_url, data: {...} }`.
  * The embedded `data` carries `status_code`, `carrier_code`, `tracking_number`.
- * We map the status via ShipEngineClient.mapStatus and apply the same
- * state-machine transition as the poller via applyTrackingOutcome.
+ * The event is a lookup hint only. A unique order and its saved label are
+ * re-read through the official label/track endpoints before any transition.
  *
- * IDEMPOTENCE: applyTrackingOutcome is status-guarded and idempotent, so a
- * replayed webhook is a safe no-op.
+ * Identity is rechecked inside the transition transaction. Event chronology
+ * and corrected delivery outcomes are separate guards, not inferred here.
  */
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { db } from '../config/firebase';
-import { ShipEngineClient } from '../config/shipEngine';
-import { applyTrackingOutcome } from '../utils/trackingTransition';
+import { db, FieldValue } from '../config/firebase';
+import { ShipEngineClient, trackingObservationDisposition } from '../config/shipEngine';
+import { applyTrackingOutcome, readQualifiedTracking, recordTrackingReview, trackingOutcomeMatches } from '../utils/trackingTransition';
 import { processReturnDelivered } from '../utils/returnRefund';
+import { withFinancialRecoveryScope, assertFinancialRecoveryEffect, preserveFinancialRecoveryObservation, FinancialRecoveryBlocked } from '../utils/financialRecoveryInterlock';
+import { recoveryDigest } from '../config/recoveryControl';
 
 /** Timing-safe equality for two short secret strings. */
 function secretsMatch(a: string, b: string): boolean {
@@ -52,7 +54,7 @@ export const shipEngineWebhook = onRequest(
     region: 'northamerica-northeast1',
     cors: false,
     memory: '512MiB',
-    secrets: ['SHIPENGINE_WEBHOOK_SECRET'],
+    secrets: ['SHIPENGINE_WEBHOOK_SECRET', 'SHIPENGINE_API_KEY', 'STRIPE_SECRET_KEY'],
   },
   async (req, res) => {
     if (req.method !== 'POST') {
@@ -80,6 +82,8 @@ export const shipEngineWebhook = onRequest(
       return;
     }
 
+    let recoveryEvidencePreserved = false;
+    try {
     // ---- Parse + validate shape ----
     const body = req.body ?? {};
     const data = body.data ?? body; // tolerate both wrapped and flat payloads
@@ -88,7 +92,17 @@ export const shipEngineWebhook = onRequest(
     const trackingNumber: string | undefined =
       data.tracking_number || data.trackingNumber;
 
-    if (!statusCode || !trackingNumber || typeof trackingNumber !== 'string') {
+    const payloadHash = recoveryDigest((req as {rawBody?:Buffer}).rawBody ?? Buffer.from(JSON.stringify(body)));
+    const nativeFacts: Record<string,string|number|boolean|null> = {};
+    for (const [key,value] of Object.entries({statusCode,trackingNumber,carrierCode:data.carrier_code ?? data.carrierCode})) {
+      if (typeof value === 'string' && value.length <= 200 && /^[a-zA-Z0-9_. :/-]*$/.test(value)) nativeFacts[key] = value;
+    }
+    await preserveFinancialRecoveryObservation({provider:'shipengine',eventId:payloadHash,eventType:'API_TRACK',payloadHash,
+      accountId:null,liveMode:null,objectIds:[],facts:nativeFacts});
+    recoveryEvidencePreserved = true;
+
+    if (typeof statusCode !== 'string' || typeof trackingNumber !== 'string' || !trackingNumber.trim() || trackingNumber.length > 200 ||
+        (body.resource_type != null && body.resource_type !== 'API_TRACK')) {
       logger.warn('[shipEngineWebhook] missing status_code/tracking_number — ignoring', {
         resourceType: body.resource_type,
       });
@@ -97,85 +111,60 @@ export const shipEngineWebhook = onRequest(
       return;
     }
 
-    try {
-      const mapped = ShipEngineClient.mapStatus(statusCode);
-
-      // Find the transaction by FORWARD-leg tracking number. trackingNumber is
-      // effectively unique per parcel; auto-index on equality is sufficient.
-      const snap = await db
-        .collection('transactions')
-        .where('trackingNumber', '==', trackingNumber)
-        .limit(1)
-        .get();
-
-      if (!snap.empty) {
-        const doc = snap.docs[0];
-        const transactionId = doc.id;
-        const result = await applyTrackingOutcome(transactionId, mapped, 'webhook');
-
-        logger.info('[shipEngineWebhook] tracking applied', {
-          transactionId,
-          trackingNumber,
-          statusCode,
-          mapped,
-          outcome: result.kind,
-          changed: 'changed' in result ? result.changed : false,
-        });
-
-        res.json({ received: true, transactionId, outcome: result.kind });
-        return;
+      const result = await withFinancialRecoveryScope({operation:'shipEngineWebhook',sourceRefs:[payloadHash]}, async () => {
+      await assertFinancialRecoveryEffect('webhook_admission', {sourceHash:payloadHash});
+      // The event is only a lookup hint. Reused numbers and cross-leg matches
+      // cannot select an order; the saved label's current API read is authority.
+      const [forward, returned] = await Promise.all([
+        db.collection('transactions').where('trackingNumber', '==', trackingNumber).limit(2).get(),
+        db.collection('transactions').where('returnTrackingNumber', '==', trackingNumber).limit(2).get(),
+      ]);
+      if (forward.size + returned.size !== 1) {
+        for (const doc of forward.docs) await recordTrackingReview(doc.id, doc.data(), 'forward', 'tracking_number_ambiguous');
+        for (const doc of returned.docs) await recordTrackingReview(doc.id, doc.data(), 'return', 'tracking_number_ambiguous');
+        logger.warn('[shipEngineWebhook] tracking hint not uniquely bound', {trackingNumber, forward: forward.size, returned: returned.size});
+        return {received: true, matched: false, reviewRequired: !forward.empty || !returned.empty};
       }
-
-      // No forward-leg match: this may be a RETURN parcel. Match by the
-      // returnTrackingNumber stored at requestReturn time.
-      const returnSnap = await db
-        .collection('transactions')
-        .where('returnTrackingNumber', '==', trackingNumber)
-        .limit(1)
-        .get();
-
-      if (returnSnap.empty) {
-        logger.info('[shipEngineWebhook] no transaction for tracking number', {
-          trackingNumber,
-        });
-        res.json({ received: true, matched: false });
-        return;
+      const leg = forward.empty ? 'return' : 'forward';
+      const doc = (forward.empty ? returned : forward).docs[0], transactionId = doc.id, order = doc.data();
+      const eventCarrier = data.carrier_code ?? data.carrierCode;
+      const savedCarrier = leg === 'forward' ? order.carrierCode : order.returnCarrierCode;
+      if (eventCarrier != null && (typeof eventCarrier !== 'string' || eventCarrier !== savedCarrier)) {
+        await recordTrackingReview(transactionId, order, leg, 'tracking_hint_carrier_contradictory');
+        return {received: true, transactionId, reviewRequired: true};
       }
-
-      const returnDoc = returnSnap.docs[0];
-      const transactionId = returnDoc.id;
-
-      // DELIVERED on the return leg = seller received the item back -> refund the
-      // buyer (total - returnLabelCost), debit the seller. Idempotent.
+      const tracking = await readQualifiedTracking(transactionId, order, leg);
+      const mapped = ShipEngineClient.mapStatus(tracking.statusCode);
+      if (leg === 'forward') {
+        const result = await applyTrackingOutcome(transactionId, mapped, 'webhook', tracking.proof);
+        logger.info('[shipEngineWebhook] exact label tracking observed', {transactionId, labelId: tracking.proof.labelId,
+          eventStatus: statusCode, currentStatus: tracking.statusCode, outcome: result.kind});
+        return {received: true, transactionId, outcome: result.kind};
+      }
       if (mapped === 'DELIVERED') {
-        const returnResult = await processReturnDelivered(transactionId, 'webhook');
-        logger.info('[shipEngineWebhook] return delivered processed', {
-          transactionId,
-          trackingNumber,
-          refunded: returnResult.refunded,
-          alreadyRefunded: returnResult.alreadyRefunded ?? false,
-        });
-        res.json({ received: true, transactionId, outcome: 'return_refunded' });
-        return;
+        const result = await processReturnDelivered(transactionId, 'webhook', tracking.proof);
+        return {received: true, transactionId, outcome: result.refunded ? 'return_refunded' : 'return_received_unsettled'};
       }
-
-      // Non-DELIVERED return scan: best-effort refresh of the return tracking
-      // status for visibility. No money movement, no state change.
-      await returnDoc.ref
-        .update({ returnTrackingStatus: mapped })
-        .catch(() => undefined);
-      logger.info('[shipEngineWebhook] return tracking refreshed', {
-        transactionId,
-        trackingNumber,
-        statusCode,
-        mapped,
+      await db.runTransaction(async tx => {
+        const current = (await tx.get(doc.ref)).data();
+        if (current && await trackingOutcomeMatches(tx, transactionId, current, tracking.proof, 'return')) {
+          await assertFinancialRecoveryEffect('firestore_commit', {refs:[doc.ref.path]});
+          const snapshot = trackingObservationDisposition(current, tracking.proof, 'return') === 'snapshot';
+          tx.update(doc.ref, {...(!current.returnDeliveredAt ? {returnTrackingStatus: mapped} : {}), returnTrackingObservedAt: FieldValue.serverTimestamp(),
+            [snapshot ? 'returnTrackingSnapshot' : 'returnTrackingObservation']: {...tracking.proof, source: 'webhook', recordedAt: FieldValue.serverTimestamp()}});
+        }
       });
-      res.json({ received: true, transactionId, outcome: 'return_tracking_updated' });
+      return {received: true, transactionId, outcome: 'return_tracking_updated'};
+      });
+      res.json(result);
     } catch (error: unknown) {
+      if (recoveryEvidencePreserved && error instanceof FinancialRecoveryBlocked) {
+        res.json({received:true,deferred:true}); return;
+      }
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('[shipEngineWebhook] processing error', { trackingNumber, error: message });
+      logger.error('[shipEngineWebhook] processing error', { error: message });
       // 500 so ShipEngine retries a transient failure.
-      res.status(500).send(`Webhook processing error: ${message}`);
+      res.status(500).send('Tracking observation unavailable');
     }
   }
 );

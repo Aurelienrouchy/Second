@@ -1,26 +1,44 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@/utils/environmentStorage';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 
 import { doc, updateDoc } from 'firebase/firestore';
 
-import { firestore } from '@/config/firebaseConfig';
+import { auth, firestore } from '@/config/firebaseConfig';
+import { runtimeEnvironment } from '@/config/firebaseEnvironment';
 import { identifyUser, resetAnalytics, setAnalyticsUserConsent, suspendAnalytics, track } from '@/lib/analytics';
 import { queryClient } from '@/lib/queryClient';
-import { AuthService, SignupConsent, SocialAuthResult } from '@/services/authService';
-import {
-  guestPreferencesService,
-  GuestSession,
-} from '@/services/guestPreferencesService';
+import { AuthService } from '@/services/authService';
+import type { SignupConsent, SocialAuthResult } from '@/services/authService';
+import { guestPreferencesService } from '@/services/guestPreferencesService';
+import type { GuestSession } from '@/services/guestPreferencesService';
 import { mergeGuestDataIntoUser } from '@/services/authMergeService';
-import { UserService } from '@/services/userService';
+import { getUserById, removeExpoPushToken, removeFcmToken } from '@/services/userAuthData';
 import { useChatStore } from '@/store/chatStore';
 import { useImmersiveOverlayStore } from '@/store/immersiveOverlayStore';
 import { useNotificationStore } from '@/store/notificationStore';
-import { User } from '@/types';
+import type { User } from '@/types';
+import { computeAgeFromIso } from '@/utils/age';
 
 const USER_DATA_KEY = 'user_data';
 const HAS_LAUNCHED_KEY = 'has_launched_before';
+let sessionGeneration = 0;
+interface LogoutOperation { generation: number; providerPending: boolean; nullObserved: boolean }
+let pendingLogout: LogoutOperation | null = null;
+export const getAuthSessionGeneration = () => sessionGeneration;
+let cacheWrites: Promise<void> = Promise.resolve();
+function writeSessionCache(user: User | null, generation = sessionGeneration): Promise<void> {
+  const next = cacheWrites.catch(() => {}).then(async () => {
+    if (generation !== sessionGeneration) return;
+    if (user) await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(user));
+    else await AsyncStorage.removeItem(USER_DATA_KEY);
+  });
+  cacheWrites = next;
+  return next;
+}
+const hasInitialDate = (user: User) => user.dateOfBirth != null && user.dateOfBirth !== '';
+const hasNormalProfile = (user: User) => typeof user.dateOfBirth === 'string' && (computeAgeFromIso(user.dateOfBirth) ?? -1) >= 0;
+
 
 // PostHog identify — hydration point (catalogue §2). Pseudonymous product
 // traits: username is a public @pseudo (allowed as a user property), never the
@@ -49,26 +67,20 @@ async function analyticsIdentify(user: User, fromCache = false): Promise<void> {
 // ─── State shape ────────────────────────────────────────────────────────────
 
 interface AuthState {
+  /** Firebase identity for explicit owner reads only; never grants normal capabilities. */
+  authenticatedUid: string | null;
+  identityUser: User | null;
+  identityError: boolean;
   user: User | null;
   isLoading: boolean;
   isFirstLaunch: boolean;
   guestSession: GuestSession | null;
-  /**
-   * True when a Firebase Auth account EXISTS but has not completed the mandatory
-   * consent step (no `dateOfBirth` written by recordSignupConsent). Such a user
-   * is NOT fully connected (`user` stays null — the rest of the app treats them
-   * as not-authenticated) but is NOT a plain guest either: the startup guard
-   * (useConsentGuard) MUST route them to app/complete-profile.tsx and block the
-   * rest of the app until consent is recorded. Covers both flows (email signup
-   * that creates a bare account, and social sign-in needing consent) AND the
-   * cold-start case where a user killed the app on the consent route.
-   */
+  /** Initial date missing: normal account capabilities remain closed. This is
+   * neither proof of missing historical consent nor a block on explicit owner
+   * reads. Consent collection is still required for the first declaration. */
   pendingConsent: boolean;
-  /**
-   * Partial identity of the pendingConsent user (id + displayName), kept so the
-   * consent route can show context. NOT the full User (no DOB/consent/username)
-   * — never persisted to USER_DATA_KEY.
-   */
+  /** Owner profile for the signup context; missing-DOB data is never persisted
+   * to the normal account cache or treated as accepted legal/marketing consent. */
   pendingConsentUser: User | null;
   /**
    * Success callback to fire AFTER the consent route completes — threaded from
@@ -86,7 +98,7 @@ interface AuthActions {
 
   signIn: (user: User) => Promise<void>;
   /** `skipRemoteFcmCleanup` skips the Firestore FCM write when the auth token is already invalid (account deleted / revoked). */
-  signOut: (opts?: { skipRemoteFcmCleanup?: boolean }) => Promise<void>;
+  signOut: (opts?: { skipRemoteFcmCleanup?: boolean; expectedUid?: string; expectedGeneration?: number }) => Promise<void>;
   skipAuth: () => Promise<void>;
   refreshUser: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
@@ -116,7 +128,7 @@ interface AuthActions {
    * Throws the raw callable error (FirebaseError) so the route can map error.code
    * / error.details to inline messages; on failure the user does NOT enter the app.
    */
-  completeConsent: (consent: SignupConsent) => Promise<User>;
+  completeConsent: (consent: SignupConsent, context?: { assertCurrent: () => void }) => Promise<User>;
   /**
    * Social sign-in. Returns `needsConsent: true` for a brand-new or
    * not-yet-consented account — in that case the user is NOT signed into
@@ -145,6 +157,9 @@ type AuthStore = AuthState & AuthActions;
 // ─── Initial state (extracted for reset) ────────────────────────────────────
 
 const initialState: AuthState = {
+  authenticatedUid: null,
+  identityUser: null,
+  identityError: false,
   user: null,
   isLoading: true,
   isFirstLaunch: true,
@@ -189,138 +204,113 @@ export const useAuthStore = create<AuthStore>()(
   },
 
   hydrateFromFirebase: async (firebaseUser) => {
+    // A queued null payload is obsolete when Firebase already has a new owner.
+    // Never let that old observer payload invalidate the current session.
+    if (!firebaseUser && auth.currentUser) return;
+    const generation = ++sessionGeneration;
+    const fb = firebaseUser as { uid?: string; email?: string | null } | null;
+    const uid = fb?.uid ?? null;
+    const logout = pendingLogout;
+    if (!uid && logout?.providerPending && !logout.nullObserved &&
+        get().authenticatedUid === null && generation === logout.generation + 1) {
+      // Adopt only the immediate coherent null callback of this provider call.
+      logout.generation = generation; logout.nullObserved = true;
+    } else {
+      pendingLogout = null;
+    }
+    const isCurrent = () => generation === sessionGeneration && get().authenticatedUid === uid;
     suspendAnalytics();
+    // Clear all private account data before awaiting a different identity.
+    if (uid !== get().authenticatedUid) {
+      queryClient.clear();
+      set({ user: null, identityUser: null, pendingConsent: false,
+        pendingConsentUser: null, pendingConsentOnSuccess: null });
+    }
+    set({ authenticatedUid: uid, identityError: false, isLoading: true });
+    if (!uid) {
+      set({ user: null, identityUser: null, isLoading: false, pendingConsent: false,
+        pendingConsentUser: null, pendingConsentOnSuccess: null });
+      await writeSessionCache(null);
+      if (!isCurrent()) return;
+      await setAnalyticsUserConsent();
+      if (isCurrent() && !get().guestSession) await get().initGuestSession();
+      return;
+    }
     try {
-      if (firebaseUser) {
-        const fresh = await AuthService.getCurrentUser();
-        if (fresh) {
-          // ── Consent gate (Loi 25 art. 12, 14) ──
-          // signInWithCredential crée le compte Auth + le doc users/{uid}
-          // (sans dateOfBirth) AVANT que l'écran de consentement obligatoire
-          // ne tourne. Le listener global (useAuthListener → ici) ne doit
-          // JAMAIS débloquer les capacités tant que le consentement n'est pas
-          // enregistré. `dateOfBirth` n'est écrit QUE par le callable serveur
-          // recordSignupConsent : son absence prouve le « pas encore consenti ».
-          // → on traite ce cas comme `pendingConsent` : NI pleinement connecté
-          // (user reste null, capacités bloquées), NI simple invité. Le guard de
-          // démarrage (useConsentGuard) route vers app/complete-profile.tsx tant
-          // que le consentement n'est pas enregistré. USER_DATA_KEY non persisté
-          // (offline cache réservé aux comptes consentés). Le flux post-route
-          // (completeConsent → recordSignupConsent → signIn) ré-authentifie une
-          // fois dateOfBirth écrit. Email ET social passent désormais ici (le
-          // compte email est créé NU, sans dateOfBirth, depuis Sprint route).
-          if (!fresh.dateOfBirth) {
-            set({
-              user: null,
-              isLoading: false,
-              pendingConsent: true,
-              // Identité partielle pour le contexte de la route (pas la full User).
-              pendingConsentUser: fresh,
-            });
-            await AsyncStorage.removeItem(USER_DATA_KEY);
-            if (!get().guestSession) {
-              await get().initGuestSession();
-            }
-            return;
-          }
-          // Sync email if Firebase Auth has a different (verified) email than Firestore
-          const fbUser = firebaseUser as { email?: string | null; uid?: string };
-          if (fbUser.email && fresh.email !== fbUser.email) {
-            await updateDoc(doc(firestore, 'users', fresh.id), {
-              email: fbUser.email,
-            });
-            fresh.email = fbUser.email;
-          }
-          // Consenti : flux normal. On efface tout résidu pendingConsent.
-          set({
-            user: fresh,
-            isLoading: false,
-            pendingConsent: false,
-            pendingConsentUser: null,
-          });
-          await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(fresh));
-          await analyticsIdentify(fresh);
-
-          // ── Filet de sécurité username ──
-          // Le username persistant/immuable est assigné serveur à la création
-          // du compte. Pour rattraper les comptes créés avant ce câblage, on
-          // (re)déclenche l'assignation si absente. La callable est idempotente
-          // (no-op si déjà assigné), donc rappelable sans danger. Fire-and-forget :
-          // ne bloque pas le rendu. On rafraîchit le user local au succès pour
-          // que le @pseudo apparaisse sans redémarrage.
-          if (!fresh.username) {
-            void AuthService.ensureUsernameAssigned().then(() => {
-              void get().refreshUser();
-            });
-          }
-          return;
-        }
-
-        // ── Cold start offline : Firestore injoignable (getCurrentUser a avalé
-        // l'erreur → null) alors qu'un token Firebase valide existe. Sans cela,
-        // un utilisateur authentifié serait vu comme invité hors-ligne. On
-        // ré-hydrate l'état optimiste depuis USER_DATA_KEY, mais UNIQUEMENT si :
-        //  - le cache porte le même uid que le token (jamais ressusciter un
-        //    autre compte après un switch d'uid), ET
-        //  - le cache contient dateOfBirth (garde Loi 25 : ce cache n'est écrit
-        //    que pour un compte déjà consenté, cf. set USER_DATA_KEY plus haut,
-        //    et supprimé au gate de consentement). Son absence ⇒ on n'optimise
-        //    pas et on retombe sur la branche invité.
-        // Le cache Firestore persistant (be-firestore-config-cache) prendra le
-        // relais dès qu'une lecture aboutira ; refreshUser remplacera l'état
-        // optimiste au prochain réseau disponible. ──
-        const fbUser = firebaseUser as { uid?: string };
-        try {
-          const cached = await AsyncStorage.getItem(USER_DATA_KEY);
-          if (cached) {
-            const parsed = JSON.parse(cached) as User;
-            if (parsed?.id && parsed.id === fbUser.uid && parsed.dateOfBirth) {
-              const rehydrated: User = {
-                ...parsed,
-                // createdAt est sérialisé en string ISO dans AsyncStorage :
-                // on le ré-hydrate en Date pour respecter le type User.
-                createdAt: parsed.createdAt ? new Date(parsed.createdAt) : new Date(),
-              };
-              set({
-                user: rehydrated,
-                isLoading: false,
-                // Le cache n'est écrit que pour un compte consenté (cache porte
-                // dateOfBirth) → jamais pendingConsent ici.
-                pendingConsent: false,
-                pendingConsentUser: null,
-              });
-              await analyticsIdentify(rehydrated, true);
-              return;
-            }
-          }
-        } catch (cacheError) {
-          if (__DEV__) console.log('[authStore] offline cache hydrate skipped:', cacheError);
-        }
+      const fresh = await AuthService.getCurrentUser(uid);
+      if (!isCurrent()) return;
+      if (fresh && fresh.id !== uid) throw new Error('Profile identity mismatch');
+      if (!fresh) {
+        // A real missing profile is an incomplete signup, not an offline success.
+        set({ user: null, identityUser: null, isLoading: false, pendingConsent: true, pendingConsentUser: null });
+        await writeSessionCache(null);
+        return;
       }
-      if (!firebaseUser) await setAnalyticsUserConsent();
-      // Aucun compte Firebase → ni connecté ni pendingConsent (vrai invité).
-      set({
-        user: null,
-        isLoading: false,
-        pendingConsent: false,
-        pendingConsentUser: null,
-      });
-      await AsyncStorage.removeItem(USER_DATA_KEY);
-      // No user yet → make sure a guest session exists for tracking.
-      if (!get().guestSession) {
-        await get().initGuestSession();
+      if (!hasInitialDate(fresh)) {
+        set({ user: null, identityUser: fresh, isLoading: false, pendingConsent: true, pendingConsentUser: fresh });
+        await writeSessionCache(null);
+        return;
+      }
+      if (!hasNormalProfile(fresh)) {
+        set({ user: null, identityUser: fresh, isLoading: false, pendingConsent: false, pendingConsentUser: null });
+        await writeSessionCache(null);
+        return;
+      }
+      if (fb?.email && fresh.email !== fb.email) {
+        await updateDoc(doc(firestore, 'users', uid), { email: fb.email });
+        if (!isCurrent()) return;
+        fresh.email = fb.email;
+      }
+      set({ user: fresh, identityUser: fresh, isLoading: false, pendingConsent: false, pendingConsentUser: null });
+      await writeSessionCache(fresh, generation);
+      if (!isCurrent()) return;
+      await analyticsIdentify(fresh);
+      if (!fresh.username) {
+        void AuthService.ensureUsernameAssigned().then(() => {
+          if (isCurrent()) void get().refreshUser();
+        }).catch(() => { /* Optional username recovery never changes admission. */ });
       }
     } catch (error) {
-      if (__DEV__) console.error('[authStore] hydrateFromFirebase error:', error);
-      set({ isLoading: false });
+      if (!isCurrent()) return;
+      // Only the same confirmed Firebase UID may reuse its read cache. No cache
+      // is a normal admission result; errors remain visible to owner screens.
+      let cachedUser: User | null = null;
+      try {
+        const cached = await AsyncStorage.getItem(USER_DATA_KEY);
+        const parsed = cached ? JSON.parse(cached) as User : null;
+        if (parsed?.id === uid && hasInitialDate(parsed)) {
+          cachedUser = { ...parsed, createdAt: new Date(parsed.createdAt) };
+        }
+      } catch { /* Corrupt cache is ignored. */ }
+      if (!isCurrent()) return;
+      set({ user: null, identityUser: cachedUser, isLoading: false, identityError: true,
+        pendingConsent: false, pendingConsentUser: null });
+      if (__DEV__) console.error('[authStore] identity read failed:', error);
     }
   },
 
   signIn: async (userData) => {
+    pendingLogout = null;
+    const generation = ++sessionGeneration;
+    const normal = get().user;
+    const sameOwner = get().authenticatedUid === userData.id && normal?.id === userData.id;
+    suspendAnalytics();
+    if (get().authenticatedUid !== userData.id) { queryClient.clear(); set({ pendingConsentOnSuccess: null }); }
+    if (!hasNormalProfile(userData)) {
+      set({ user: null, authenticatedUid: userData.id, identityUser: userData,
+        identityError: false, pendingConsent: !hasInitialDate(userData), pendingConsentUser: hasInitialDate(userData) ? null : userData, isLoading: false });
+      await writeSessionCache(null);
+      return;
+    }
+    set({ user: sameOwner ? normal : null, authenticatedUid: userData.id,
+      identityUser: userData, identityError: false, pendingConsent: false, pendingConsentUser: null });
     try {
-      await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
+      await writeSessionCache(userData, generation);
+      if (generation !== sessionGeneration) return;
       await AsyncStorage.setItem(HAS_LAUNCHED_KEY, 'true');
+      if (generation !== sessionGeneration) return;
       await analyticsIdentify(userData);
+      if (generation !== sessionGeneration) return;
       // Flip authenticated + clear any pendingConsent residue (the consent
       // completion path calls signIn once dateOfBirth is written).
       set({
@@ -335,21 +325,31 @@ export const useAuthStore = create<AuthStore>()(
   },
 
   signOut: async (opts) => {
+    if ((opts?.expectedGeneration !== undefined && opts.expectedGeneration !== sessionGeneration) ||
+        (opts?.expectedUid && (get().authenticatedUid !== opts.expectedUid || auth.currentUser?.uid !== opts.expectedUid))) return;
+    const closingFirebaseUser = auth.currentUser;
+    const logout: LogoutOperation = { generation: ++sessionGeneration, providerPending: false, nullObserved: false };
+    pendingLogout = logout;
+    const isCurrentLogout = () => pendingLogout === logout && sessionGeneration === logout.generation && get().authenticatedUid === null &&
+      (auth.currentUser === null || auth.currentUser === closingFirebaseUser);
     const { user } = get();
+    set({ user: null, identityUser: null, authenticatedUid: null, pendingConsent: false,
+      pendingConsentUser: null, pendingConsentOnSuccess: null });
     try {
       const pushToken = useNotificationStore.getState().pushToken;
       // Skip the remote FCM write when the token is already revoked (delete/disable) — it can only permission-deny.
-      if (!opts?.skipRemoteFcmCleanup && user?.id && pushToken) {
+      if (!opts?.skipRemoteFcmCleanup && user?.id && (pushToken || runtimeEnvironment.name === 'development')) {
         try {
-          if (/^(Exponent|Expo)PushToken\[/.test(pushToken)) {
-            await UserService.removeExpoPushToken(user.id, pushToken);
+          if (runtimeEnvironment.name === 'development' || /^(Exponent|Expo)PushToken\[/.test(pushToken!)) {
+            await removeExpoPushToken(user.id, pushToken ?? '');
           } else {
-            await UserService.removeFcmToken(user.id, pushToken);
+            await removeFcmToken(user.id, pushToken!);
           }
         } catch (fcmError) {
           if (__DEV__) console.log('[authStore] removeFcmToken non-critical error:', fcmError);
         }
       }
+      if (!isCurrentLogout()) return;
       // Reset siblings inline — calling store/resetAllStores would
       // create a circular module graph (authStore → resetAllStores →
       // authStore). Self-reset uses local `set` so we don't loop.
@@ -357,8 +357,12 @@ export const useAuthStore = create<AuthStore>()(
       useChatStore.getState().reset();
       useImmersiveOverlayStore.getState().reset();
       queryClient.clear();
-      await AuthService.signOut();
-      await AsyncStorage.removeItem(USER_DATA_KEY);
+      logout.providerPending = true;
+      await AuthService.signOut({ expectedUid: opts?.expectedUid, isCurrent: isCurrentLogout });
+      logout.providerPending = false;
+      if (!isCurrentLogout()) return;
+      await writeSessionCache(null, logout.generation);
+      if (!isCurrentLogout()) return;
       // Fire BEFORE reset so the event stays attributed to the signed-out user.
       track('user_signed_out', {
         source: opts?.skipRemoteFcmCleanup ? 'account_deletion' : 'user_action',
@@ -367,6 +371,8 @@ export const useAuthStore = create<AuthStore>()(
       set({ ...initialState, isLoading: false });
     } catch (error) {
       if (__DEV__) console.log('[authStore] signOut error:', error);
+    } finally {
+      if (pendingLogout === logout) pendingLogout = null;
     }
   },
 
@@ -380,16 +386,18 @@ export const useAuthStore = create<AuthStore>()(
   },
 
   refreshUser: async () => {
-    const current = get().user;
-    if (!current?.id) return;
+    const uid = get().authenticatedUid ?? get().user?.id;
+    const generation = sessionGeneration;
+    if (!uid) return;
     try {
-      const fresh = await UserService.getUserById(current.id);
-      if (fresh) {
-        set({ user: fresh });
-        await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(fresh));
-        await analyticsIdentify(fresh);
-      }
+      const fresh = await getUserById(uid);
+      if (generation !== sessionGeneration || get().authenticatedUid !== uid || !fresh || fresh.id !== uid) return;
+      set({ identityUser: fresh, user: hasNormalProfile(fresh) ? fresh : null,
+        pendingConsent: !hasInitialDate(fresh), pendingConsentUser: hasInitialDate(fresh) ? null : fresh, identityError: false });
+      if (hasInitialDate(fresh)) await writeSessionCache(fresh, generation);
+      else await writeSessionCache(null);
     } catch (error) {
+      if (generation === sessionGeneration) set({ identityError: true });
       if (__DEV__) console.error('[authStore] refreshUser error:', error);
     }
   },
@@ -397,7 +405,7 @@ export const useAuthStore = create<AuthStore>()(
   signInWithEmail: async (email, password) => {
     const userData = await AuthService.signInWithEmail(email, password);
     await get().signIn(userData);
-    await get().mergeGuestToUser(userData.id);
+    if (get().user?.id === userData.id) await get().mergeGuestToUser(userData.id);
     return userData;
   },
 
@@ -415,14 +423,17 @@ export const useAuthStore = create<AuthStore>()(
     // consentement → le guard de démarrage route vers app/complete-profile.tsx.
     // `user` reste null (pas pleinement connecté) tant que completeConsent n'a
     // pas écrit dateOfBirth. onSuccess sera rejoué à la complétion.
+    pendingLogout = null;
+    ++sessionGeneration;
     set({
+      user: null, authenticatedUid: user.id, identityUser: user, identityError: false,
       pendingConsent: true,
       pendingConsentUser: user,
       pendingConsentOnSuccess: onSuccess,
     });
   },
 
-  completeConsent: async (consent) => {
+  completeConsent: async (consent, context) => {
     // ── Ordre strict (audit A6) ──
     // 1) recordSignupConsent : réserve @pseudo + écrit DOB atomiquement. Si le
     //    pseudo est pris (already-exists) ou le format/âge KO, l'erreur remonte
@@ -430,11 +441,24 @@ export const useAuthStore = create<AuthStore>()(
     //    et on NE touche PAS pendingConsent (il re-soumet avec un autre pseudo).
     // Captured before mergeGuestToUser clears the guest session.
     const hadGuestSession = get().guestSession !== null;
-    const fresh = await AuthService.recordConsentForCurrentUser(consent);
+    const uid = get().authenticatedUid;
+    const generation = sessionGeneration;
+    const fresh = await AuthService.recordConsentForCurrentUser(consent, context);
+    if (generation !== sessionGeneration || (uid && fresh.id !== uid)) throw new Error('La session a changé.');
+    context?.assertCurrent();
     // 2) signIn : flip authentifié (efface pendingConsent + persiste le cache).
     await get().signIn(fresh);
+    const assertAdopted = () => {
+      if (sessionGeneration !== generation + 1 || auth.currentUser?.uid !== fresh.id ||
+          get().authenticatedUid !== fresh.id || get().user?.id !== fresh.id) throw new Error('La session a changé.');
+    };
+    assertAdopted();
+    await AuthService.acknowledgeSignupConsent(consent, {assertCurrent: assertAdopted});
+    assertAdopted();
     // 3) mergeGuestToUser : rattache la session invité au compte.
+    const completedGeneration = sessionGeneration;
     await get().mergeGuestToUser(fresh.id);
+    if (completedGeneration !== sessionGeneration || get().user?.id !== fresh.id) throw new Error('La session a changé.');
 
     // Rejoue le callback de reprise (action protégée) puis le nettoie.
     const onSuccess = get().pendingConsentOnSuccess;
@@ -523,7 +547,7 @@ export const useAuthStore = create<AuthStore>()(
     }
   },
 
-  reset: () => set(initialState),
+  reset: () => { pendingLogout = null; ++sessionGeneration; set(initialState); },
   }))
 );
 

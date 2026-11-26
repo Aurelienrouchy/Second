@@ -25,7 +25,7 @@ const stripeMock = createStripeMock();
 holder.fs = fs;
 holder.stripe = stripeMock;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -156,8 +156,8 @@ describe('cancelPendingTransaction — F73 PI cancel + wallet purge', () => {
     seedMixedPending();
 
     const result = await callCancel({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
     expect(result.success).toBe(true);
 
@@ -169,7 +169,7 @@ describe('cancelPendingTransaction — F73 PI cancel + wallet purge', () => {
   it('purges walletAmountUsed and paidVia after refunding the wallet portion', async () => {
     seedMixedPending({ walletCents: 3000 });
 
-    await callCancel({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
+    await callCancel({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } });
 
     // Wallet re-credited exactly once.
     expect(fs.sumIncrements('wallets/buyer1', 'balance')).toBe(3000);
@@ -184,7 +184,7 @@ describe('cancelPendingTransaction — F73 PI cancel + wallet purge', () => {
   it('NO double-credit: a late PI capture after cancel finds no wallet portion', async () => {
     seedMixedPending({ walletCents: 3000 });
 
-    await callCancel({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
+    await callCancel({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } });
 
     // Simulate the webhook "cancelled_needs_refund" path: it reads the (now
     // purged) transaction and calls issueTransactionRefund with that data.
@@ -206,7 +206,7 @@ describe('cancelPendingTransaction — F73 PI cancel + wallet purge', () => {
     stripeMock.impl.paymentIntentsRetrieve = async () => ({ status: 'succeeded' });
 
     await expect(
-      callCancel({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
+      callCancel({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
 
     // Must NOT cancel, must NOT refund the wallet (the card is captured).
@@ -220,8 +220,8 @@ describe('cancelPendingTransaction — F73 PI cancel + wallet purge', () => {
     stripeMock.impl.paymentIntentsRetrieve = async () => ({ status: 'canceled' });
 
     const result = await callCancel({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
     expect(result.success).toBe(true);
     expect(stripeMock.calls.paymentIntentsCancel.length).toBe(0);
@@ -236,7 +236,7 @@ describe('cancelPendingTransaction — F73 PI cancel + wallet purge', () => {
     };
 
     await expect(
-      callCancel({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
+      callCancel({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
 
     expect(fs.sumIncrements('wallets/buyer1', 'balance')).toBe(0);
@@ -246,10 +246,10 @@ describe('cancelPendingTransaction — F73 PI cancel + wallet purge', () => {
   it('cancelling twice does not double-credit the wallet', async () => {
     seedMixedPending({ walletCents: 3000 });
 
-    await callCancel({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
+    await callCancel({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } });
     // Second call: status is now 'cancelled' -> not in cancellableStatuses.
     await expect(
-      callCancel({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
+      callCancel({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
 
     expect(fs.sumIncrements('wallets/buyer1', 'balance')).toBe(3000);
@@ -269,8 +269,8 @@ describe('cancelPendingTransaction — F73 PI cancel + wallet purge', () => {
     fs.setDoc('articles/article1', { isSold: true });
 
     const result = await callCancel({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
     expect(result.success).toBe(true);
     expect(stripeMock.calls.paymentIntentsCancel.length).toBe(1);
@@ -291,11 +291,77 @@ describe('cancelPendingTransaction — F73 PI cancel + wallet purge', () => {
     fs.setDoc('articles/article1', { isSold: true });
 
     const result = await callCancel({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
     expect(result.success).toBe(true);
     expect(stripeMock.calls.paymentIntentsRetrieve.length).toBe(0);
     expect(stripeMock.calls.paymentIntentsCancel.length).toBe(0);
+  });
+});
+
+// ===========================================================================
+// La bulle de chat doit s'éteindre à l'annulation.
+//
+// L'affichage des boutons se décide sur le MESSAGE d'offre, pas sur la
+// transaction. Le correctif b78b657b couvrait l'expiration automatique et le
+// signalement d'absence, mais PAS l'annulation : une rencontre annulée laissait
+// « Confirmer » et « Signaler une absence » affichés, dont chaque appel serait
+// refusé côté serveur.
+// ===========================================================================
+
+describe('cancelPendingTransaction — extinction de la bulle d’offre', () => {
+  function seedCancellableMeetup() {
+    fs.setDoc('transactions/tx1', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'meetup_confirmed',
+      deliveryType: 'meetup',
+      totalAmount: 50,
+      articleId: 'article1',
+      offerMessageId: 'm1',
+      chatId: 'chat1',
+    });
+    fs.setDoc('articles/article1', { isSold: true });
+    fs.setDoc('messages/m1', {
+      type: 'offer',
+      chatId: 'chat1',
+      senderId: 'buyer1',
+      offer: { status: 'accepted', amount: 50, meetup: { location: { name: 'Café X' } } },
+    });
+  }
+
+  it('éteint l’offre liée et libère l’article', async () => {
+    seedCancellableMeetup();
+
+    const result = await callCancel({
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' },
+      data: { expectedUid: 'seller1', transactionId: 'tx1' },
+    });
+
+    expect(result.success).toBe(true);
+    const msg = fs.getDoc('messages/m1') as any;
+    expect(msg.offer.status).toBe('expired');
+    expect(msg.offer.expiredReason).toBe('meetup_cancelled');
+    expect((fs.getDoc('articles/article1') as any).isSold).toBe(false);
+    expect((fs.getDoc('transactions/tx1') as any).status).toBe('cancelled');
+  });
+
+  it('reste sans effet quand la transaction ne porte aucun message d’offre', async () => {
+    fs.setDoc('transactions/tx1', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'meetup_pending',
+      deliveryType: 'meetup',
+      totalAmount: 50,
+      articleId: 'article1',
+    });
+    fs.setDoc('articles/article1', { isSold: true });
+
+    const result = await callCancel({
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
+    });
+    expect(result.success).toBe(true);
   });
 });

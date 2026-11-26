@@ -20,12 +20,12 @@ import { track } from '@/lib/analytics';
 
 import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/CategoryBottomSheet';
 import ProductGrid from '@/components/ProductGrid';
-import SaveSearchButton from '@/components/SaveSearchButton';
+import SaveSearchButton from '@/features/search/components/SaveSearchButton';
 import SelectionBottomSheet, { SelectionBottomSheetRef } from '@/components/SelectionBottomSheet';
 import SizeSelectionSheet, { SizeSelectionSheetRef } from '@/components/SizeSelectionSheet';
-import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/search/BrandSelectionSheet';
-import RecentSearches from '@/components/search/RecentSearches';
-import VisualSearchCamera from '@/components/VisualSearchCamera';
+import BrandSelectionSheet, { BrandSelectionSheetRef } from '@/components/BrandSelectionSheet';
+import RecentSearches from '@/features/search/components/RecentSearches';
+import VisualSearchCamera from '@/features/search/components/VisualSearchCamera';
 
 import { getColorItems } from '@/data/colors';
 import { getMaterialItems } from '@/data/materials';

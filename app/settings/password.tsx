@@ -17,11 +17,13 @@ import { useUser } from '@/hooks/useAuth';
 import { track } from '@/lib/analytics';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
+import { Text, Label, ScreenHeader } from '@/components/ui';
+import { useTradeOperation } from '@/hooks/useTradeOperation';
 
 export default function PasswordSettingsScreen() {
   const router = useRouter();
   const user = useUser();
+  const context = useTradeOperation('settings-password', user?.id ?? null);
   
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -32,8 +34,13 @@ export default function PasswordSettingsScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const [isSaving, setIsSaving] = useState(false);
+  const [formFrame, setFormFrame] = useState(context.frame);
+  if (formFrame !== context.frame) {
+    setFormFrame(context.frame); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); setIsSaving(false);
+  }
 
   const handleSave = async () => {
+    if (!user) return;
     if (!currentPassword || !newPassword || !confirmPassword) {
       track('password_changed', { success: false, validation_error: 'empty' });
       Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
@@ -52,15 +59,19 @@ export default function PasswordSettingsScreen() {
       return;
     }
 
-    if (!user) return;
-
+    let operation;
+    try {operation = context.start('credential');} catch {return;}
+    if (!operation) return;
+    const assertCurrent = () => context.assertCurrent(operation);
     setIsSaving(true);
     try {
       // 1. Re-authentifier
-      await AuthService.reauthenticate(currentPassword);
+      await AuthService.reauthenticate(currentPassword, assertCurrent);
+      assertCurrent();
 
       // 2. Mettre à jour le mot de passe
       await AuthService.updatePassword(newPassword);
+      assertCurrent();
 
       track('password_changed', { success: true });
 
@@ -68,10 +79,11 @@ export default function PasswordSettingsScreen() {
         'Succès',
         'Votre mot de passe a été mis à jour.',
         [
-          { text: 'OK', onPress: () => router.back() }
+          { text: 'OK', onPress: () => {try {assertCurrent(); router.back();} catch { /* A later account owns navigation. */ }} }
         ]
       );
     } catch (error: unknown) {
+      if (!context.isCurrent(operation)) return;
       if (__DEV__) console.error('Error updating password:', error);
       const code = error != null && typeof error === 'object' && 'code' in error
         ? (error as { code: string }).code
@@ -80,7 +92,8 @@ export default function PasswordSettingsScreen() {
       const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la mise à jour du mot de passe';
       Alert.alert('Erreur', message);
     } finally {
-      setIsSaving(false);
+      context.finish(operation);
+      if (context.isCurrent(operation)) setIsSaving(false);
     }
   };
 
@@ -90,7 +103,7 @@ export default function PasswordSettingsScreen() {
         title="Mot de passe"
         onBack={() => router.back()}
         rightContent={
-          <Pressable onPress={handleSave} disabled={isSaving}>
+          <Pressable onPress={handleSave} disabled={!user || isSaving}>
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
@@ -119,6 +132,7 @@ export default function PasswordSettingsScreen() {
                 <TextInput
                   style={styles.passwordInput}
                   value={currentPassword}
+                  editable={!isSaving}
                   onChangeText={setCurrentPassword}
                   placeholder="Votre mot de passe actuel"
                   placeholderTextColor={colors.muted}
@@ -139,6 +153,7 @@ export default function PasswordSettingsScreen() {
                 <TextInput
                   style={styles.passwordInput}
                   value={newPassword}
+                  editable={!isSaving}
                   onChangeText={setNewPassword}
                   placeholder="Nouveau mot de passe"
                   placeholderTextColor={colors.muted}
@@ -159,6 +174,7 @@ export default function PasswordSettingsScreen() {
                 <TextInput
                   style={styles.passwordInput}
                   value={confirmPassword}
+                  editable={!isSaving}
                   onChangeText={setConfirmPassword}
                   placeholder="Confirmez votre mot de passe"
                   placeholderTextColor={colors.muted}

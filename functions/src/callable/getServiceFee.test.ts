@@ -17,7 +17,7 @@ const holder = vi.hoisted(() => ({
 const fs: MockFirestore = createFirestoreMock();
 holder.fs = fs;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -87,7 +87,7 @@ beforeEach(() => {
 
 describe('getServiceFee — F96 paid-shop reduction', () => {
   it('returns the FULL fee when no articleId is provided (legacy)', async () => {
-    const res = await call({ auth: { uid: 'u1' }, data: { articlePrice: 50 } });
+    const res = await call({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'u1' }, data: { expectedUid: 'u1', articlePrice: 50 } });
     // 50$ → 50*0.05 + 1.50 = 4.00 (>= 2.00 min).
     expect(res.serviceFee).toBe(4.0);
     expect(res.feeReduction).toBe(0);
@@ -102,7 +102,7 @@ describe('getServiceFee — F96 paid-shop reduction', () => {
       tierPaidUntil: inMonths(3),
     });
 
-    const res = await call({ auth: { uid: 'u1' }, data: { articlePrice: 50, articleId: 'art1' } });
+    const res = await call({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'u1' }, data: { expectedUid: 'u1', articlePrice: 50, articleId: 'art1' } });
     // Full 4.00 → pro reduction 0.5 → 2.00.
     expect(res.serviceFee).toBe(2.0);
     expect(res.feeReduction).toBe(0.5);
@@ -117,19 +117,19 @@ describe('getServiceFee — F96 paid-shop reduction', () => {
       tierPaidUntil: inMonths(-1),
     });
 
-    const res = await call({ auth: { uid: 'u1' }, data: { articlePrice: 50, articleId: 'art1' } });
+    const res = await call({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'u1' }, data: { expectedUid: 'u1', articlePrice: 50, articleId: 'art1' } });
     expect(res.serviceFee).toBe(4.0);
     expect(res.feeReduction).toBe(0);
   });
 
   it('returns the full fee when the article is missing', async () => {
-    const res = await call({ auth: { uid: 'u1' }, data: { articlePrice: 50, articleId: 'ghost' } });
+    const res = await call({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'u1' }, data: { expectedUid: 'u1', articlePrice: 50, articleId: 'ghost' } });
     expect(res.serviceFee).toBe(4.0);
     expect(res.feeReduction).toBe(0);
   });
 
   it('rejects a missing/invalid articlePrice', async () => {
-    await expect(call({ auth: { uid: 'u1' }, data: {} })).rejects.toMatchObject({
+    await expect(call({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'u1' }, data: { expectedUid: 'u1',} })).rejects.toMatchObject({
       code: 'invalid-argument',
     });
   });

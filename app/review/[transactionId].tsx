@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -27,16 +27,18 @@ import {
 
 import { ScreenHeader } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { useUser } from '@/hooks/useAuth';
+import { useShallow } from 'zustand/react/shallow';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { ArticlesService } from '@/services/articlesService';
-import { createReview } from '@/services/reviewService';
+import { createReview } from '@/features/reviews/services/reviewService';
 import { TransactionService } from '@/services/transactionService';
 import { UserService } from '@/services/userService';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import { track } from '@/lib/analytics';
 import type { Article, Transaction, User } from '@/types';
+import { useShippingPurchaseContext } from '@/hooks/useShippingPurchaseContext';
+import { getAuthSessionGeneration, useAuthStore } from '@/store/authStore';
 
 // =============================================================================
 // ERROR MAPPING
@@ -64,10 +66,15 @@ function getReviewErrorMessage(error: unknown): string {
   switch (code) {
     case 'functions/already-exists':
       return 'Vous avez deja laisse un avis pour cette transaction.';
-    case 'functions/failed-precondition':
-      // Either the transaction is not yet terminal or the 60-day window expired;
-      // the server message disambiguates, but the action is the same.
+    case 'functions/failed-precondition': {
+      // Trois causes distinctes partagent ce code : transaction pas encore
+      // terminale, fenêtre de 60 jours expirée, ou contrepartie ayant supprimé
+      // son compte. Le serveur les distingue en français ; on affiche son
+      // message plutôt qu'un générique qui désignerait la mauvaise cause.
+      const detail = error instanceof Error ? error.message : '';
+      if (detail && detail.trim().length > 0) return detail;
       return "La periode pour laisser un avis est expiree ou la transaction n'est pas encore terminee.";
+    }
     case 'functions/permission-denied':
       return "Vous n'etes pas autorise a evaluer cette transaction.";
     case 'functions/invalid-argument':
@@ -104,6 +111,9 @@ function StarRating({ rating, onRatingChange, disabled = false }: StarRatingProp
           style={starStyles.starButton}
           hitSlop={8}
           disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={`Note ${star} sur 5`}
+          accessibilityState={{selected: rating === star, disabled}}
         >
           <Ionicons
             name={star <= rating ? 'star' : 'star-outline'}
@@ -141,37 +151,43 @@ interface ReviewScreenData {
 export default function ReviewScreen() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
   const router = useRouter();
-  const currentUser = useUser();
+  const {currentUser, generation} = useAuthStore(useShallow(state => ({currentUser: state.user, generation: getAuthSessionGeneration()})));
   const queryClient = useQueryClient();
   const showAuthSheet = useAuthSheetStore((state) => state.show);
+  const context = useShippingPurchaseContext(`review:${transactionId}`, currentUser?.id ?? null);
 
   // State
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const hasSubmittedRef = useRef(false);
+  const [formFrame, setFormFrame] = useState(context.frame);
+  if (formFrame !== context.frame) {setFormFrame(context.frame); setRating(0); setComment(''); setIsSubmitting(false);}
+  useLayoutEffect(() => {hasSubmittedRef.current = false;}, [context.frame]);
 
   // ── Data loading ──
 
   const { data, isLoading, error } = useQuery<ReviewScreenData | null>({
-    queryKey: ['review', 'transaction', transactionId] as const,
+    queryKey: ['review', 'transaction', transactionId, currentUser?.id, generation, context.focusRevision] as const,
     queryFn: async () => {
       if (!transactionId) return null;
-
+      const operation = context.capture();
       const transaction = await TransactionService.getTransaction(transactionId);
+      context.assertCurrent(operation);
       if (!transaction) return null;
+      if (![transaction.buyerId, transaction.sellerId].includes(operation.session.uid)) throw new Error('Cette commande ne vous appartient pas.');
 
       const [article, targetUser] = await Promise.all([
         ArticlesService.getArticleById(transaction.articleId).catch(() => null),
         // Determine the target user (the other party)
         currentUser?.id === transaction.buyerId
-          ? UserService.getUserById(transaction.sellerId).catch(() => null)
-          : UserService.getUserById(transaction.buyerId).catch(() => null),
+          ? UserService.getPublicProfile(transaction.sellerId).catch(() => null)
+          : UserService.getPublicProfile(transaction.buyerId).catch(() => null),
       ]);
-
+      context.assertCurrent(operation);
       return { transaction, article, targetUser };
     },
-    enabled: !!transactionId && !!currentUser,
+    enabled: !!transactionId && !!currentUser && context.focused,
     staleTime: 10 * 60 * 1000,
   });
 
@@ -224,6 +240,9 @@ export default function ReviewScreen() {
     }
 
     if (!data?.transaction || hasSubmittedRef.current || isSubmitting) return;
+    let operation;
+    try {operation = context.start();} catch {return;}
+    if (!operation) return;
 
     const { transaction } = data;
     const targetUserId =
@@ -245,6 +264,7 @@ export default function ReviewScreen() {
         text: comment.trim(),
         articleId: transaction.articleId,
       });
+      context.assertCurrent(operation);
 
       track('review_submitted', {
         transaction_id: transaction.id,
@@ -263,9 +283,10 @@ export default function ReviewScreen() {
       Alert.alert(
         'Merci pour votre avis !',
         'Votre evaluation a bien ete enregistree.',
-        [{ text: 'OK', onPress: () => router.back() }],
+        [{ text: 'OK', onPress: () => {if (context.isCurrent(operation)) router.back();} }],
       );
     } catch (err: unknown) {
+      if (!context.isCurrent(operation)) return;
       hasSubmittedRef.current = false;
       track('review_submit_failed', {
         transaction_id: transaction.id,
@@ -276,9 +297,10 @@ export default function ReviewScreen() {
       Alert.alert('Erreur', getReviewErrorMessage(err));
       if (__DEV__) console.error('Error submitting review:', err);
     } finally {
-      setIsSubmitting(false);
+      context.finish(operation);
+      if (context.isCurrent(operation)) setIsSubmitting(false);
     }
-  }, [currentUser, data, rating, comment, isSubmitting, router, showAuthSheet, transactionId, queryClient]);
+  }, [currentUser, data, rating, comment, isSubmitting, router, showAuthSheet, transactionId, queryClient, context]);
 
   // ── Auth guard ──
 

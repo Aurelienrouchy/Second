@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-// Pure routing checks never need a real Firebase project or emulator.
 vi.mock('../config/firebase', () => ({ db: {}, FieldValue: {} }));
-import { buildDeepLink } from './notifications';
+import { buildDeepLink, getPreferenceKey } from './notifications';
 
 describe('buildDeepLink', () => {
   it('builds chat deep link', () => {
@@ -74,5 +73,33 @@ describe('buildDeepLink', () => {
 
   it('returns empty string when required data is missing (swap without swapId)', () => {
     expect(buildDeepLink('swap_update', {})).toBe('');
+  });
+});
+
+// ===========================================================================
+// Les notifications de RECOURS ne dépendent d'aucun réglage de confort.
+//
+// Le signalement d'absence partait sous le type `order_cancelled`, adossé à la
+// préférence « Nouvelles ventes ». Une personne qui a coupé cette catégorie —
+// un choix banal — n'apprenait jamais qu'elle est accusée de ne pas s'être
+// présentée, ni qu'elle peut donner sa version. Le droit de réponse ouvert par
+// `reportMeetupNoShow` ne peut pas dépendre d'un réglage de ce genre.
+// ===========================================================================
+describe('getPreferenceKey', () => {
+  it('les types de recours et de rencontre ne sont adossés à aucun réglage', () => {
+    expect(getPreferenceKey('no_show_reported')).toBeNull();
+    expect(getPreferenceKey('meetup_confirmed')).toBeNull();
+    expect(getPreferenceKey('meetup_cancelled')).toBeNull();
+  });
+
+  it('les catégories de confort gardent bien leur réglage', () => {
+    expect(getPreferenceKey('new_message')).toBe('newMessages');
+    expect(getPreferenceKey('offer_received')).toBe('offerReceived');
+    expect(getPreferenceKey('offer_accepted')).toBe('offerResponse');
+    expect(getPreferenceKey('order_cancelled')).toBe('newOrders');
+  });
+
+  it('un type inconnu est toujours délivré', () => {
+    expect(getPreferenceKey('quelque_chose_de_neuf')).toBeNull();
   });
 });

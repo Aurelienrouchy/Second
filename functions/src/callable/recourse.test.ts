@@ -61,7 +61,7 @@ holder.fs = fs;
 holder.stripeMock = stripeMock;
 const shipEngine = holder.shipEngine;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -193,11 +193,12 @@ function seedCardTransaction(opts?: {
     articleId: 'article1',
     articleTitle: 'Veste vintage',
   };
-  if (fundsReleaseAtMs !== null) {
+  if (fundsReleaseAtMs !== null && !['delivery_failed', 'lost'].includes(status)) {
     // A REAL firebase-admin Timestamp instance — recourse.ts gates the 7-day
     // window with `fundsReleaseAt instanceof Timestamp`, so a plain
     // `{ toMillis }` stub would silently skip the check (false negative).
     txData.fundsReleaseAt = Timestamp.fromMillis(fundsReleaseAtMs);
+    txData.sellerHeldCreditCents = sellerCreditedCents;
   }
   if (fundsReleasedAt !== undefined) {
     txData.fundsReleasedAt = fundsReleasedAt;
@@ -206,8 +207,8 @@ function seedCardTransaction(opts?: {
 
   fs.setDoc('wallets/seller1', {
     balance: 0,
-    heldBalance: 0,
-    pendingBalance: sellerPending,
+    heldBalance: ['delivered', 'return_requested'].includes(status) ? sellerPending : 0,
+    pendingBalance: ['delivered', 'return_requested'].includes(status) ? 0 : sellerPending,
     sellerDebt: 0,
     status: 'active',
     currency: 'cad',
@@ -284,12 +285,12 @@ describe('requestRefund — anti-fraud gate', () => {
     seedCardTransaction({ status: 'delivered' });
 
     await expect(
-      callRequestRefund({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
+      callRequestRefund({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
 
     // ZERO money moved: no Stripe refund, seller wallet untouched, status intact.
     expect(stripeMock.calls.refundsCreate.length).toBe(0);
-    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(4500);
+    expect((fs.getDoc('wallets/seller1')!.pendingBalance || 0) + (fs.getDoc('wallets/seller1')!.heldBalance || 0)).toBe(4500);
     expect(fs.getDoc('transactions/tx1')!.status).toBe('delivered');
   });
 
@@ -297,7 +298,7 @@ describe('requestRefund — anti-fraud gate', () => {
     seedCardTransaction({ status: 'shipped' });
 
     await expect(
-      callRequestRefund({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } })
+      callRequestRefund({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(stripeMock.calls.refundsCreate.length).toBe(0);
   });
@@ -306,22 +307,22 @@ describe('requestRefund — anti-fraud gate', () => {
     seedCardTransaction({ status: 'delivery_failed' });
 
     await expect(
-      callRequestRefund({ auth: { uid: 'someoneElse' }, data: { transactionId: 'tx1' } })
+      callRequestRefund({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'someoneElse' }, data: { expectedUid: 'someoneElse', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'permission-denied' });
 
     expect(stripeMock.calls.refundsCreate.length).toBe(0);
-    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(4500);
+    expect((fs.getDoc('wallets/seller1')!.pendingBalance || 0) + (fs.getDoc('wallets/seller1')!.heldBalance || 0)).toBe(4500);
   });
 
   it('rejects when transactionId is missing', async () => {
     await expect(
-      callRequestRefund({ auth: { uid: 'buyer1' }, data: {} })
+      callRequestRefund({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1',} })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
   it('rejects when the transaction does not exist', async () => {
     await expect(
-      callRequestRefund({ auth: { uid: 'buyer1' }, data: { transactionId: 'ghost' } })
+      callRequestRefund({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'ghost' } })
     ).rejects.toMatchObject({ code: 'not-found' });
   });
 });
@@ -340,8 +341,8 @@ describe('requestRefund — carrier-confirmed failure/lost', () => {
     });
 
     const result = await callRequestRefund({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
     expect(result.success).toBe(true);
 
@@ -361,7 +362,7 @@ describe('requestRefund — carrier-confirmed failure/lost', () => {
     // Seller debited EXACTLY sellerCreditedCents (4500) from pendingBalance.
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
     expect(fs.getDoc('wallets/seller1')!.sellerDebt ?? 0).toBe(0);
-    expect(fs.sumIncrements('wallets/seller1', 'pendingBalance')).toBe(-4500);
+    expect(fs.sumIncrements('wallets/seller1', 'pendingBalance') + fs.sumIncrements('wallets/seller1', 'heldBalance')).toBe(-4500);
 
     // Transaction marked refunded.
     expect(fs.getDoc('transactions/tx1')!.status).toBe('refunded');
@@ -377,8 +378,8 @@ describe('requestRefund — carrier-confirmed failure/lost', () => {
     seedCardTransaction({ status: 'lost' });
 
     const result = await callRequestRefund({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
     expect(result.success).toBe(true);
     expect(stripeMock.calls.refundsCreate.length).toBe(1);
@@ -393,7 +394,7 @@ describe('requestRefund — carrier-confirmed failure/lost', () => {
       sellerPending: 1000,
     });
 
-    await callRequestRefund({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
+    await callRequestRefund({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } });
 
     const sw = fs.getDoc('wallets/seller1')!;
     expect(sw.pendingBalance).toBe(0); // drained
@@ -403,20 +404,20 @@ describe('requestRefund — carrier-confirmed failure/lost', () => {
   it('is idempotent: a second call no-ops (already refunded), no double Stripe refund', async () => {
     seedCardTransaction({ status: 'delivery_failed' });
 
-    await callRequestRefund({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
+    await callRequestRefund({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } });
     expect(stripeMock.calls.refundsCreate.length).toBe(1);
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
 
     // Second invocation: status is now 'refunded' -> early no-op.
     const second = await callRequestRefund({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1' },
     });
     expect(second).toMatchObject({ alreadyRefunded: true });
 
     // Still exactly ONE refund, seller not debited twice.
     expect(stripeMock.calls.refundsCreate.length).toBe(1);
-    expect(fs.sumIncrements('wallets/seller1', 'pendingBalance')).toBe(-4500);
+    expect(fs.sumIncrements('wallets/seller1', 'pendingBalance') + fs.sumIncrements('wallets/seller1', 'heldBalance')).toBe(-4500);
   });
 });
 
@@ -435,8 +436,8 @@ describe('reportTransactionProblem — freeze only, no money movement', () => {
     seedCardTransaction({ status: 'delivered' });
 
     const result = await callReportProblem({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1', reason: 'not_as_described', details: 'Trou non mentionné' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'not_as_described', details: 'Trou non mentionné' },
     });
     expect(result.success).toBe(true);
     expect(typeof result.disputeId).toBe('string');
@@ -447,7 +448,7 @@ describe('reportTransactionProblem — freeze only, no money movement', () => {
     const walletWrite = fs.writeOps.find((op) => op.path.startsWith('wallets/'));
     expect(walletWrite).toBeUndefined();
     // Seller pendingBalance untouched.
-    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(4500);
+    expect((fs.getDoc('wallets/seller1')!.pendingBalance || 0) + (fs.getDoc('wallets/seller1')!.heldBalance || 0)).toBe(4500);
 
     // Transaction is frozen: disputed flag + status + statusBeforeDispute + report.
     const tx = fs.getDoc('transactions/tx1')!;
@@ -471,8 +472,8 @@ describe('reportTransactionProblem — freeze only, no money movement', () => {
     seedCardTransaction({ status: 'delivered' });
     await expect(
       callReportProblem({
-        auth: { uid: 'buyer1' },
-        data: { transactionId: 'tx1', reason: 'i_changed_my_mind' },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+        data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'i_changed_my_mind' },
       })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
@@ -481,8 +482,8 @@ describe('reportTransactionProblem — freeze only, no money movement', () => {
     seedCardTransaction({ status: 'delivered' });
     await expect(
       callReportProblem({
-        auth: { uid: 'intruder' },
-        data: { transactionId: 'tx1', reason: 'damaged' },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'intruder' },
+        data: { expectedUid: 'intruder', transactionId: 'tx1', reason: 'damaged' },
       })
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
@@ -490,14 +491,14 @@ describe('reportTransactionProblem — freeze only, no money movement', () => {
   it('refuses a re-report on an already-disputed transaction', async () => {
     seedCardTransaction({ status: 'delivered' });
     await callReportProblem({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1', reason: 'damaged' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'damaged' },
     });
 
     await expect(
       callReportProblem({
-        auth: { uid: 'buyer1' },
-        data: { transactionId: 'tx1', reason: 'other' },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+        data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'other' },
       })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
@@ -526,8 +527,8 @@ describe('requestReturn — return label, no immediate refund', () => {
     setupDeliveredReturnable();
 
     const result = await callRequestReturn({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1', reason: 'not_as_described' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'not_as_described' },
     });
 
     expect(result.success).toBe(true);
@@ -554,15 +555,15 @@ describe('requestReturn — return label, no immediate refund', () => {
 
     // CRITICAL: NO money moved at this stage.
     expect(stripeMock.calls.refundsCreate.length).toBe(0);
-    expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(4500);
+    expect((fs.getDoc('wallets/seller1')!.pendingBalance || 0) + (fs.getDoc('wallets/seller1')!.heldBalance || 0)).toBe(4500);
   });
 
   it('refunds ONLY when the return tracking goes DELIVERED, refunding total - returnLabelCost', async () => {
     setupDeliveredReturnable();
 
     await callRequestReturn({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1', reason: 'not_as_described' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'not_as_described' },
     });
     // Still no refund before the carrier confirms reception.
     expect(stripeMock.calls.refundsCreate.length).toBe(0);
@@ -587,8 +588,8 @@ describe('requestReturn — return label, no immediate refund', () => {
   it('return-leg refund is idempotent: a replayed DELIVERED signal does not double-refund', async () => {
     setupDeliveredReturnable();
     await callRequestReturn({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1', reason: 'damaged' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'damaged' },
     });
 
     const first = await processReturnDelivered('tx1', 'webhook');
@@ -597,23 +598,24 @@ describe('requestReturn — return label, no immediate refund', () => {
 
     // Replay (e.g. poller after the webhook): status is 'refunded' -> no-op.
     const second = await processReturnDelivered('tx1', 'poller');
-    expect(second.refunded).toBe(false);
+    expect(second.refunded).toBe(true);
+    expect(second.alreadyRefunded).toBe(true);
     expect(stripeMock.calls.refundsCreate.length).toBe(1);
-    expect(fs.sumIncrements('wallets/seller1', 'pendingBalance')).toBe(-4500);
+    expect(fs.sumIncrements('wallets/seller1', 'pendingBalance') + fs.sumIncrements('wallets/seller1', 'heldBalance')).toBe(-4500);
   });
 
   it('is idempotent at request time: a second requestReturn no-ops (no second label)', async () => {
     setupDeliveredReturnable();
 
     await callRequestReturn({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1', reason: 'not_as_described' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'not_as_described' },
     });
     expect(shipEngine.createReturnLabelCalls.length).toBe(1);
 
     const second = await callRequestReturn({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1', reason: 'not_as_described' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+      data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'not_as_described' },
     });
     expect(second).toMatchObject({ alreadyRequested: true });
     // No second paid label bought.
@@ -636,8 +638,8 @@ describe('requestReturn — preconditions', () => {
     seedCardTransaction({ status: 'delivered' });
     await expect(
       callRequestReturn({
-        auth: { uid: 'buyer1' },
-        data: { transactionId: 'tx1', reason: 'changed_my_mind' },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+        data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'changed_my_mind' },
       })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
@@ -649,8 +651,8 @@ describe('requestReturn — preconditions', () => {
 
     await expect(
       callRequestReturn({
-        auth: { uid: 'buyer1' },
-        data: { transactionId: 'tx1', reason: 'not_as_described' },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+        data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'not_as_described' },
       })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
 
@@ -666,8 +668,8 @@ describe('requestReturn — preconditions', () => {
 
     await expect(
       callRequestReturn({
-        auth: { uid: 'buyer1' },
-        data: { transactionId: 'tx1', reason: 'not_as_described' },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+        data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'not_as_described' },
       })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(shipEngine.createReturnLabelCalls.length).toBe(0);
@@ -684,8 +686,8 @@ describe('requestReturn — preconditions', () => {
 
     await expect(
       callRequestReturn({
-        auth: { uid: 'buyer1' },
-        data: { transactionId: 'tx1', reason: 'not_as_described' },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+        data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'not_as_described' },
       })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(shipEngine.createReturnLabelCalls.length).toBe(0);
@@ -703,8 +705,8 @@ describe('requestReturn — preconditions', () => {
 
     await expect(
       callRequestReturn({
-        auth: { uid: 'buyer1' },
-        data: { transactionId: 'tx1', reason: 'not_as_described' },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' },
+        data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'not_as_described' },
       })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(shipEngine.createReturnLabelCalls.length).toBe(0);
@@ -717,10 +719,79 @@ describe('requestReturn — preconditions', () => {
 
     await expect(
       callRequestReturn({
-        auth: { uid: 'intruder' },
-        data: { transactionId: 'tx1', reason: 'not_as_described' },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'intruder' },
+        data: { expectedUid: 'intruder', transactionId: 'tx1', reason: 'not_as_described' },
       })
     ).rejects.toMatchObject({ code: 'permission-denied' });
     expect(shipEngine.createReturnLabelCalls.length).toBe(0);
+  });
+});
+
+// Independent bank guards must survive stale pre-reads and provider races.
+describe('recourse — independent bank guards under transaction', () => {
+  function openBank() {
+    const data = fs.getDoc('transactions/tx1')!;
+    fs.setDoc('transactions/tx1', { ...data, disputeId: 'du_bank', bankDispute: {
+      id: 'du_bank', state: 'open', outcome: null, stripeStatus: 'needs_response', freezeCents: 0,
+      statusBeforeOpen: data.status, commercialDisputedBeforeOpen: false, openedAt: new Date(),
+    } });
+  }
+
+  it('requestRefund refuses a bank case that opens after its pre-read, before refund reservation', async () => {
+    seedCardTransaction();
+    const run = fs.db.runTransaction.bind(fs.db);
+    const spy = vi.spyOn(fs.db, 'runTransaction').mockImplementationOnce(async callback => {
+      openBank(); return run(callback);
+    });
+    try {
+      await expect(callRequestRefund({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })).rejects.toMatchObject({ code: 'failed-precondition' });
+      expect(fs.getDoc('transactions/tx1')!.status).toBe('delivery_failed');
+      expect(stripeMock.calls.refundsCreate).toHaveLength(0);
+      expect(fs.writeOps).toHaveLength(0);
+    } finally { spy.mockRestore(); }
+  });
+
+  it('requestRefund does not roll back the bank hold/context when bank opens during Stripe', async () => {
+    seedCardTransaction();
+    stripeMock.impl.refundsCreate = async (params: any) => { openBank(); return { id: 're_pending', status: 'pending',
+      payment_intent: params.payment_intent, currency: 'cad', amount: params.amount, metadata: params.metadata }; };
+    expect(await callRequestRefund({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })).toMatchObject({ success: false, status: 'pending', bankWaiting: true, actionRequired: false });
+    expect(fs.getDoc('transactions/tx1')!.bankDispute.state).toBe('open');
+    expect(fs.getDoc('transactions/tx1')!.bankDispute.reconciliationRequired).not.toBe(true);
+    expect(fs.getDoc('transactions/tx1')!.status).toBe('refund_in_progress');
+    expect((fs.getDoc('wallets/seller1')!.pendingBalance || 0) + (fs.getDoc('wallets/seller1')!.heldBalance || 0)).toBe(4500);
+  });
+
+  it('requestReturn refuses an active bank case before paying for its label', async () => {
+    seedCardTransaction({ status: 'delivered' }); seedReturnAddresses(); openBank();
+    shipEngine.createReturnLabelImpl = async () => RETURN_LABEL;
+    await expect(callRequestReturn({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'damaged' } })).rejects.toMatchObject({ code: 'failed-precondition' });
+    expect(shipEngine.createReturnLabelCalls).toHaveLength(0);
+    expect(fs.writeOps).toHaveLength(0);
+  });
+
+  it('requestReturn rechecks the bank guard inside label reservation after a stale pre-read', async () => {
+    seedCardTransaction({ status: 'delivered' }); seedReturnAddresses();
+    shipEngine.createReturnLabelImpl = async () => RETURN_LABEL;
+    const run = fs.db.runTransaction.bind(fs.db);
+    const spy = vi.spyOn(fs.db, 'runTransaction').mockImplementationOnce(async callback => {
+      openBank(); return run(callback);
+    });
+    try {
+      await expect(callRequestReturn({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'damaged' } })).rejects.toMatchObject({ code: 'failed-precondition' });
+      expect(shipEngine.createReturnLabelCalls).toHaveLength(0);
+      expect(fs.writeOps).toHaveLength(0);
+    } finally { spy.mockRestore(); }
+  });
+
+  it('bank opening during paid label creation cannot commit the return and creates an operator alert', async () => {
+    seedCardTransaction({ status: 'delivered' }); seedReturnAddresses();
+    shipEngine.createReturnLabelImpl = async () => { openBank(); return RETURN_LABEL; };
+    await expect(callRequestReturn({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1', reason: 'damaged' } })).rejects.toMatchObject({ code: 'failed-precondition' });
+    expect(fs.getDoc('transactions/tx1')!.bankDispute.state).toBe('open');
+    expect(fs.getDoc('transactions/tx1')!.status).toBe('delivered');
+    expect(fs.getDoc('transactions/tx1')!.returnLabelId).toBeUndefined();
+    expect(stripeMock.calls.refundsCreate).toHaveLength(0);
+    expect(fs.writeOps.some(op => op.path.startsWith('admin_alerts/') && op.data.kind === 'return_label_commit_failed')).toBe(true);
   });
 });

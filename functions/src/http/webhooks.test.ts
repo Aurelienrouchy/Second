@@ -182,6 +182,7 @@ function piSucceededEvent(opts: {
         id: opts.paymentIntentId ?? 'pi_test',
         amount: opts.amountCents,
         amount_received: opts.amountCents,
+        currency: 'cad',
         latest_charge: 'ch_test',
         metadata: { transactionId: opts.transactionId, ...(opts.metadata ?? {}) },
       },
@@ -334,7 +335,7 @@ describe('Stripe webhook — amount mismatch (deterministic dead-letter)', () =>
     let refundOpts: Record<string, unknown> | undefined;
     stripeMock.impl.refundsCreate = (...a: unknown[]) => {
       refundOpts = a[1] as Record<string, unknown>;
-      return { id: 'rf_under' };
+      return { id: 'rf_under', status: 'succeeded', currency: 'cad', payment_intent: (a[0] as any).payment_intent, amount: (a[0] as any).amount, metadata: (a[0] as any).metadata };
     };
 
     // Buyer UNDERPAID: charged 40$ instead of 50$.
@@ -386,7 +387,7 @@ describe('Stripe webhook — amount mismatch (deterministic dead-letter)', () =>
     let refundOpts: Record<string, unknown> | undefined;
     stripeMock.impl.refundsCreate = (...a: unknown[]) => {
       refundOpts = a[1] as Record<string, unknown>;
-      return { id: 'rf_over' };
+      return { id: 'rf_over', status: 'succeeded', currency: 'cad', payment_intent: (a[0] as any).payment_intent, amount: (a[0] as any).amount, metadata: (a[0] as any).metadata };
     };
 
     // Buyer OVERPAID: charged 60$ instead of 50$.
@@ -557,6 +558,12 @@ describe('Stripe webhook — charge.refunded (bucket debit, full vs partial)', (
     // tests exercise the full reconciliation path.
     const amount = opts.amount ?? 5000;
     const amountRefunded = opts.amountRefunded ?? amount;
+    const sale = ['tx_ref', 'tx_debt', 'tx_mixed', 'tx_idem', 'tx_partial'].map(id => fs.getDoc('transactions/' + id)).find(d => d?.stripePaymentIntentId === opts.paymentIntentId);
+    const wallet = sale?.paidVia === 'wallet_and_card' || sale?.paidVia === 'mixed' ? sale.walletAmountUsed || 0 : 0;
+    const cardRefund = opts.amountRefunded === undefined ? amount - wallet : amountRefunded;
+    stripeMock.impl.refundsRetrieve = async () => ({ id: opts.refundId ?? 'rf_ch', status: 'succeeded', currency: 'cad',
+      amount: cardRefund, payment_intent: opts.paymentIntentId, metadata: {} });
+
     return {
       id: opts.eventId,
       type: 'charge.refunded',
@@ -632,6 +639,7 @@ describe('Stripe webhook — charge.refunded (bucket debit, full vs partial)', (
       buyerId: 'buyer1',
       sellerId: 'seller1',
       status: 'delivered',
+      totalAmount: 50,
       sellerPayout: 45,
       sellerCreditedCents: 4500,
       paidVia: 'card',
@@ -790,15 +798,10 @@ describe('Stripe webhook — charge.refunded (bucket debit, full vs partial)', (
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(4500);
     expect(fs.sumIncrements('wallets/seller1', 'pendingBalance')).toBe(0);
 
-    // A review dead-letter was written (autoRefund:false, kind partial).
-    const dl = fs.writeOps.find(
-      (op: WriteOp) =>
-        op.path.startsWith('failed_operations/') &&
-        op.data.type === 'amount_mismatch' &&
-        (op.data.payload as Record<string, unknown>).kind === 'partial_charge_refund'
-    );
-    expect(dl).toBeDefined();
-    expect((dl!.data.payload as Record<string, unknown>).autoRefund).toBe(false);
+    // A deterministic operator alert replaces a blind refund replay job.
+    const alert = fs.writeOps.find(op => op.path.startsWith('admin_alerts/') && op.data.kind === 'purchase_refund_reconciliation');
+    expect(alert).toBeDefined();
+    expect(stripeMock.calls.refundsCreate).toHaveLength(0);
   });
 });
 
@@ -840,6 +843,7 @@ describe('Stripe webhook — dispute hold lifecycle', () => {
           id: opts.disputeId ?? 'dp_1',
           payment_intent: opts.paymentIntentId,
           status: opts.status,
+          amount: 4500,
         },
       },
     };
@@ -852,7 +856,9 @@ describe('Stripe webhook — dispute hold lifecycle', () => {
       sellerId: 'seller1',
       status: 'completed',
       sellerPayout: 45,
+      totalAmount: 45,
       sellerCreditedCents: 4500,
+      sellerReleasedCents: 4500,
       paidVia: 'card',
       deliveryType: 'shipping',
       articleId: 'a',
@@ -887,7 +893,9 @@ describe('Stripe webhook — dispute hold lifecycle', () => {
       sellerId: 'seller1',
       status: 'completed',
       sellerPayout: 45,
+      totalAmount: 45,
       sellerCreditedCents: 4500,
+      sellerReleasedCents: 4500,
       paidVia: 'card',
       deliveryType: 'shipping',
       stripePaymentIntentId: 'pi_warn',
@@ -922,6 +930,7 @@ describe('Stripe webhook — dispute hold lifecycle', () => {
       sellerId: 'seller1',
       status: 'shipped',
       sellerPayout: 45,
+      totalAmount: 45,
       sellerCreditedCents: 4500,
       paidVia: 'card',
       deliveryType: 'shipping',
@@ -949,15 +958,15 @@ describe('Stripe webhook — dispute hold lifecycle', () => {
     expect(fs.getDoc('transactions/tx_lost')!.status).toBe('refunded');
   });
 
-  it('LOST dispute on an UNCREDITED tx releases the frozen surplus (F37)', async () => {
-    // The tx was frozen (funds were in balance) but never credited for THIS sale
-    // (sellerCreditedCents = 0). The LOST debit target is 0, so the frozen amount
-    // must be returned to balance, not stranded in heldBalance.
+  it('LOST dispute on an UNCREDITED tx never freezes other sale funds', async () => {
+    // A payout estimate is not proof of credit. The seller balance comes from
+    // another sale and must stay available before and after the bank closure.
     fs.setDoc('transactions/tx_lost2', {
       buyerId: 'buyer1',
       sellerId: 'seller1',
       status: 'completed',
       sellerPayout: 45,
+      totalAmount: 45,
       // no sellerCreditedCents
       paidVia: 'card',
       deliveryType: 'shipping',
@@ -971,8 +980,8 @@ describe('Stripe webhook — dispute hold lifecycle', () => {
     });
 
     await deliverEvent(disputeCreatedEvent({ eventId: 'evt_dc_l2', paymentIntentId: 'pi_lost2' }));
-    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(4500);
-    expect(fs.getDoc('transactions/tx_lost2')!.disputeFreezeCents).toBe(4500);
+    expect(fs.getDoc('wallets/seller1')!.heldBalance).toBe(0);
+    expect(fs.getDoc('transactions/tx_lost2')!.disputeFreezeCents).toBe(0);
 
     await deliverEvent(
       disputeClosedEvent({ eventId: 'evt_dx_l2', paymentIntentId: 'pi_lost2', status: 'lost' })
@@ -1536,6 +1545,7 @@ function shopTierEvent(opts: {
         id: opts.paymentIntentId ?? 'pi_tier',
         amount: opts.amountCents,
         amount_received: opts.amountCents,
+        currency: 'cad',
         latest_charge: 'ch_tier',
         metadata: {
           type: 'shop_tier',
@@ -1659,18 +1669,18 @@ describe('Stripe webhook — shop tier forfait (F134)', () => {
 // ===========================================================================
 
 describe('Stripe webhook — dispute LOST mixed payment (F40 buyer wallet re-credit)', () => {
-  function disputeCreatedEvent(eventId: string, paymentIntentId: string) {
+  function disputeCreatedEvent(eventId: string, paymentIntentId: string, amount = 5000) {
     return {
       id: eventId,
       type: 'charge.dispute.created',
-      data: { object: { id: 'dp_mix', payment_intent: paymentIntentId, reason: 'fraudulent', amount: 5000 } },
+      data: { object: { id: 'dp_mix', payment_intent: paymentIntentId, reason: 'fraudulent', amount } },
     };
   }
-  function disputeClosedLostEvent(eventId: string, paymentIntentId: string) {
+  function disputeClosedLostEvent(eventId: string, paymentIntentId: string, amount = 5000) {
     return {
       id: eventId,
       type: 'charge.dispute.closed',
-      data: { object: { id: 'dp_mix', payment_intent: paymentIntentId, status: 'lost' } },
+      data: { object: { id: 'dp_mix', payment_intent: paymentIntentId, status: 'lost', amount } },
     };
   }
 
@@ -1694,8 +1704,8 @@ describe('Stripe webhook — dispute LOST mixed payment (F40 buyer wallet re-cre
     fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 4500, heldBalance: 0, status: 'active' });
     fs.setDoc('wallets/buyer1', { balance: 100, status: 'active' });
 
-    await deliverEvent(disputeCreatedEvent('evt_dc_mix', 'pi_mix'));
-    await deliverEvent(disputeClosedLostEvent('evt_dx_mix', 'pi_mix'));
+    await deliverEvent(disputeCreatedEvent('evt_dc_mix', 'pi_mix', 3000));
+    await deliverEvent(disputeClosedLostEvent('evt_dx_mix', 'pi_mix', 3000));
 
     // Seller debited (deferred-credit cascade from pendingBalance).
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
@@ -1761,6 +1771,8 @@ describe('Stripe webhook — dispute LOST mixed payment (F40 buyer wallet re-cre
     });
     fs.setDoc('wallets/buyer1', { balance: 0, status: 'active' });
 
+    fs.setDoc('transactions/tx_resid', { ...fs.getDoc('transactions/tx_resid')!, status: 'disputed', statusBeforeDispute: 'shipped', disputed: true, disputeId: 'dp_mix', disputeFreezeCents: 4500 });
+    fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 4500, heldBalance: 4500, status: 'active' });
     await deliverEvent(disputeCreatedEvent('evt_dc_resid', 'pi_resid'));
     await deliverEvent(disputeClosedLostEvent('evt_dx_resid', 'pi_resid'));
 

@@ -1,9 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { Timestamp } from 'firebase-admin/firestore';
 import { createStripeMock } from './testHelpers/firestoreMock';
 import { isDefinitiveStripeFailure, resolveWithdrawalPayout } from './payoutOutcome';
 
-const request = { stripeAccountId: 'acct_seller', amount: 2500, currency: 'cad', userId: 'seller', createdAt: new Date() };
-const payout = { id: 'po_recovered', status: 'paid', amount: 2500, currency: 'cad',
+vi.mock('../config/firebase', async () => {
+  const { createFirestoreMock } = await import('./testHelpers/firestoreMock');
+  const fs = createFirestoreMock();
+  return { db: fs.db, FieldValue: fs.FieldValue };
+});
+
+const request = { stripeAccountId: 'acct_seller', amount: 2500, currency: 'cad', userId: 'seller', createdAt: Timestamp.now(),
+  payoutDestination: { schemaVersion: 1, accountId: 'acct_seller', bankAccountId: 'ba_frozen', country: 'CA', currency: 'CAD' } };
+const payout = { id: 'po_recovered', object: 'payout', status: 'paid', amount: 2500, currency: 'cad', method: 'standard', destination: 'ba_frozen',
   metadata: { withdrawalRequestId: 'wr1', firebaseUserId: 'seller' } };
 
 describe('read-only unknown payout resolution', () => {

@@ -4,7 +4,7 @@
 
 import { Dimensions, StyleSheet } from 'react-native';
 
-import { colors, fonts, radius, sizing, spacing } from '@/constants/theme';
+import { colors, components, fonts, radius, sizing, spacing } from '@/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export const HERO_HEIGHT = SCREEN_WIDTH * 1.2;
@@ -314,60 +314,42 @@ export const articleStyles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: colors.cream,
-    paddingTop: 16,
-    paddingHorizontal: 24,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
   ctaRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: spacing.md,
   },
   offerOutlineButton: {
+    ...components.button.container,
+    ...components.button.secondary,
     flex: 1,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.charcoal,
-    borderRadius: radius.none,
+    paddingHorizontal: spacing.sm,
   },
   offerOutlineText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.2,
-    color: colors.charcoal,
+    ...components.button.label,
+    ...components.button.secondaryLabel,
   },
   buyButton: {
+    ...components.button.container,
+    ...components.button.primary,
     flex: 2,
-    height: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.charcoal,
-    borderRadius: radius.none,
+    paddingHorizontal: spacing.sm,
   },
   buyButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.2,
-    color: colors.cream,
+    ...components.button.label,
+    ...components.button.primaryLabel,
   },
   swapButton: {
-    height: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: colors.sage,
-    borderRadius: radius.none,
+    ...components.button.container,
+    ...components.button.primary,
   },
   swapButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.5,
-    color: colors.white,
+    ...components.button.label,
+    ...components.button.primaryLabel,
   },
   ownArticleBar: {
     flexDirection: 'row',
@@ -412,15 +394,12 @@ export const articleStyles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   errorButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.primary,
-    borderRadius: radius.sm,
+    ...components.button.container,
+    ...components.button.primary,
   },
   errorButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 14,
-    color: colors.white,
+    ...components.button.label,
+    ...components.button.primaryLabel,
   },
 
   // Bottom spacer to clear the CTA bar

@@ -2,7 +2,8 @@
  * Script to import brands into Firestore for Seconde
  *
  * Usage:
- *   node scripts/import-brands.js            # write to Firestore (needs serviceAccountKey.json OR emulator)
+ *   node scripts/import-brands.js            # dev project, ADC or explicit GOOGLE_APPLICATION_CREDENTIALS
+ *   GCLOUD_PROJECT=seconde-b47a6 node scripts/import-brands.js # explicit production import
  *   node scripts/import-brands.js --dry-run  # parse/normalize/dedup only, no write, no creds
  *
  * Emulator:
@@ -21,15 +22,8 @@ const path = require('path');
 
 // ─── Flags ───────────────────────────────────────────────
 const DRY_RUN = process.argv.includes('--dry-run');
-const USE_EMULATOR = !!process.env.FIRESTORE_EMULATOR_HOST;
 
 // ─── Configuration ───────────────────────────────────────
-const SERVICE_ACCOUNT_PATHS = [
-  path.join(__dirname, '..', 'functions', 'serviceAccountKey.json'),
-  path.join(__dirname, '..', 'serviceAccountKey.json'),
-  path.join(__dirname, '..', 'service-account.json'),
-];
-
 const BRANDS_FILE_PATH = path.join(__dirname, '..', 'vinted-brands.txt');
 const BATCH_SIZE = 500;
 
@@ -162,30 +156,9 @@ function runDryRun() {
 // ─── REAL WRITE (Firestore or emulator) ──────────────────
 async function runImport() {
   const admin = require('firebase-admin');
-
-  if (USE_EMULATOR) {
-    console.log(`🧪 Émulateur Firestore détecté: ${process.env.FIRESTORE_EMULATOR_HOST}`);
-    admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'seconde-b47a6' });
-  } else {
-    let serviceAccount = null;
-    for (const accountPath of SERVICE_ACCOUNT_PATHS) {
-      if (fs.existsSync(accountPath)) {
-        serviceAccount = require(accountPath);
-        console.log(`✅ Service account trouvé: ${path.basename(accountPath)}`);
-        break;
-      }
-    }
-
-    if (serviceAccount) {
-      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-    } else {
-      console.log('ℹ️ Aucun service account local — fallback Application Default Credentials (gcloud ADC).');
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-        projectId: process.env.GCLOUD_PROJECT || 'seconde-b47a6',
-      });
-    }
-  }
+  const { initializeScriptAdmin } = require('./devAdminTarget.cjs');
+  const target = initializeScriptAdmin(admin, { allowProduction: true });
+  console.log(`🎯 Import target: ${target.projectId}${target.emulator ? ' (emulator)' : ''}`);
 
   const db = admin.firestore();
 
@@ -239,5 +212,8 @@ async function runImport() {
 if (DRY_RUN) {
   runDryRun();
 } else {
-  runImport();
+  runImport().catch(error => {
+    console.error(`❌ Import refusé: ${error.message}`);
+    process.exit(1);
+  });
 }

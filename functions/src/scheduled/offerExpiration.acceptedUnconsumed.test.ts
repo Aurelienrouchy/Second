@@ -53,8 +53,7 @@ const OLD = new Date(Date.now() - 72 * 60 * 60 * 1000); // 72h ago (past 48h gra
 const RECENT = new Date(Date.now() - 1 * 60 * 60 * 1000); // 1h ago (within grace)
 
 /**
- * Seed an accepted offer message. `offer.status` is duplicated as a flat key so
- * the query mock (matches data[c.field]) returns it.
+ * Seed an accepted offer message.
  */
 function seedAcceptedOffer(
   messageId: string,
@@ -72,8 +71,6 @@ function seedAcceptedOffer(
     senderId: opts.senderId ?? BUYER,
     timestamp: opts.timestamp ?? opts.acceptedAt ?? OLD,
     offer,
-    // Flat keys so the where('type'==)/where('offer.status'==) mock matches.
-    'offer.status': 'accepted',
   });
 }
 
@@ -82,22 +79,19 @@ beforeEach(() => {
 });
 
 describe('expireStaleAcceptedOffers (F135)', () => {
-  // NOTE: the in-memory mock applies a dotted update key (`'offer.status'`) as a
-  // FLAT key (it does not deep-merge into the nested `offer` object — unlike real
-  // Firestore). So the job's write lands on the flat `'offer.status'` key. We
-  // assert on that flat key, mirroring acceptMeetupOffer.test.ts.
-  const flatStatus = (id: string) =>
-    (fs.getDoc(`messages/${id}`) as Record<string, unknown>)['offer.status'];
+  // Le mock résout désormais la notation pointée comme Firestore : un
+  // `update({'offer.status': …})` écrit le champ IMBRIQUÉ, et
+  // `where('offer.status','==',…)` l'interroge au même endroit. On asserte donc
+  // sur la forme réelle de production.
+  const offerStatus = (id: string) => (fs.getDoc(`messages/${id}`) as any).offer.status;
 
   it('expires an accepted, unconsumed offer past the 48h grace window', async () => {
     seedAcceptedOffer('m1', { acceptedAt: OLD });
 
     await run();
 
-    expect(flatStatus('m1')).toBe('expired');
-    expect((fs.getDoc('messages/m1') as Record<string, unknown>)['offer.expiredReason']).toBe(
-      'accepted_unconsumed'
-    );
+    expect(offerStatus('m1')).toBe('expired');
+    expect((fs.getDoc('messages/m1') as any).offer.expiredReason).toBe('accepted_unconsumed');
   });
 
   it('leaves a recently-accepted offer untouched (within grace window)', async () => {
@@ -105,7 +99,7 @@ describe('expireStaleAcceptedOffers (F135)', () => {
 
     await run();
 
-    expect(flatStatus('m1')).toBe('accepted');
+    expect(offerStatus('m1')).toBe('accepted');
   });
 
   it('does NOT expire a consumed offer (live transaction exists for buyer+chat)', async () => {
@@ -119,7 +113,7 @@ describe('expireStaleAcceptedOffers (F135)', () => {
 
     await run();
 
-    expect(flatStatus('m1')).toBe('accepted');
+    expect(offerStatus('m1')).toBe('accepted');
   });
 
   it('DOES expire when the only transaction is cancelled (offer not consumed)', async () => {
@@ -133,7 +127,7 @@ describe('expireStaleAcceptedOffers (F135)', () => {
 
     await run();
 
-    expect(flatStatus('m1')).toBe('expired');
+    expect(offerStatus('m1')).toBe('expired');
   });
 
   it('falls back to offer.expiresAt when acceptedAt is absent (legacy offers)', async () => {
@@ -143,7 +137,44 @@ describe('expireStaleAcceptedOffers (F135)', () => {
 
     await run();
 
-    expect(flatStatus('m1')).toBe('expired');
+    expect(offerStatus('m1')).toBe('expired');
+  });
+
+  // Régression : l'acheteur d'une rencontre est dérivé de l'ARTICLE (F9), pas de
+  // l'émetteur de l'offre. Sur une CONTRE-OFFRE émise par le vendeur,
+  // `senderId` est le vendeur. Le balayage cherchait les transactions de cet
+  // « acheteur », n'en trouvait aucune, et expirait l'offre d'une rencontre
+  // vivante — éteignant les boutons de la bulle de chat, seul point d'entrée du
+  // parcours meetup.
+  it('ne touche pas une contre-offre du VENDEUR dont la rencontre est vivante', async () => {
+    const SELLER = 'seller1';
+    seedAcceptedOffer('m1', { acceptedAt: OLD, senderId: SELLER });
+    fs.setDoc('transactions/t1', {
+      buyerId: BUYER, // ≠ senderId : c'est le vendeur qui a émis la contre-offre
+      sellerId: SELLER,
+      chatId: CHAT,
+      deliveryType: 'meetup',
+      status: 'meetup_confirmed',
+    });
+
+    await run();
+
+    expect(offerStatus('m1')).toBe('accepted');
+  });
+
+  // La consommation se juge sur la CONVERSATION : une transaction vivante dans
+  // un autre chat ne doit jamais protéger cette offre-ci.
+  it('expire bien une offre dont la seule transaction vivante est dans un autre chat', async () => {
+    seedAcceptedOffer('m1', { acceptedAt: OLD });
+    fs.setDoc('transactions/t1', {
+      buyerId: BUYER,
+      chatId: 'un-autre-chat',
+      status: 'meetup_confirmed',
+    });
+
+    await run();
+
+    expect(offerStatus('m1')).toBe('expired');
   });
 
   it('is a no-op when there are no accepted offers', async () => {
@@ -167,4 +198,15 @@ it('preserves an accepted seller counter-offer through its exact linked buyer tr
   fs.setDoc('transactions/linked', { buyerId: BUYER, chatId: CHAT, status: 'meetup_confirmed', offerMessageId: 'counter', amount: 80 });
   await run();
   expect((fs.getDoc('messages/counter')?.offer as Record<string, unknown>).status).toBe('accepted');
+});
+
+
+describe('phase1 offer partition is disjoint from the ordinary Dev jobs',()=>{
+  it.each([null,{}, {protocol:'phase1_message_origin_v1',installationId:'foreign',epoch:'wrong'}])('never changes a present origin marker %j',async phase1Source=>{
+    seedAcceptedOffer('accepted',{acceptedAt:OLD});fs.setDoc('messages/accepted',{...fs.getDoc('messages/accepted'),phase1Source});
+    fs.setDoc('messages/pending',{type:'offer',phase1Source,offer:{status:'pending',expiresAt:OLD}});
+    await run();await (expireStaleOffers as unknown as Scheduled)();
+    expect((fs.getDoc('messages/accepted') as any).offer.status).toBe('accepted');
+    expect((fs.getDoc('messages/pending') as any).offer.status).toBe('pending');expect(fs.writeOps).toHaveLength(0);
+  });
 });

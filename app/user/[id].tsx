@@ -31,14 +31,14 @@ import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { useUser } from '@/hooks/useAuth';
 import {
   ArticleGrid,
-  ProfileHeader,
+  SellerProfileHeader,
   ProfileSkeleton,
   ProfileTabs,
   ReviewList,
   UserActions,
-} from '@/features/user-profile';
-import type { ProfileTab, ProfileReview } from '@/features/user-profile';
-import { useSellerLikes } from '@/hooks/useSellerLikes';
+} from '@/features/profile';
+import type { ProfileTab, ProfileReview } from '@/features/profile';
+import { useSellerLikes } from '@/features/home/featured-sellers/useSellerLikes';
 import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 import { ChatService } from '@/services/chatService';
@@ -47,13 +47,15 @@ import {
   getUserPublicProfile,
   getUserReviews,
   type UserPublicProfile,
-} from '@/services/reviewService';
+} from '@/features/reviews/services/reviewService';
 import { UserService } from '@/services/userService';
-import { UserStatsService, type UserStats } from '@/services/userStatsService';
+import { UserStatsService, type UserStats } from '@/features/profile/services/userStatsService';
 import { useAuthSheetStore } from '@/store/authSheetStore';
 import { Article, User } from '@/types';
 import { formatDisplayName } from '@/utils/formatName';
 import { normalizeArticleImages } from '@/utils/articleImages';
+import { runtimeEnvironment } from '@/config/firebaseEnvironment';
+import { useTradeOperation } from '@/hooks/useTradeOperation';
 
 export default function UserProfileScreen() {
   const { id, source } = useLocalSearchParams<{ id: string; source?: string }>();
@@ -65,15 +67,16 @@ export default function UserProfileScreen() {
 
   // State
   const [activeTab, setActiveTab] = useState<ProfileTab>('articles');
-  const [isContactLoading, setIsContactLoading] = useState(false);
-  const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const contactContext = useTradeOperation(JSON.stringify(['profile-contact', id]), currentUser?.id ?? null);
+  const [contactBusy, setContactBusy] = useState<{frame: symbol; focusRevision: number} | null>(null);
+  const isContactLoading = contactBusy?.frame === contactContext.frame && contactBusy.focusRevision === contactContext.focusRevision;
 
   // Follow hook.
   // `isFollowing` is derived client-side from useSellerLikes (the optimistic
   // source of truth that stays in sync with toggleLike). The `isFollowing`
   // field also returned by getUserPublicProfile is intentionally ignored here
   // to avoid a stale value diverging from the optimistic toggle state.
-  const { likedSellerIds, toggleLike } = useSellerLikes();
+  const { likedSellerIds, toggleLike, isToggling: isFollowLoading } = useSellerLikes();
   const isFollowing = id ? likedSellerIds.includes(id) : false;
 
   // Check if viewing own profile
@@ -242,7 +245,7 @@ export default function UserProfileScreen() {
       outcome: loaded ? 'loaded' : 'not_found',
       is_own_profile: isOwnProfile,
       articles_count: loaded ? stats?.articlesEnVente : undefined,
-      reviews_count: loaded ? stats?.nombreAvis : undefined,
+      reviews_count: loaded ? stats?.nombreAvis ?? undefined : undefined,
       followers_count: loaded ? profileUser?.sellerLikesCount : undefined,
       rating: loaded ? profileUser?.rating : undefined,
       source: resolvedSource,
@@ -263,10 +266,14 @@ export default function UserProfileScreen() {
       return;
     }
     if (!id || !profileUser) return;
-
-    setIsContactLoading(true);
+    let operation;
+    try {operation = contactContext.start('contact');} catch {return;}
+    if (!operation) return;
+    setContactBusy({frame: contactContext.frame, focusRevision: contactContext.focusRevision});
     try {
+      contactContext.assertCurrent(operation);
       const chat = await ChatService.createOrGetChat(currentUserId, id);
+      contactContext.assertCurrent(operation);
       track('chat_started', {
         chat_id: chat.id,
         source: 'profile',
@@ -276,6 +283,7 @@ export default function UserProfileScreen() {
       });
       router.push(`/chat/${chat.id}`);
     } catch (error) {
+      if (!contactContext.isCurrent(operation)) return;
       if (__DEV__) console.error('Error creating chat:', error);
       track('chat_started', {
         chat_id: '',
@@ -286,24 +294,21 @@ export default function UserProfileScreen() {
       });
       Alert.alert('Erreur', 'Impossible de démarrer la conversation.');
     } finally {
-      setIsContactLoading(false);
+      contactContext.finish(operation);
+      if (contactContext.isCurrent(operation)) setContactBusy(null);
     }
-  }, [currentUserId, id, profileUser, router, showAuthSheet]);
+  }, [currentUserId, id, profileUser, router, showAuthSheet, contactContext]);
 
-  const handleFollow = useCallback(async () => {
+  const handleFollow = useCallback(() => {
     if (!currentUser) {
       showAuthSheet('Connectez-vous pour suivre ce vendeur');
       return;
     }
     if (!id) return;
-    setIsFollowLoading(true);
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await toggleLike(id, 'public_profile');
-    } finally {
-      setIsFollowLoading(false);
-    }
-  }, [currentUser, id, toggleLike, showAuthSheet]);
+    if (isFollowLoading) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    toggleLike(id, 'public_profile');
+  }, [currentUser, id, toggleLike, showAuthSheet, isFollowLoading]);
 
   const handleArticlePress = useCallback(
     (articleId: string) => {
@@ -333,13 +338,16 @@ export default function UserProfileScreen() {
   );
 
   const handleShare = useCallback(async () => {
-    if (!profileUser) return;
+    if (!profileUser || !id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const name = formatDisplayName(profileUser.displayName);
+      const shareUrl = runtimeEnvironment.name === 'production'
+        ? `https://seconde.ca/user/${encodeURIComponent(id)}`
+        : `${runtimeEnvironment.appScheme}:///user/${encodeURIComponent(id)}`;
       await Share.share({
-        message: `Découvre le profil de ${name} sur Seconde !`,
-        url: `https://seconde.ca/user/${id}`,
+        message: `Découvre le profil de ${name} sur Seconde !\n${shareUrl}`,
+        url: shareUrl,
       });
       if (id) {
         track('content_shared', { content_type: 'profile', content_id: id });
@@ -436,7 +444,7 @@ export default function UserProfileScreen() {
   const profileHeaderElement = profileUser ? (
     <View>
       <View>
-        <ProfileHeader user={profileUser} stats={stats} />
+        <SellerProfileHeader user={profileUser} stats={stats} />
         {!isOwnProfile && (
           <UserActions
             isFollowing={isFollowing}
@@ -450,7 +458,7 @@ export default function UserProfileScreen() {
       <ProfileTabs
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        reviewCount={stats?.nombreAvis ?? 0}
+        reviewCount={stats?.nombreAvis ?? null}
       />
     </View>
   ) : undefined;
@@ -526,7 +534,8 @@ export default function UserProfileScreen() {
             </View>
           ) : (
             <ReviewList stats={stats} reviews={reviews} isLoading={reviewsLoading}
-              isOwnProfile={isOwnProfile} onReviewerPress={handleReviewerPress} />
+              isOwnProfile={isOwnProfile} onReviewerPress={handleReviewerPress}
+              onReviewReport={reviewId => reportSheetRef.current?.openReview({targetType: 'review', targetId: reviewId, reportId: null})} />
           )
         ) : isOwnProfile && ownArticlesError ? (
           <View style={styles.contentState}>

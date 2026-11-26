@@ -7,6 +7,27 @@ import { create } from 'zustand';
 export interface ImmerseOptions {
   /** Optional content to render inside the overlay (above the gradient). */
   component?: React.ReactNode;
+  /** Recheck the opener's focus/frame after each deferred mounting step. */
+  isCurrent?: () => boolean;
+  /** Called synchronously when this opening is dismissed or invalidated. */
+  onDismiss?: () => void;
+}
+
+/** An opening's deferred work can only update or close its own cycle. */
+export interface ImmersivePresentation {
+  entranceFinished: boolean;
+  visible: boolean;
+  active: boolean;
+  onReady: (ready: boolean) => void;
+}
+export type ImmersivePreparedContent = (presentation: ImmersivePresentation) => React.ReactNode;
+
+export interface ImmersiveOpening {
+  setContent: (component: React.ReactNode) => boolean;
+  /** Opt-in preparation behind the already entering, qualified shell. */
+  prepareContent: (render: ImmersivePreparedContent) => boolean;
+  dismiss: (opts?: DismissOptions) => void;
+  isCurrent: () => boolean;
 }
 
 /** Options accepted by the imperative `dismiss()` trigger. */
@@ -19,7 +40,7 @@ export interface DismissOptions {
   onDismissed?: () => void;
 }
 
-type ImmerseFn = (opts?: ImmerseOptions) => void;
+type ImmerseFn = (opts?: ImmerseOptions) => ImmersiveOpening | null;
 type DismissFn = (opts?: DismissOptions) => void;
 
 // ─── State ──────────────────────────────────────────────────────────────────
@@ -39,6 +60,7 @@ interface ImmersiveOverlayState {
    * full-screen container for this component (e.g. the sell flow).
    */
   contentComponent: React.ReactNode | null;
+  preparedContent: ImmersivePreparedContent | null;
 
   /**
    * Imperative triggers wired by the mounted `ImmersiveOverlay` component.
@@ -52,6 +74,8 @@ interface ImmersiveOverlayState {
 
 interface ImmersiveOverlayActions {
   activate: (component?: React.ReactNode) => void;
+  setContent: (component: React.ReactNode) => void;
+  setPreparedContent: (render: ImmersivePreparedContent) => void;
   deactivate: () => void;
   /** Register the animation triggers exposed by the mounted overlay. */
   setCallbacks: (callbacks: { immerse: ImmerseFn; dismiss: DismissFn }) => void;
@@ -63,6 +87,7 @@ interface ImmersiveOverlayActions {
 const initialState: ImmersiveOverlayState = {
   isActive: false,
   contentComponent: null,
+  preparedContent: null,
   immerse: null,
   dismiss: null,
 };
@@ -83,8 +108,10 @@ export const useImmersiveOverlayStore = create<
   ...initialState,
 
   activate: (component?: React.ReactNode) =>
-    set({ isActive: true, contentComponent: component ?? null }),
-  deactivate: () => set({ isActive: false, contentComponent: null }),
+    set({ isActive: true, contentComponent: component ?? null, preparedContent: null }),
+  setContent: (component) => set({ contentComponent: component, preparedContent: null }),
+  setPreparedContent: (render) => set({ contentComponent: null, preparedContent: render }),
+  deactivate: () => set({ isActive: false, contentComponent: null, preparedContent: null }),
   setCallbacks: ({ immerse, dismiss }) => set({ immerse, dismiss }),
   clearCallbacks: () => set({ immerse: null, dismiss: null }),
   reset: () => set(initialState),

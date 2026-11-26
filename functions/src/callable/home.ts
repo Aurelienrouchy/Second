@@ -7,8 +7,11 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { Timestamp } from 'firebase-admin/firestore';
 import { db, FieldValue } from '../config/firebase';
 import { brandKey, brandDisplay } from '../utils/normalizeBrand';
+import { publicProfileImage } from '../utils/publicProfile';
+import { assertPrivateAccountSession, withPrivateAccountSession } from '../utils/privateAccountSession';
 
 // =============================================================================
 // SHARED TYPES
@@ -34,7 +37,7 @@ interface PriceDropArticle {
 interface FeaturedSeller {
   id: string;
   displayName: string;
-  profileImage?: string;
+  profileImage?: string | null;
   rating: number;
   articlesCount: number;
   sellerLikesCount: number;
@@ -84,27 +87,50 @@ async function batchFetchSellerNames(
 // INTERNAL HELPERS
 // =============================================================================
 
+// La section lit jusqu'à 500 articles par appel et son classement bouge
+// lentement : on garde le résultat une heure par instance chaude.
+const TRENDING_BRANDS_TTL_MS = 60 * 60 * 1000;
+let trendingBrandsCache: { at: number; brands: TrendingBrand[] } | null = null;
+
 async function _getTrendingBrands(): Promise<TrendingBrand[]> {
+  if (trendingBrandsCache && Date.now() - trendingBrandsCache.at < TRENDING_BRANDS_TTL_MS) {
+    return trendingBrandsCache.brands;
+  }
+
   const snapshot = await db
     .collection('articles')
     .where('isActive', '==', true)
     .where('isSold', '==', false)
+    // Le nombre de lectures facturées ne change pas, mais chaque document
+    // arrive sans ses images, sa description ni son tableau de mots-clés.
+    .select('brand')
     .limit(500)
     .get();
 
   // Group case-insensitively so "SELECTED" / "selected" / "Selected" merge
   // into a single bucket. Articles without a brand are skipped entirely.
   const brandCounts = new Map<string, number>();
+  const brandLabels = new Map<string, string>();
   snapshot.docs.forEach((doc) => {
-    const key = brandKey(doc.data().brand);
+    const raw = doc.data().brand;
+    const key = brandKey(raw);
     if (!key) return; // skip empty / missing brands (no more "Unknown")
     brandCounts.set(key, (brandCounts.get(key) || 0) + 1);
+    // On affiche la marque telle qu'elle est écrite sur les articles : la
+    // reconstruction depuis la clé normalisée rendait « MSGM » en « Msgm ».
+    if (!brandLabels.has(key)) brandLabels.set(key, String(raw).trim());
   });
 
-  return Array.from(brandCounts.entries())
-    .map(([key, count]) => ({ name: brandDisplay(key), articleCount: count }))
+  const brands = Array.from(brandCounts.entries())
+    .map(([key, count]) => ({
+      name: brandLabels.get(key) || brandDisplay(key),
+      articleCount: count,
+    }))
     .sort((a, b) => b.articleCount - a.articleCount)
     .slice(0, 10);
+
+  trendingBrandsCache = { at: Date.now(), brands };
+  return brands;
 }
 
 async function _getPriceDrops(): Promise<PriceDropArticle[]> {
@@ -171,12 +197,111 @@ async function _getFeaturedSellers(): Promise<FeaturedSeller[]> {
     return {
       id: doc.id,
       displayName: data.displayName || 'Unknown',
-      profileImage: data.profileImage,
+      profileImage: publicProfileImage(data),
       rating: data.rating || 0,
       articlesCount: data.articlesCount || 0,
       sellerLikesCount: data.sellerLikesCount || 0,
     };
   });
+}
+
+const SHOP_PROJECTION = 'shop_public_projection_v1';
+const shopRecord = (value: unknown): Record<string, any> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {};
+const shopText = (value: unknown, max = 2000): string => typeof value === 'string' && value.length <= max ? value : '';
+const shopCount = (value: unknown): number => Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : 0;
+const shopCoordinate = (value: unknown, maximum: number): number | null =>
+  typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= maximum ? value : null;
+function shopDate(value: unknown): string | null {
+  if (!(value instanceof Timestamp)) return null;
+  try { return value.toDate().toISOString(); } catch { return null; }
+}
+/** Construct every nested public field. Legacy maps, provider references,
+ * verification notes and fiscal/bank data must never be spread into a DTO. */
+function projectShop(id: string, raw: FirebaseFirestore.DocumentData) {
+  const address = shopRecord(raw.address), location = shopRecord(raw.location), social = shopRecord(raw.socialMedia), hours = shopRecord(raw.openingHours);
+  const openingHours = Object.fromEntries(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+    const value = shopRecord(hours[day]);
+    return [day, typeof value.open === 'string' && typeof value.close === 'string'
+      ? {open: shopText(value.open, 20), close: shopText(value.close, 20)} : null];
+  }));
+  return { id, ownerId: shopText(raw.ownerId, 128), name: shopText(raw.name, 300), description: shopText(raw.description, 8000), type: shopText(raw.type, 100),
+    address: {street: shopText(address.street, 500), city: shopText(address.city, 200), postalCode: shopText(address.postalCode, 30), country: shopText(address.country, 100)},
+    location: {latitude: shopCoordinate(location.latitude, 90), longitude: shopCoordinate(location.longitude, 180)},
+    phoneNumber: shopText(raw.phoneNumber, 100), email: shopText(raw.email, 320), website: shopText(raw.website, 2048),
+    socialMedia: {instagram: shopText(social.instagram, 2048), facebook: shopText(social.facebook, 2048)}, openingHours,
+    logo: shopText(raw.logo, 2048), images: Array.isArray(raw.images) ? raw.images.filter((image: unknown) => typeof image === 'string' && image.length <= 2048).slice(0, 10) as string[] : [],
+    status: ['approved', 'pending', 'rejected', 'suspended'].includes(raw.status) ? raw.status as string : null,
+    tier: ['basic', 'pro', 'premium'].includes(raw.tier) ? raw.tier as string : 'basic', tierPaidUntil: shopDate(raw.tierPaidUntil),
+    rating: typeof raw.rating === 'number' && Number.isFinite(raw.rating) && raw.rating >= 0 && raw.rating <= 5 ? raw.rating : null,
+    reviewCount: shopCount(raw.reviewCount), articlesCount: shopCount(raw.articlesCount), createdAt: shopDate(raw.createdAt), updatedAt: shopDate(raw.updatedAt) };
+}
+function shopDocumentId(value: unknown): string {
+  if (typeof value !== 'string' || !value || value.length > 200 || value !== value.trim() || value.includes('/') ||
+      value === '.' || value === '..' || /^__.*__$/.test(value)) throw new HttpsError('invalid-argument', 'Référence de boutique invalide.');
+  return value;
+}
+function shopDistanceKm(latitude: number, longitude: number, targetLatitude: number, targetLongitude: number): number {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const a = Math.sin(radians(targetLatitude - latitude) / 2) ** 2 + Math.cos(radians(latitude)) * Math.cos(radians(targetLatitude)) * Math.sin(radians(targetLongitude - longitude) / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(Math.min(1, a)), Math.sqrt(Math.max(0, 1 - a)));
+}
+async function readShopProjection(request: any) {
+  const data = shopRecord(request.data);
+  if (data.capability !== SHOP_PROJECTION || !['detail', 'approved_page', 'nearby_page'].includes(data.mode)) {
+    throw new HttpsError('invalid-argument', 'Version et mode de lecture de boutique requis.');
+  }
+  const keys = data.mode === 'detail' ? ['capability', 'mode', 'shopId', 'scope', 'expectedUid'] :
+    ['capability', 'mode', 'cursor', 'limit', ...(data.mode === 'nearby_page' ? ['latitude', 'longitude', 'radiusKm'] : [])];
+  if (Object.keys(data).some(key => !keys.includes(key))) throw new HttpsError('invalid-argument', 'Paramètres de lecture de boutique invalides.');
+  if (data.mode === 'detail') {
+    const id = shopDocumentId(data.shopId), scope = data.scope ?? 'public';
+    if (!['public', 'owner_or_admin'].includes(scope) || scope === 'public' && data.expectedUid !== undefined) {
+      throw new HttpsError('invalid-argument', 'Portée de lecture de boutique invalide.');
+    }
+    const read = () => db.runTransaction(async tx => {
+      const session = scope === 'owner_or_admin' ? await assertPrivateAccountSession(request, tx) : null;
+      const native = (await tx.get(db.collection('shops').doc(id))).data();
+      if (!native) return null;
+      if (scope === 'public') return native.status === 'approved' ? projectShop(id, native) : null;
+      if (native.ownerId !== session!.uid) {
+        const admin = (await tx.get(db.collection('users').doc(session!.uid))).data();
+        if (admin && Object.prototype.hasOwnProperty.call(admin, 'isActive') && admin.isActive !== true ||
+            !session!.currentAdminClaim && admin?.isAdmin !== true) throw new HttpsError('permission-denied', 'Boutique privée non autorisée.');
+      }
+      return projectShop(id, native);
+    });
+    if (scope === 'public') return {protocol: SHOP_PROJECTION, mode: 'detail', shop: await read()};
+    if (!request.auth || data.expectedUid !== request.auth.uid) throw new HttpsError('permission-denied', 'Le compte de lecture privée a changé.');
+    return withPrivateAccountSession(request, async () => {
+      await read(); // Qualify before I/O; the final read rechecks role/owner and source.
+      return {protocol: SHOP_PROJECTION, mode: 'detail', shop: await read()};
+    });
+  }
+  const limit = data.limit ?? 20;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 20) throw new HttpsError('invalid-argument', 'Page de boutique invalide.');
+  const cursor = data.cursor == null ? null : shopDocumentId(data.cursor);
+  let latitude: number | null = null, longitude: number | null = null;
+  const radiusKm = data.radiusKm ?? 10;
+  if (data.mode === 'nearby_page') {
+    latitude = shopCoordinate(data.latitude, 90); longitude = shopCoordinate(data.longitude, 180);
+    if (latitude === null || longitude === null || typeof radiusKm !== 'number' || !Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > 100) {
+      throw new HttpsError('invalid-argument', 'Position ou rayon de boutique invalide.');
+    }
+  }
+  let query = db.collection('shops').where('status', '==', 'approved').orderBy('__name__').limit(limit + 1);
+  if (cursor) query = query.startAfter(cursor);
+  const snapshot = await query.get(), inspected = snapshot.docs.slice(0, limit), shops = [];
+  for (const document of inspected) {
+    const native = document.data();
+    if (native.status !== 'approved') continue;
+    const shop = projectShop(document.id, native);
+    if (data.mode === 'nearby_page' && (shop.location.latitude === null || shop.location.longitude === null ||
+        shopDistanceKm(latitude!, longitude!, shop.location.latitude, shop.location.longitude) > radiusKm)) continue;
+    shops.push(shop);
+  }
+  const hasMore = snapshot.size > limit;
+  return {protocol: SHOP_PROJECTION, mode: data.mode, shops, nextCursor: hasMore ? inspected.at(-1)!.id : null,
+    coverage: {scanned: inspected.length, limit, hasMore, exhaustive: false}};
 }
 
 async function _getNewArrivals(
@@ -263,7 +388,8 @@ export const getPriceDrops = onCall(
 /** Featured sellers section */
 export const getFeaturedSellers = onCall(
   { region: 'northamerica-northeast1', invoker: 'public', memory: '512MiB', timeoutSeconds: 15 },
-  async () => {
+  async (request) => {
+    if (request.data?.capability !== undefined) return readShopProjection(request);
     try {
       return await _getFeaturedSellers();
     } catch (error) {
@@ -317,7 +443,7 @@ export const getHomeFeed = onCall(
 
 export const toggleSellerLike = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
-  async (request) => {
+  async (request) => withPrivateAccountSession(request, async () => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -344,18 +470,24 @@ export const toggleSellerLike = onCall(
       const sellerRef = db.collection('users').doc(sellerId);
 
       await db.runTransaction(async (transaction) => {
+        await assertPrivateAccountSession(request, transaction);
         const userDoc = await transaction.get(userRef);
         const sellerDoc = await transaction.get(sellerRef);
 
-        if (!sellerDoc.exists) {
+        // On ne peut évidemment pas s'abonner à un compte qui n'existe plus.
+        // Mais s'en DÉSABONNER doit rester possible : le compte suivi a pu être
+        // supprimé après coup, et le refus indistinct enfermait l'abonné avec un
+        // suivi fantôme qu'aucun écran ne lui montrait et qu'il ne pouvait pas
+        // retirer.
+        if (!sellerDoc.exists && isLiked) {
           throw new HttpsError('not-found', 'Seller not found');
         }
 
         const userData = userDoc.exists ? userDoc.data() ?? {} : {};
-        const sellerData = sellerDoc.data()!;
+        const sellerData = sellerDoc.exists ? sellerDoc.data()! : null;
         let likedSellers =
           (userData as Record<string, any>).likedSellers || [];
-        const currentLikesCount = sellerData.sellerLikesCount || 0;
+        const currentLikesCount = sellerData?.sellerLikesCount || 0;
 
         if (isLiked && !likedSellers.includes(sellerId)) {
           likedSellers.push(sellerId);
@@ -375,10 +507,14 @@ export const toggleSellerLike = onCall(
             { likedSellers, updatedAt: FieldValue.serverTimestamp() },
             { merge: true }
           );
-          transaction.update(sellerRef, {
-            sellerLikesCount: Math.max(0, currentLikesCount - 1),
-            updatedAt: FieldValue.serverTimestamp(),
-          });
+          // Le compteur d'un compte supprimé n'a plus de porteur : un
+          // `update` sur un document absent ferait échouer toute la transaction.
+          if (sellerData) {
+            transaction.update(sellerRef, {
+              sellerLikesCount: Math.max(0, currentLikesCount - 1),
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+          }
         }
       });
 
@@ -388,12 +524,12 @@ export const toggleSellerLike = onCall(
       console.error('[toggleSellerLike]', error);
       throw new HttpsError('internal', 'Failed to update seller like status');
     }
-  }
+  })
 );
 
 export const getLikedSellers = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
-  async (request) => {
+  async (request) => withPrivateAccountSession(request, async () => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -421,7 +557,7 @@ export const getLikedSellers = onCall(
           sellers.push({
             id: doc.id,
             displayName: data.displayName || 'Unknown',
-            profileImage: data.profileImage,
+            profileImage: publicProfileImage(data),
             rating: data.rating || 0,
             articlesCount: data.articlesCount || 0,
             sellerLikesCount: data.sellerLikesCount || 0,
@@ -431,77 +567,32 @@ export const getLikedSellers = onCall(
 
       return { sellers };
     } catch (error) {
+      if (error instanceof HttpsError) throw error;
       console.error('[getLikedSellers]', error);
       throw new HttpsError('internal', 'Failed to load liked sellers');
     }
-  }
+  })
 );
 
+/**
+ * Désactivée. Aucun code de l'app ne l'appelle, mais elle était déployée et
+ * appelable par tout compte connecté : elle écrivait `price` sans borne, sans
+ * verrou « vendu », « désactivé » ni « transaction en cours », et fabriquait
+ * une baisse à partir d'un `oldPrice` fourni par l'appelant. `updateArticle`
+ * fait le suivi de baisse avec toutes ces gardes. L'export reste le temps que
+ * la fonction soit supprimée de la production
+ * (`firebase functions:delete recordPriceDrop --region northamerica-northeast1`) :
+ * retirer l'export seul laisserait la version ouverte en ligne.
+ */
 export const recordPriceDrop = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
-
-    const { productId, oldPrice, newPrice } = request.data;
-    const userId = request.auth.uid;
-
-    if (
-      !productId ||
-      typeof oldPrice !== 'number' ||
-      typeof newPrice !== 'number'
-    ) {
-      throw new HttpsError(
-        'invalid-argument',
-        'productId, oldPrice, and newPrice are required'
-      );
-    }
-
-    if (newPrice >= oldPrice) {
-      throw new HttpsError(
-        'invalid-argument',
-        'New price must be lower than old price'
-      );
-    }
-
-    try {
-      const productRef = db.collection('articles').doc(productId);
-
-      await db.runTransaction(async (transaction) => {
-        const productDoc = await transaction.get(productRef);
-
-        if (!productDoc.exists) {
-          throw new HttpsError('not-found', 'Product not found');
-        }
-
-        const productData = productDoc.data()!;
-        if (productData.sellerId !== userId) {
-          throw new HttpsError(
-            'permission-denied',
-            'You can only record price drops for your own products'
-          );
-        }
-
-        const originalPrice = productData.originalPrice || productData.price;
-        const priceDropPercent = Math.round(
-          ((oldPrice - newPrice) / originalPrice) * 100
-        );
-
-        transaction.update(productRef, {
-          price: newPrice,
-          originalPrice,
-          priceDropPercent,
-          lastPriceDropAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-      });
-
-      return { success: true };
-    } catch (error) {
-      if (error instanceof HttpsError) throw error;
-      console.error('[recordPriceDrop]', error);
-      throw new HttpsError('internal', 'Failed to record price drop');
-    }
+    throw new HttpsError(
+      'failed-precondition',
+      'Le prix se modifie depuis la fiche de l’article (updateArticle).',
+    );
   }
 );

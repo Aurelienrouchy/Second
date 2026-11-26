@@ -53,3 +53,9 @@ describe('analyse IA des matières', () => {
     });
   });
 });
+
+describe('prompt — filles ou garçons (CG01)', () => {
+  it('laisse le modèle dire Filles ou Garçons, et Enfants seulement à défaut', () => {
+    expect(generateSingleStepAnalysisPrompt()).toContain('"genre": "Femmes|Hommes|Filles|Garçons|Enfants"');
+  });
+});

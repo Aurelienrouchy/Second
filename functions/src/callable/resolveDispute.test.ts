@@ -27,7 +27,7 @@ const stripeMock: StripeMock = createStripeMock();
 holder.fs = fs;
 holder.stripe = stripeMock;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -143,7 +143,7 @@ describe('resolveDispute — auth', () => {
     fs.setDoc('users/u1', { isAdmin: false });
     fs.setDoc('transactions/tx1', { status: 'disputed', sellerId: 's1', buyerId: 'b1' });
     await expect(
-      callResolve({ auth: { uid: 'u1', token: {} }, data: { transactionId: 'tx1' } })
+      callResolve({ auth: { uid: 'u1', token: { auth_time: Math.floor(Date.now() / 1000),} }, data: { expectedUid: 'u1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
@@ -156,8 +156,8 @@ describe('resolveDispute — auth', () => {
       deliveryType: 'meetup',
     });
     const res = await callResolve({
-      auth: { uid: 'admin1', token: { admin: true } },
-      data: { transactionId: 'tx1' },
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } },
+      data: { expectedUid: 'admin1', transactionId: 'tx1' },
     });
     expect(res.success).toBe(true);
   });
@@ -184,8 +184,8 @@ describe('resolveDispute — meetup no-show', () => {
     });
 
     const res = await callResolve({
-      auth: { uid: 'admin1', token: {} },
-      data: { transactionId: 'tx1', note: 'no proof of no-show' },
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000),} },
+      data: { expectedUid: 'admin1', transactionId: 'tx1', note: 'no proof of no-show' },
     });
 
     expect(res.success).toBe(true);
@@ -205,13 +205,61 @@ describe('resolveDispute — meetup no-show', () => {
     // No escrow for a meetup → no wallet movement.
     expect(fs.countWrites((op) => op.path.startsWith('wallets/'))).toBe(0);
   });
+
+  // `reportMeetupNoShow` DÉVERROUILLE l'article en gelant la transaction : le
+  // vendeur doit pouvoir le remettre en vente pendant l'instruction du litige.
+  // Rejeter le signalement remettait la transaction en vie sans jamais
+  // reverrouiller l'article — une rencontre `meetup_confirmed` coexistait donc
+  // avec un article de nouveau achetable. Le même vêtement pouvait être promis
+  // deux fois, sur un règlement en main propre que rien ne réconcilie.
+  it("reverrouille l article quand il restaure une rencontre vivante", async () => {
+    seedAdmin();
+    fs.setDoc('transactions/tx1', {
+      status: 'disputed',
+      statusBeforeDispute: 'meetup_confirmed',
+      sellerId: 's1',
+      buyerId: 'b1',
+      articleId: 'a1',
+      deliveryType: 'meetup',
+    });
+    fs.setDoc('articles/a1', { sellerId: 's1', isSold: false, isActive: true });
+    fs.setDoc('disputes/d1', { transactionId: 'tx1', status: 'open', type: 'meetup_no_show' });
+
+    await callResolve({
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000),} },
+      data: { expectedUid: 'admin1', transactionId: 'tx1' },
+    });
+
+    expect((fs.getDoc('articles/a1') as Record<string, unknown>).isSold).toBe(true);
+  });
+
+  it("ne touche pas a l article quand la rencontre n est pas restauree vivante", async () => {
+    seedAdmin();
+    fs.setDoc('transactions/tx1', {
+      status: 'disputed',
+      statusBeforeDispute: 'cancelled',
+      sellerId: 's1',
+      buyerId: 'b1',
+      articleId: 'a1',
+      deliveryType: 'meetup',
+    });
+    fs.setDoc('articles/a1', { sellerId: 's1', isSold: false, isActive: true });
+    fs.setDoc('disputes/d1', { transactionId: 'tx1', status: 'open', type: 'meetup_no_show' });
+
+    await callResolve({
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000),} },
+      data: { expectedUid: 'admin1', transactionId: 'tx1' },
+    });
+
+    expect((fs.getDoc('articles/a1') as Record<string, unknown>).isSold).toBe(false);
+  });
 });
 
 // ===========================================================================
 // resolveDispute — chargeback hold release (F37)
 // ===========================================================================
 
-describe('resolveDispute — releases the chargeback hold', () => {
+describe('resolveDispute — releases a bank hold only after bank closure', () => {
   it('moves disputeFreezeCents from heldBalance back to balance', async () => {
     seedAdmin();
     fs.setDoc('transactions/tx1', {
@@ -221,6 +269,7 @@ describe('resolveDispute — releases the chargeback hold', () => {
       buyerId: 'b1',
       deliveryType: 'shipping',
       disputeFreezeCents: 4000,
+      bankDispute: { id: 'du_closed', state: 'closed', outcome: 'won', closedAt: new Date(), freezeCents: 4000 },
     });
     fs.setDoc('wallets/s1', {
       balance: 1000,
@@ -230,8 +279,8 @@ describe('resolveDispute — releases the chargeback hold', () => {
     });
 
     const res = await callResolve({
-      auth: { uid: 'admin1', token: {} },
-      data: { transactionId: 'tx1' },
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000),} },
+      data: { expectedUid: 'admin1', transactionId: 'tx1' },
     });
 
     expect(res.releasedCents).toBe(4000);
@@ -253,11 +302,12 @@ describe('resolveDispute — releases the chargeback hold', () => {
       sellerId: 's1',
       buyerId: 'b1',
       disputeFreezeCents: 4000,
+      bankDispute: { id: 'du_closed', state: 'closed', outcome: 'won', closedAt: new Date(), freezeCents: 4000 },
     });
     // Only 1500 is actually held (the rest drained elsewhere).
     fs.setDoc('wallets/s1', { balance: 0, heldBalance: 1500, status: 'active' });
 
-    const res = await callResolve({ auth: { uid: 'admin1', token: {} }, data: { transactionId: 'tx1' } });
+    const res = await callResolve({ auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000),} }, data: { expectedUid: 'admin1', transactionId: 'tx1' } });
     expect(res.releasedCents).toBe(1500);
     expect(fs.getDoc('wallets/s1')!.heldBalance).toBe(0);
     expect(fs.getDoc('wallets/s1')!.balance).toBe(1500);
@@ -284,7 +334,7 @@ describe('resolveDispute — return leg', () => {
       type: 'return_not_delivered',
     });
 
-    const res = await callResolve({ auth: { uid: 'admin1', token: {} }, data: { transactionId: 'tx1' } });
+    const res = await callResolve({ auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000),} }, data: { expectedUid: 'admin1', transactionId: 'tx1' } });
     expect(res.success).toBe(true);
     expect(res.restored).toBe('delivered');
     expect(fs.getDoc('transactions/tx1')!.disputed).toBe(false);
@@ -301,14 +351,14 @@ describe('resolveDispute — precondition', () => {
     seedAdmin();
     fs.setDoc('transactions/tx1', { status: 'delivered', sellerId: 's1', buyerId: 'b1' });
     await expect(
-      callResolve({ auth: { uid: 'admin1', token: {} }, data: { transactionId: 'tx1' } })
+      callResolve({ auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000),} }, data: { expectedUid: 'admin1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
 
   it('refuses a missing transaction', async () => {
     seedAdmin();
     await expect(
-      callResolve({ auth: { uid: 'admin1', token: {} }, data: { transactionId: 'nope' } })
+      callResolve({ auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000),} }, data: { expectedUid: 'admin1', transactionId: 'nope' } })
     ).rejects.toMatchObject({ code: 'not-found' });
   });
 });
@@ -334,8 +384,8 @@ describe('adminRefundTransaction — closes linked disputes', () => {
     });
 
     const res = await callAdminRefund({
-      auth: { uid: 'admin1', token: {} },
-      data: { transactionId: 'tx1' },
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000),} },
+      data: { expectedUid: 'admin1', transactionId: 'tx1' },
     });
     expect(res.success).toBe(true);
 
@@ -365,7 +415,7 @@ describe('adminRefundTransaction — closes linked disputes', () => {
       resolution: 'dismissed',
     });
 
-    await callAdminRefund({ auth: { uid: 'admin1', token: {} }, data: { transactionId: 'tx1' } });
+    await callAdminRefund({ auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000),} }, data: { expectedUid: 'admin1', transactionId: 'tx1' } });
     // Still resolved/dismissed (the closer only touches OPEN docs).
     expect(fs.getDoc('disputes/d1')!.resolution).toBe('dismissed');
   });
@@ -385,7 +435,7 @@ describe('sellerCancelTransaction — F74', () => {
   it('refuses a caller who is not the seller', async () => {
     fs.setDoc('transactions/tx1', { status: 'paid', sellerId: 's1', buyerId: 'b1' });
     await expect(
-      callSellerCancel({ auth: { uid: 'b1' }, data: { transactionId: 'tx1' } })
+      callSellerCancel({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'b1' }, data: { expectedUid: 'b1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'permission-denied' });
     expect(refundMock.calls.length).toBe(0);
   });
@@ -401,8 +451,8 @@ describe('sellerCancelTransaction — F74', () => {
     });
 
     const res = await callSellerCancel({
-      auth: { uid: 's1' },
-      data: { transactionId: 'tx1', reason: 'item broken' },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 's1' },
+      data: { expectedUid: 's1', transactionId: 'tx1', reason: 'item broken' },
     });
     expect(res.success).toBe(true);
 
@@ -419,7 +469,7 @@ describe('sellerCancelTransaction — F74', () => {
       totalAmount: 50,
       stripePaymentIntentId: 'pi_1',
     });
-    const res = await callSellerCancel({ auth: { uid: 's1' }, data: { transactionId: 'tx1' } });
+    const res = await callSellerCancel({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 's1' }, data: { expectedUid: 's1', transactionId: 'tx1' } });
     expect(res.success).toBe(true);
     expect(refundMock.calls.length).toBe(1);
   });
@@ -433,20 +483,21 @@ describe('sellerCancelTransaction — F74', () => {
       stripePaymentIntentId: 'pi_1',
     });
     await expect(
-      callSellerCancel({ auth: { uid: 's1' }, data: { transactionId: 'tx1' } })
+      callSellerCancel({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 's1' }, data: { expectedUid: 's1', transactionId: 'tx1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(refundMock.calls.length).toBe(0);
   });
 
-  it('is idempotent on an already-refunded order', async () => {
+  it('routes an unproven legacy refunded status through provider/ledger reconciliation', async () => {
     fs.setDoc('transactions/tx1', {
       status: 'refunded',
       sellerId: 's1',
       buyerId: 'b1',
       totalAmount: 50,
     });
-    const res = await callSellerCancel({ auth: { uid: 's1' }, data: { transactionId: 'tx1' } });
-    expect(res.alreadyRefunded).toBe(true);
-    expect(refundMock.calls.length).toBe(0);
+    const res = await callSellerCancel({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 's1' }, data: { expectedUid: 's1', transactionId: 'tx1' } });
+    expect(res.success).toBe(true);
+    expect(refundMock.calls.length).toBe(1);
+    expect(refundMock.calls[0].opts.source).toBe('sellerCancelTransaction');
   });
 });

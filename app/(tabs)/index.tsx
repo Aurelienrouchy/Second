@@ -19,7 +19,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Modal, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import VisualSearchCamera from '@/components/VisualSearchCamera';
+import VisualSearchCamera from '@/features/search/components/VisualSearchCamera';
 import { useBottomTabOverflow } from '@/components/ui/TabBarBackground';
 import { colors, spacing } from '@/constants/theme';
 import { homeKeys } from '@/features/home/query-keys';

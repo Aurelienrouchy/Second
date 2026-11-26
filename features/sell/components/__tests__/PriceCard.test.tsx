@@ -11,7 +11,7 @@ import React, { createRef } from 'react';
 import { TextInput } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { PriceCard } from '@/features/sell';
+import { PriceCard } from '../pricing/PriceCard';
 
 describe('<PriceCard />', () => {
   it('affiche le label, le symbole monétaire et la valeur contrôlée', () => {
@@ -21,6 +21,8 @@ describe('<PriceCard />', () => {
     expect(screen.getByText('Prix de vente')).toBeOnTheScreen();
     expect(screen.getByText('$')).toBeOnTheScreen();
     expect(screen.getByDisplayValue('25')).toBeOnTheScreen();
+    expect(screen.getByTestId('sell-price-card').props.accessible).toBe(false);
+    expect(screen.getByLabelText('Prix de vente en dollars canadiens')).toHaveDisplayValue('25');
   });
 
   it('remonte la saisie brute via onPriceChange', () => {

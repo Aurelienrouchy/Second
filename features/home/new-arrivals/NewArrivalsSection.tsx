@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { SectionHeader } from '@/components/home/SectionHeader';
+import { SectionHeader } from '@/features/home/components/SectionHeader';
 import ProductCard, { SkeletonCard } from '@/components/ProductCard';
 import { COMPACT_CARD_WIDTH } from '@/components/ProductCard.constants';
 import { spacing } from '@/constants/theme';

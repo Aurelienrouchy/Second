@@ -1,3 +1,5 @@
+import { establishIdentityFixture } from '@/tests/jest/helpers/identityFixture';
+beforeEach(() => establishIdentityFixture('u1'));
 /**
  * WalletService — porte-monnaie virtuel (3 poches + retrait).
  *
@@ -27,11 +29,12 @@
 import { getDocs } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
-import { WalletService } from '@/services/walletService';
+import { WalletService } from '@/features/wallet/services/walletService';
 import type { WalletInfo } from '@/types';
 
 const mockHttpsCallable = httpsCallable as jest.Mock;
 const mockGetDocs = getDocs as jest.Mock;
+beforeEach(() => mockGetDocs.mockReset().mockResolvedValue({docs: []}));
 
 /**
  * Helper : enregistre un retour pour la callable et capture, par appel, le nom
@@ -77,7 +80,7 @@ describe('WalletService.getWalletInfo', () => {
 
     expect(lastCallableName()).toBe('getWalletInfo');
     // Pas d'argument métier requis (utilise l'auth context côté serveur).
-    expect(callable).toHaveBeenCalledWith({});
+    expect(callable).toHaveBeenCalledWith({expectedUid: 'u1'});
     // Le service ne transforme rien : les montants restent en cents.
     expect(info.balance).toBe(12000);
     expect(info.pendingBalance).toBe(4500);
@@ -207,24 +210,25 @@ describe('WalletService.getWithdrawalRequests', () => {
     // Amounts stay in cents (no division) and the status is surfaced as-is.
     expect(requests[0]).toMatchObject({ id: 'wr1', amount: 5000, status: 'processing' });
     expect(requests[0].createdAt).toBeInstanceOf(Date);
-    // A failed payout carries its failureReason for the UI copy.
+    // An unqualified legacy string is not a native provider failure receipt.
     expect(requests[1]).toMatchObject({
       id: 'wr2',
       status: 'failed',
-      failureReason: 'Compte bancaire fermé',
     });
+    expect(requests[1].payoutFailure).toBeUndefined();
+    expect(JSON.stringify(requests[1])).not.toContain('Compte bancaire fermé');
     expect(requests[1].updatedAt).toBeInstanceOf(Date);
   });
 
-  it('défaut le statut à processing et le montant à 0 sur un doc partiel', async () => {
+  it('garde un document partiel inconnu et à rapprocher sans inventer une date', async () => {
     mockGetDocs.mockResolvedValueOnce({
       docs: [docOf('wr3', { userId: 'u1' })],
     });
 
     const [req] = await WalletService.getWithdrawalRequests('u1');
 
-    expect(req.status).toBe('processing');
-    expect(req.amount).toBe(0);
+    expect(req.status).toBe('unknown');
+    expect(req.amount).toBe(0); expect(req.createdAt).toBeNull(); expect(req.reconciliationRequired).toBe(true);
     expect(req.failureReason).toBeUndefined();
   });
 

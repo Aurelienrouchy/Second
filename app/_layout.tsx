@@ -9,12 +9,13 @@ import 'react-native-reanimated';
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
-import AuthBottomSheet from '@/components/AuthBottomSheet';
+import AuthBottomSheet from '@/features/auth/components/AuthBottomSheet';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
-import { useAuthListener } from '@/hooks/useAuthListener';
-import { useChatListener } from '@/hooks/useChatListener';
-import { useConsentGuard } from '@/hooks/useConsentGuard';
-import { useNotificationSetup } from '@/hooks/useNotificationSetup';
+import { useAuthListener } from '@/features/auth/hooks/useAuthListener';
+import { useAccountErasureRecoveryGuard } from '@/hooks/useAccountErasureRecovery';
+import { useChatListener } from '@/features/chat/hooks/useChatListener';
+import { useConsentGuard } from '@/features/auth/hooks/useConsentGuard';
+import { useNotificationSetup } from '@/features/notifications/hooks/useNotificationSetup';
 import { useDeepLinking } from '@/hooks/useDeepLinking';
 import { useScreenTracking } from '@/hooks/useScreenTracking';
 import { useSplashScreen } from '@/hooks/useSplashScreen';
@@ -23,7 +24,7 @@ import { prefetchHome } from '@/features/home';
 import { colors } from '@/constants/theme';
 import { initAnalytics } from '@/lib/analytics';
 import { queryClient } from '@/lib/queryClient';
-import { draftService } from '@/services/draftService';
+import { draftService } from '@/features/sell/services/draftService';
 import {
   STRIPE_PUBLISHABLE_KEY,
   STRIPE_URL_SCHEME,
@@ -143,6 +144,7 @@ export default function RootLayout() {
 const GlobalListeners = React.memo(function GlobalListeners() {
   // ── Auth : Firebase listener + AsyncStorage bootstrap (single source) ──
   useAuthListener();
+  useAccountErasureRecoveryGuard();
 
   // ── Consent guard : route a pendingConsent account to /complete-profile ──
   // (mandatory Loi 25 step). Lives here so its re-renders never hit the Stack.
@@ -162,12 +164,14 @@ const GlobalListeners = React.memo(function GlobalListeners() {
   // ── Analytics : screen views on every route change (route pattern only) ──
   useScreenTracking();
 
-  // ── Sell drafts : prune expired drafts + orphaned local images once at
-  // startup so stale FileSystem/Storage artifacts don't accumulate. Fire-
-  // and-forget; failures are swallowed (draftService logs in dev). ──
+  // ── Sell drafts : prune expired drafts + orphaned local images once the
+  // account is known. The draft belongs to an account: swept at startup,
+  // before auth hydration, the cleanup saw no draft — and the Storage purge
+  // of an expired draft, which needs the account, never ran. Fire-and-
+  // forget; failures are swallowed (draftService logs in dev). ──
   useEffect(() => {
-    void draftService.cleanupExpiredDrafts();
-  }, []);
+    if (userId) void draftService.cleanupExpiredDrafts();
+  }, [userId]);
 
   return null;
 });
@@ -180,14 +184,15 @@ const GlobalListeners = React.memo(function GlobalListeners() {
  * yet prefetched) it renders an empty background view and keeps the
  * native splash screen visible. Once ready, the splash is hidden via the
  * root view's `onLayout` (single, guarded call) and the navigator
- * appears with data already warm in cache.
+ * appears with data already warm in cache. Readiness then stays true:
+ * later auth revalidation must not unmount navigation or its overlays.
  *
- * All side-effect hooks live in <GlobalListeners> so that their state
- * changes never re-render the Stack/NavigationContainer.
+ * Global subscriptions remain mounted throughout startup and refreshes.
+ * Their auth and consent guards stay independent of this one-time visual gate.
  */
 function AppContent({ fontsReady }: { fontsReady: boolean }) {
-  // Auth hydration flag — flipped to false once onAuthStateChanged
-  // resolves (single source of truth, see authStore).
+  // Initial auth hydration also becomes pending during foreground refreshes.
+  // Only its first successful readiness participates in the startup gate.
   const authHydrated = useAuthStore((s) => !s.isLoading);
 
   // Critical home data prefetched behind the splash so the Home tab's
@@ -204,7 +209,10 @@ function AppContent({ fontsReady }: { fontsReady: boolean }) {
     };
   }, []);
 
-  const appReady = fontsReady && authHydrated && homePrefetched;
+  const [appReady, setAppReady] = useState(false);
+  if (!appReady && fontsReady && authHydrated && homePrefetched) {
+    setAppReady(true);
+  }
 
   const { onLayoutRootView } = useSplashScreen(appReady);
 

@@ -37,7 +37,8 @@ export type AIErrorCode =
   | 'API_ERROR'
   | 'PARSE_ERROR'
   | 'UNAUTHENTICATED'
-  | 'INVALID_IMAGE';
+  | 'INVALID_IMAGE'
+  | 'QUOTA_EXCEEDED';
 
 export type RecoveryOption = 'retry' | 'manual_entry' | 'change_photos';
 
@@ -84,13 +85,13 @@ export type ImageQualityIssue = 'blur' | 'dark' | 'overexposed' | 'small' | 'cro
 // ============================================
 
 export interface ProcessedImage {
+  originalFormat?: string;
+  wasConverted?: boolean;
+  wasCompressed?: boolean;
+  originalSize?: number;
+  finalSize?: number;
   base64: string;
   mimeType: string;
-  originalFormat: string;
-  wasConverted: boolean;
-  wasCompressed: boolean;
-  originalSize: number;
-  finalSize: number;
   processedUri: string;
   quality?: ImageQualityScore;
 }
@@ -298,6 +299,13 @@ export function createDetailedError(
   message?: string
 ): AIAnalysisError {
   const errorDefaults: Record<AIErrorCode, { title: string; message: string; icon: string; retryable: boolean }> = {
+    QUOTA_EXCEEDED: {
+      title: 'Limite atteinte',
+      message: 'Limite de 10 analyses par heure atteinte. Réessayez plus tard, ou remplissez la fiche vous-même.',
+      icon: 'hourglass-outline',
+      // Réessayer tout de suite échouerait pendant une heure.
+      retryable: false,
+    },
     TIMEOUT: {
       title: 'Analyse trop longue',
       message: "L'analyse prend plus de temps que prévu.",
@@ -355,6 +363,8 @@ export function createDetailedError(
   };
 
   const recoveryOptionsMap: Record<AIErrorCode, RecoveryOption[]> = {
+    // Réessayer échouerait pendant une heure : seule la saisie manuelle reste.
+    QUOTA_EXCEEDED: ['manual_entry'],
     TIMEOUT: ['retry', 'manual_entry'],
     IMAGE_TOO_LARGE: ['change_photos'],
     UNSUPPORTED_FORMAT: ['change_photos'],
@@ -382,13 +392,25 @@ export function createDetailedError(
  * Transform raw Gemini response to AIAnalysisResult
  * Handles both new format and potential edge cases
  */
+/**
+ * Confidences use `??`: a server 0 means « nothing detected » and must stay 0.
+ * `|| 0.5` rewrote it as « Probable », badge included.
+ */
+// Le serveur déployé renvoie la chaîne brute du modèle, le serveur corrigé
+// `{ suggested, confidence }` : les deux se lisent, une valeur inconnue non.
+function toPackageSize(raw: unknown): AIPackageSize['suggested'] {
+  const value =
+    typeof raw === 'string' ? raw : (raw as { suggested?: unknown } | null | undefined)?.suggested;
+  return value === 'small' || value === 'large' ? value : 'medium';
+}
+
 export function transformGeminiResponse(raw: any): AIAnalysisResult {
   return {
     title: raw.title || '',
-    titleConfidence: raw.titleConfidence || 0.5,
+    titleConfidence: raw.titleConfidence ?? 0.5,
 
     description: raw.description || '',
-    descriptionConfidence: raw.descriptionConfidence || 0.5,
+    descriptionConfidence: raw.descriptionConfidence ?? 0.5,
 
     category: {
       categoryId: raw.category?.categoryId || '',
@@ -396,42 +418,46 @@ export function transformGeminiResponse(raw: any): AIAnalysisResult {
       displayName: raw.category?.displayName || '',
       fullLabel: raw.category?.fullLabel || '',
       icon: raw.category?.icon,
-      confidence: createConfidenceScore(raw.category?.confidence || 0.5),
+      confidence: createConfidenceScore(raw.category?.confidence ?? 0.5),
       validated: raw.category?.validated !== false,
     },
 
     condition: {
       conditionId: (raw.condition?.conditionId || 'bon-etat') as ConditionId,
-      confidence: createConfidenceScore(raw.condition?.confidence || 0.5),
+      confidence: createConfidenceScore(raw.condition?.confidence ?? 0.5),
     },
 
     colors: {
       colorIds: raw.colors?.colorIds || [],
       primaryColorId: raw.colors?.primaryColorId || '',
-      confidence: createConfidenceScore(raw.colors?.confidence || 0.5),
+      confidence: createConfidenceScore(raw.colors?.confidence ?? 0.5),
     },
 
     materials: {
       materialIds: raw.materials?.materialIds || [],
       primaryMaterialId: raw.materials?.primaryMaterialId || '',
       composition: raw.materials?.composition,
-      confidence: createConfidenceScore(raw.materials?.confidence || 0.5),
+      confidence: createConfidenceScore(raw.materials?.confidence ?? 0.5),
     },
 
     size: {
       detected: raw.size?.detected || null,
       normalized: raw.size?.normalized || null,
-      confidence: createConfidenceScore(raw.size?.confidence || 0.5),
+      confidence: createConfidenceScore(raw.size?.confidence ?? 0.5),
     },
 
     brand: {
       detected: raw.brand?.detected || null,
-      confidence: createConfidenceScore(raw.brand?.confidence || 0.5),
+      confidence: createConfidenceScore(raw.brand?.confidence ?? 0.5),
+      // Le rapprochement calculé par le serveur s'arrêtait à la frontière :
+      // sans lui, rien ne distingue une marque reconnue d'une marque devinée.
+      matchType: raw.brand?.matchType,
+      needsConfirmation: raw.brand?.needsConfirmation,
     },
 
     packageSize: {
-      suggested: raw.packageSize?.suggested || 'medium',
-      confidence: createConfidenceScore(raw.packageSize?.confidence || 0.5),
+      suggested: toPackageSize(raw.packageSize),
+      confidence: createConfidenceScore(raw.packageSize?.confidence ?? 0.5),
     },
 
     labelFound: raw.labelFound || false,

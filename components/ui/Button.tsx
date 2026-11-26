@@ -1,6 +1,6 @@
 /**
  * Button Component — Seconde UI Kit
- * Flat, editorial, uppercase labels
+ * Framed editorial actions with restrained color and clear touch surfaces
  *
  * Variants: primary, secondary, ghost, danger, muted
  */
@@ -12,6 +12,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
   ViewStyle,
   TextStyle,
 } from 'react-native';
@@ -22,7 +23,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { colors, radius, spacing, sizing, animations, typography } from '@/constants/theme';
+import { components, animations } from '@/constants/theme';
 
 // =============================================================================
 // TYPES
@@ -54,64 +55,24 @@ interface ButtonProps {
 
 const variantStyles = {
   primary: {
-    container: {
-      backgroundColor: colors.dark,
-      borderColor: colors.dark,
-    },
-    text: {
-      color: colors.cream,
-    },
-    pressed: {
-      backgroundColor: colors.primary,
-    },
+    container: components.button.primary,
+    text: components.button.primaryLabel,
   },
   secondary: {
-    container: {
-      backgroundColor: colors.transparent,
-      borderColor: colors.dark,
-    },
-    text: {
-      color: colors.dark,
-    },
-    pressed: {
-      backgroundColor: colors.surfaceWarm,
-    },
+    container: components.button.secondary,
+    text: components.button.secondaryLabel,
   },
   ghost: {
-    container: {
-      backgroundColor: colors.transparent,
-      borderColor: colors.transparent,
-    },
-    text: {
-      color: colors.primary,
-    },
-    pressed: {
-      backgroundColor: colors.primaryLight,
-    },
+    container: components.button.ghost,
+    text: components.button.ghostLabel,
   },
   danger: {
-    container: {
-      backgroundColor: colors.transparent,
-      borderColor: colors.danger,
-    },
-    text: {
-      color: colors.danger,
-    },
-    pressed: {
-      backgroundColor: colors.dangerLight,
-    },
+    container: components.button.danger,
+    text: components.button.dangerLabel,
   },
   muted: {
-    container: {
-      backgroundColor: colors.borderLight,
-      borderColor: colors.borderLight,
-    },
-    text: {
-      color: colors.foreground,
-    },
-    pressed: {
-      backgroundColor: colors.border,
-    },
+    container: components.button.muted,
+    text: components.button.mutedLabel,
   },
 };
 
@@ -170,25 +131,12 @@ export const Button: React.FC<ButtonProps> = ({
   // Determine if button is interactive
   const isDisabled = disabled || loading;
 
-  // Size-specific styles
-  const sizeStyles = {
-    default: {
-      height: sizing.buttonHeight,
-      paddingHorizontal: spacing.lg,
-    },
-    small: {
-      height: sizing.buttonHeightSmall,
-      paddingHorizontal: spacing.md,
-    },
-  };
-
   return (
     <AnimatedPressable
       style={[
         styles.container,
-        sizeStyles[size],
+        size === 'small' && styles.small,
         variantStyle.container,
-        { borderWidth: 1 },
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
         style,
@@ -201,15 +149,14 @@ export const Button: React.FC<ButtonProps> = ({
       testID={testID}
       accessibilityLabel={accessibilityLabel || (typeof children === 'string' ? children : undefined)}
       accessibilityRole="button"
-      accessibilityState={{ disabled: isDisabled }}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
     >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'primary' ? colors.white : colors.primary}
-        />
-      ) : (
-        <>
+      <View
+        style={[styles.content, loading && styles.contentLoading]}
+        pointerEvents="none"
+        accessibilityElementsHidden={loading}
+        importantForAccessibility={loading ? 'no-hide-descendants' : 'auto'}
+      >
           {leftIcon && <Animated.View style={styles.iconLeft}>{leftIcon}</Animated.View>}
           <Text
             style={[
@@ -222,8 +169,11 @@ export const Button: React.FC<ButtonProps> = ({
             {children}
           </Text>
           {rightIcon && <Animated.View style={styles.iconRight}>{rightIcon}</Animated.View>}
-        </>
-      )}
+      </View>
+      {loading && <View style={styles.loadingOverlay} pointerEvents="none"
+        accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <ActivityIndicator size="small" color={variantStyle.text.color} />
+      </View>}
     </AnimatedPressable>
   );
 };
@@ -234,35 +184,40 @@ export const Button: React.FC<ButtonProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,        // 8px (Seconde)
+    ...components.button.container,
     overflow: 'hidden',
   },
+  small: components.button.small,
   fullWidth: {
     width: '100%',
   },
   disabled: {
-    opacity: 0.5,
+    opacity: components.button.disabledOpacity,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: components.button.container.gap,
+    flexShrink: 1,
+  },
+  contentLoading: { opacity: 0 },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   text: {
-    fontFamily: typography.button.fontFamily,
-    fontSize: typography.button.fontSize,
-    lineHeight: typography.button.lineHeight,
-    letterSpacing: typography.button.letterSpacing,
-    textTransform: 'uppercase',
-    textAlign: 'center',
+    ...components.button.label,
   },
   textSmall: {
-    fontSize: 11,
-    lineHeight: 16,
+    ...components.button.smallLabel,
   },
   iconLeft: {
-    marginRight: spacing.sm,
+    flexShrink: 0,
   },
   iconRight: {
-    marginLeft: spacing.sm,
+    flexShrink: 0,
   },
 });
 

@@ -11,7 +11,16 @@
  */
 
 // --- react-native-reanimated (mock officiel) ---------------------------------
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+jest.mock('react-native-reanimated', () => {
+  const official = require('react-native-reanimated/mock');
+  return {
+    ...official,
+    Easing: {
+      ...official.Easing,
+      bezier: (...controlPoints) => ({ factory: () => require('react-native').Easing.bezier(...controlPoints) }),
+    },
+  };
+});
 
 // --- react-native-gesture-handler --------------------------------------------
 require('react-native-gesture-handler/jestSetup');
@@ -32,6 +41,64 @@ jest.mock('expo-image', () => {
   const Image = (props) => React.createElement(View, props, props.children);
   Image.generateBlurhashAsync = jest.fn(() => Promise.resolve(null));
   return { Image };
+});
+
+jest.mock('expo-linear-gradient', () => ({ LinearGradient: require('react-native').View }));
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn(async () => false),
+  shareAsync: jest.fn(async () => { throw new Error('Supply an explicit sharing fixture before exporting a private file.'); }),
+}));
+jest.mock('expo-application', () => ({
+  applicationId: 'com.seconde.app.dev',
+  nativeApplicationVersion: '1.0.1',
+  nativeBuildVersion: '1',
+}));
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: { extra: { eas: { projectId: '5f72091d-3473-467c-a4fd-96fe18cda4d2' } } },
+    easConfig: { projectId: '5f72091d-3473-467c-a4fd-96fe18cda4d2' },
+  },
+}));
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: {
+    configure: jest.fn(),
+    hasPlayServices: jest.fn(async () => true),
+    signIn: jest.fn(),
+    signOut: jest.fn(async () => undefined),
+  },
+}));
+jest.mock('expo-apple-authentication', () => ({
+  isAvailableAsync: jest.fn(async () => false),
+  signInAsync: jest.fn(),
+  AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
+}));
+// Rendering a screen does not install GPU or payment native modules in Node.
+// Tests that exercise those providers must supply their own explicit results.
+jest.mock('@shopify/react-native-skia', () => {
+  const { View } = require('react-native');
+  return { Canvas: View, Circle: View, Group: View, RadialGradient: View, Blur: View, Fill: View,
+    vec: (x, y) => ({ x, y }) };
+});
+jest.mock('@stripe/stripe-react-native', () => {
+  const { View } = require('react-native');
+  const unconfigured = jest.fn(async () => { throw new Error('Supply an explicit Stripe provider fixture before exercising payments.'); });
+  return { StripeProvider: View, CardField: View, useStripe: () => ({
+    confirmPayment: unconfigured, handleNextAction: unconfigured,
+    initPaymentSheet: unconfigured, presentPaymentSheet: unconfigured,
+  }) };
+});
+jest.mock('expo-file-system', () => {
+  class UnconfiguredFile {
+    constructor(...parts) { this.uri = parts.map(part => typeof part === 'string' ? part : part.uri).join('/'); }
+    exists = false;
+    size = 0;
+    bytes = async () => { throw new Error('Supply an explicit file fixture before reading private bytes.'); };
+    create() { throw new Error('Supply an explicit file fixture before creating private files.'); }
+    copy() { throw new Error('Supply an explicit file fixture before copying private files.'); }
+    delete() { throw new Error('Supply an explicit file fixture before deleting private files.'); }
+  }
+  return { File: UnconfiguredFile, Directory: UnconfiguredFile, Paths: { document: 'file:///jest-documents' } };
 });
 
 // --- @expo/vector-icons ------------------------------------------------------
@@ -123,6 +190,18 @@ jest.mock('expo-notifications', () => ({
   AndroidImportance: { MAX: 5, HIGH: 4, DEFAULT: 3 },
 }));
 
+// --- expo-network -------------------------------------------------------------
+// Tiré transitivement par lib/queryClient (détection online/offline). Sans ce
+// mock, tout test qui importe un barrel de feature exposant un hook -> authStore
+// -> queryClient échoue au parse du module natif.
+jest.mock('expo-network', () => ({
+  getNetworkStateAsync: jest.fn(() =>
+    Promise.resolve({ isConnected: true, isInternetReachable: true })
+  ),
+  addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })),
+  NetworkStateType: { WIFI: 'WIFI', CELLULAR: 'CELLULAR', NONE: 'NONE' },
+}));
+
 // --- expo-router --------------------------------------------------------------
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -146,13 +225,21 @@ jest.mock('expo-router', () => {
     useGlobalSearchParams: () => ({}),
     useSegments: () => [],
     usePathname: () => '/',
-    useFocusEffect: jest.fn(),
+    useFocusEffect: jest.fn((effect) => React.useEffect(effect, [effect])),
     Link,
     Redirect: passthrough,
     Slot: passthrough,
     Stack: Object.assign(passthrough, { Screen: passthrough }),
     Tabs: Object.assign(passthrough, { Screen: passthrough }),
   };
+});
+
+// A mounted test screen starts in the foreground. Individual lifecycle tests
+// still drive the real AppState subscriptions and may explicitly blur it.
+beforeEach(() => {
+  Object.defineProperty(require('react-native').AppState, 'currentState', {
+    value: 'active', writable: true, configurable: true,
+  });
 });
 
 // --- @react-native-async-storage/async-storage --------------------------------
@@ -162,6 +249,15 @@ jest.mock(
 );
 
 // --- Firebase (SDK Web modular + config app) ---------------------------------
+// Native UUID source: keep genuine UUID uniqueness in tests without loading
+// Expo's ESM native module through the Jest runtime.
+jest.mock('expo-crypto', () => ({
+  randomUUID: () => require('node:crypto').randomUUID(),
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+  digestStringAsync: async (_algorithm, value) => require('node:crypto').createHash('sha256').update(value).digest('hex'),
+  getRandomBytesAsync: async count => new Uint8Array(require('node:crypto').randomBytes(count)),
+}));
+
 jest.mock('@/config/firebaseConfig', () => ({
   auth: { currentUser: null, onAuthStateChanged: jest.fn() },
   firestore: {},
@@ -173,14 +269,18 @@ jest.mock('@/config/firebaseConfig', () => ({
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   doc: jest.fn(),
+  documentId: jest.fn(() => '__name__'),
   getDoc: jest.fn(),
   getDocs: jest.fn(),
+  getDocFromServer: jest.fn((...args) => require('firebase/firestore').getDoc(...args)),
+  getDocsFromServer: jest.fn((...args) => require('firebase/firestore').getDocs(...args)),
   setDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
   addDoc: jest.fn(),
   query: jest.fn(),
   where: jest.fn(),
+  or: jest.fn((...constraints) => ({ type: 'or', constraints })),
   orderBy: jest.fn(),
   limit: jest.fn(),
   startAfter: jest.fn(),

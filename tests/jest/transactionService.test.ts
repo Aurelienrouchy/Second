@@ -1,3 +1,5 @@
+import {auth} from '@/config/firebaseConfig';
+beforeEach(() => Object.defineProperty(auth, 'currentUser', {value: {uid: 'buyer'}, configurable: true, writable: true}));
 /**
  * TransactionService — création / mise à jour de transactions d'achat.
  *
@@ -19,15 +21,114 @@
  */
 
 import { httpsCallable } from 'firebase/functions';
-import { updateDoc } from 'firebase/firestore';
+import { getDocs, limit, where, updateDoc } from 'firebase/firestore';
 
-import { TransactionService } from '@/services/transactionService';
+import { TransactionService, mapTransaction, sortTransactions } from '@/services/transactionService';
 import type { MeetupSpot, ShippingAddress } from '@/types';
+jest.mock('@/store/authStore', () => ({getAuthSessionGeneration: () => 1,
+  useAuthStore: Object.assign((selector: (state: unknown) => unknown) => selector(require('@/store/authStore').useAuthStore.getState()), {getState: () => ({authenticatedUid: 'buyer', user: {id: 'buyer'}})}),
+}));
 
 // Les modules firebase sont déjà mockés globalement (jest.setup.js) ; on les
 // récupère en tant que mocks pour piloter les retours et inspecter les appels.
 const mockHttpsCallable = httpsCallable as jest.Mock;
 const mockUpdateDoc = updateDoc as jest.Mock;
+
+describe('TransactionService — production readiness regressions', () => {
+  const snapshot = (items: Array<{ id: string; data: Record<string, unknown> }>) => ({
+    docs: items.map(item => ({ id: item.id, data: () => item.data })),
+  });
+  it('keeps return/refund history and uses participant-bounded reads', async () => {
+    (getDocs as jest.Mock).mockResolvedValue(snapshot([{ id: 'return', data: {
+      chatId: 'chat', buyerId: 'buyer', sellerId: 'seller', status: 'return_requested',
+      createdAt: { toDate: () => new Date('2026-10-01') }, returnLabelUrl: 'https://example.test/label.pdf',
+    } }]));
+    const tx = await TransactionService.getTransactionByChat('chat', 'buyer');
+    expect(tx?.returnLabelUrl).toContain('label.pdf');
+    expect(where).not.toHaveBeenCalledWith('status', 'in', expect.anything());
+    expect(where).toHaveBeenCalledWith('buyerId', '==', 'buyer');
+    expect(where).toHaveBeenCalledWith('sellerId', '==', 'buyer');
+    expect(limit).toHaveBeenCalled();
+  });
+  it('breaks equal creation dates by descending ID and deduplicates', async () => {
+    const date = { toDate: () => new Date('2026-10-02') };
+    (getDocs as jest.Mock).mockResolvedValue(snapshot([
+      { id: 'a', data: { createdAt: date, status: 'cancelled' } },
+      { id: 'z', data: { createdAt: date, status: 'refund_in_progress' } },
+    ]));
+    expect((await TransactionService.getTransactionByChat('chat', 'buyer'))?.id).toBe('z');
+    const sorted = sortTransactions([mapTransaction('unknown', {status: 'refunded'}), mapTransaction('known', {createdAt: date}), mapTransaction('known', {createdAt: date})]);
+    expect(sorted.map(tx => tx.id)).toEqual(['known', 'unknown']);
+  });
+  it('does not infer real funds release from a past deadline', async () => {
+    (getDocs as jest.Mock).mockResolvedValue(snapshot([{ id: 'held', data: {
+      status: 'delivered', fundsReleaseAt: { toDate: () => new Date('2020-01-01') },
+    } }]));
+    expect((await TransactionService.getActiveTransactionsForUser('buyer')).map(tx => tx.id)).toContain('held');
+  });
+  it('normalizes nested refund/bank/return/counter dates without inventing creation chronology', () => {
+    const date = new Date('2026-10-02');
+    const stamp = {toDate: () => date};
+    const tx = mapTransaction('legacy', {refund: {fundsAppliedAt: stamp}, bankDispute: {closedAt: stamp}, returnDeliveredAt: stamp, counterReport: {reportedAt: stamp}});
+    expect(tx.createdAtKnown).toBe(false);
+    expect(tx.refund?.fundsAppliedAt).toEqual(date);
+    expect(tx.bankDispute?.closedAt).toEqual(date);
+    expect(tx.returnDeliveredAt).toEqual(date);
+    expect(tx.counterReport?.reportedAt).toEqual(date);
+  });
+  it('rejects ambiguous duplicate offer bindings rather than selecting an arbitrary agreement', async () => {
+    (getDocs as jest.Mock).mockResolvedValue(snapshot([{id: 'one', data: {}}, {id: 'two', data: {}}]));
+    const proof = await TransactionService.getTransactionForOffer('chat', 'buyer', 'message');
+    expect(proof).toEqual({transaction: null, canStartCheckout: false, ambiguous: true});
+    expect(where).toHaveBeenCalledWith('offerMessageId', '==', 'message');
+    expect(limit).toHaveBeenCalledWith(2);
+  });
+  it('lets the seller read the exact native order link without using buyer discovery', async () => {
+    const native = mapTransaction('linked', {chatId: 'chat', buyerId: 'buyer', sellerId: 'seller',
+      offerMessageId: 'message', articleId: 'article', deliveryType: 'shipping', status: 'paid'});
+    const read = jest.spyOn(TransactionService, 'getTransaction').mockResolvedValueOnce(native);
+    await expect(TransactionService.getTransactionForOffer('chat', 'seller', 'message', 'linked')).resolves.toEqual({
+      transaction: native, canStartCheckout: false, ambiguous: false,
+    });
+    expect(getDocs).not.toHaveBeenCalled();
+    read.mockRestore();
+  });
+  it('does not reuse an unrelated legacy purchase as the accepted offer payment', async () => {
+    (getDocs as jest.Mock).mockResolvedValueOnce(snapshot([])).mockResolvedValue(snapshot([{id: 'old-unlinked', data: {status: 'pending_payment', createdAt: new Date('2026-10-02')}}]));
+    const proof = await TransactionService.getTransactionForOffer('chat', 'buyer', 'new-message');
+    expect(proof).toEqual({transaction: null, canStartCheckout: false, ambiguous: true});
+  });
+  const cancelledOffer = () => ({chatId: 'chat', buyerId: 'buyer', sellerId: 'seller', articleId: 'article', deliveryType: 'shipping',
+    offerMessageId: 'old-message', status: 'cancelled', createdAt: new Date('2026-10-02'),
+    shippingOffer: {protocol: 'shipping_price_agreement_v1', messageId: 'old-message', chatId: 'chat', articleId: 'article',
+      buyerId: 'buyer', sellerId: 'seller', hash: 'a'.repeat(64)},
+    pendingCancellation: {schemaVersion: 1, state: 'committed', transactionId: 'old-order', buyerId: 'buyer', sellerId: 'seller',
+      source: 'participant_cancel_pending', requestedBy: 'buyer', walletRefundCents: 0, purchaseDebitLedgerId: null,
+      walletRefundLedgerId: null, cardCapabilityNeutralized: true, committedAt: new Date('2026-10-03')},
+  });
+  it('permits quoting a new native offer after a different order is provably cancelled, without reusing it', async () => {
+    (getDocs as jest.Mock).mockResolvedValueOnce(snapshot([])).mockResolvedValue(snapshot([{id: 'old-order', data: cancelledOffer()}]));
+    await expect(TransactionService.getTransactionForOffer('chat', 'buyer', 'new-message')).resolves.toEqual({
+      transaction: null, canStartCheckout: true, ambiguous: false,
+    });
+  });
+  it.each([
+    {status: 'paid'}, {shippingOffer: undefined}, {offerMessageId: 'new-message'},
+    {pendingCancellation: {...cancelledOffer().pendingCancellation, state: 'reconciliation_required'}},
+    {pendingCancellation: {...cancelledOffer().pendingCancellation, cardCapabilityNeutralized: false}},
+    {pendingCancellation: {...cancelledOffer().pendingCancellation, walletRefundCents: 500}},
+    {bankDispute: {id: 'dp', state: 'open'}},
+  ])('keeps an old active, ambiguous or unsettled agreement blocked: %p', async changes => {
+    (getDocs as jest.Mock).mockResolvedValueOnce(snapshot([])).mockResolvedValue(snapshot([{id: 'old-order', data: {...cancelledOffer(), ...changes}}]));
+    await expect(TransactionService.getTransactionForOffer('chat', 'buyer', 'new-message')).resolves.toEqual({
+      transaction: null, canStartCheckout: false, ambiguous: true,
+    });
+  });
+  it('does not infer latest from an ID page when a malformed date blocks the ordered query', async () => {
+    (getDocs as jest.Mock).mockResolvedValue(snapshot([{id: 'malformed-date', data: {createdAt: 'not-a-timestamp'}}]));
+    await expect(TransactionService.getTransactionByChat('chat', 'buyer')).rejects.toThrow('date');
+  });
+});
 
 const SHIPPING_ADDRESS: ShippingAddress = {
   name: 'Jean Dupont',
@@ -188,7 +289,7 @@ describe('TransactionService.updateTransactionStatus', () => {
       expect.anything(),
       'cancelPendingTransaction',
     );
-    expect(callable).toHaveBeenCalledWith({ transactionId: 'tx_123' });
+    expect(callable).toHaveBeenCalledWith({ transactionId: 'tx_123', expectedUid: 'buyer' });
     // Invariant sécurité : pas d'écriture Firestore directe pour 'cancelled'.
     expect(mockUpdateDoc).not.toHaveBeenCalled();
   });

@@ -12,11 +12,21 @@ beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
   vi.stubEnv('POSTHOG_API_KEY', 'public-test-key');
+  vi.stubEnv('GCLOUD_PROJECT', 'seconde-b47a6');
+  vi.stubEnv('SECONDE_ENV', 'production');
   mocks.getUser.mockResolvedValue({ exists: true, data: () => ({ preferences: { analyticsConsent: true } }) });
   mocks.capture.mockResolvedValue(undefined);
 });
 
 describe('server analytics preference', () => {
+  it('never constructs a production analytics client for development', async () => {
+    vi.stubEnv('GCLOUD_PROJECT', 'seconde-dev');
+    vi.stubEnv('SECONDE_ENV', 'development');
+    const { captureServerEvent } = await import('./analytics');
+    await captureServerEvent('u1', 'order_paid');
+    expect(mocks.constructor).not.toHaveBeenCalled();
+    expect(mocks.capture).not.toHaveBeenCalled();
+  });
   it('honors persisted refusal for transactional collection', async () => {
     mocks.getUser.mockResolvedValue({ exists: true, data: () => ({ preferences: { analyticsConsent: false } }) });
     const { captureServerEvent } = await import('./analytics');

@@ -1,0 +1,334 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import React from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+
+import { getNextStep, MakeOfferContext, parseOfferAmount } from './types';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { track } from '@/lib/analytics';
+import { formatPrice } from '@/utils/formatPrice';
+
+// Offer amount bounds — the upper bound mirrors the server-side ceiling
+// enforced by the callable (offer.amount <= 50000). Cheap listings can still
+// be proposed at full price, preserving the existing negotiated-offer floor.
+const MIN_OFFER_AMOUNT = 1;
+const MAX_OFFER_AMOUNT = 50000;
+
+interface OfferStepProps {
+  context: MakeOfferContext;
+}
+
+const OfferStep: React.FC<OfferStepProps> = ({ context }) => {
+  const { state, actions, articleId, articleTitle, currentPrice, availableModes } = context;
+  const { offerAmount, message } = state;
+
+  const calculateDiscount = () => {
+    const amount = parseOfferAmount(offerAmount);
+    if (!amount || amount <= 0) return null;
+    const discount = ((currentPrice - amount) / currentPrice) * 100;
+    return Math.round(discount);
+  };
+
+  const handleNext = () => {
+    const amount = parseOfferAmount(offerAmount);
+
+    const emitConfirmed = (
+      validation_result: 'ok' | 'invalid' | 'too_high' | 'above_list_price' | 'low_warned_continued' | 'low_warned_cancelled',
+    ) => {
+      const safeAmount = Number.isFinite(amount) ? amount : 0;
+      track('offer_amount_confirmed', {
+        article_id: articleId,
+        offer_amount_cents: Math.round(safeAmount * 100),
+        list_price_cents: Math.round(currentPrice * 100),
+        discount_pct: currentPrice ? Math.round(((currentPrice - safeAmount) / currentPrice) * 100) : 0,
+        mode: state.mode,
+        validation_result,
+        message_length: message.length,
+      });
+    };
+
+    if (!amount || amount < Math.min(MIN_OFFER_AMOUNT, currentPrice)) {
+      emitConfirmed('invalid');
+      Alert.alert('Erreur', 'Veuillez entrer un montant valide');
+      return;
+    }
+
+    if (amount > MAX_OFFER_AMOUNT) {
+      emitConfirmed('too_high');
+      Alert.alert('Montant trop élevé', `Maximum ${MAX_OFFER_AMOUNT} $ CA`);
+      return;
+    }
+
+    // Une offre SUPÉRIEURE au prix affiché part sans obstacle mais ne peut
+    // JAMAIS être acceptée : `acceptMeetupOffer` refuse
+    // `amount > article.price`. Le destinataire voyait donc une offre « En
+    // attente », chiffrée, avec un bouton « Accepter » qui échoue à tous les
+    // coups pendant 48 h — sans que rien n'indique pourquoi ni comment en
+    // sortir. La seule issue est de contre-proposer À LA BAISSE une offre plus
+    // généreuse que son propre prix, ce que personne ne devine.
+    // On refuse donc à l'envoi, là où l'utilisateur peut encore corriger.
+    if (currentPrice > 0 && amount > currentPrice) {
+      emitConfirmed('above_list_price');
+      Alert.alert(
+        'Offre supérieure au prix',
+        `Le vendeur demande ${currentPrice} $. Une offre plus élevée ne pourrait pas être acceptée — proposez au maximum le prix affiché.`,
+      );
+      return;
+    }
+
+    const goToNext = () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      actions.setStep(getNextStep('offer', state.mode));
+    };
+
+    if (amount > currentPrice) {
+      emitConfirmed('too_high');
+      Alert.alert('Montant trop élevé', 'Votre proposition ne peut pas dépasser le prix affiché.');
+      return;
+    }
+
+    if (amount < currentPrice * 0.3) {
+      Alert.alert(
+        'Offre trop basse',
+        'Votre offre semble trop basse. Le vendeur sera plus enclin à accepter une offre raisonnable.',
+        [
+          { text: 'Modifier', style: 'cancel', onPress: () => emitConfirmed('low_warned_cancelled') },
+          {
+            text: 'Continuer quand même',
+            onPress: () => {
+              emitConfirmed('low_warned_continued');
+              goToNext();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    emitConfirmed('ok');
+    goToNext();
+  };
+
+  const discount = calculateDiscount();
+
+  return (
+    <>
+      <View style={styles.articleInfo}>
+        <Text style={styles.articleTitle} numberOfLines={2}>
+          {articleTitle}
+        </Text>
+        <Text style={styles.currentPrice}>
+          Prix affiché : <Text style={styles.priceValue}>{formatPrice(currentPrice)}</Text>
+        </Text>
+      </View>
+
+      {availableModes && availableModes.length > 1 ? <View style={styles.deliveryModes}>
+        {availableModes.map(mode => <Pressable key={mode} accessibilityRole="radio"
+          accessibilityState={{checked: state.mode === mode}}
+          onPress={() => actions.setMode(mode)}
+          style={[styles.deliveryMode, state.mode === mode && styles.deliveryModeSelected]}>
+          <Ionicons name={mode === 'shipping' ? 'cube-outline' : 'location-outline'} size={18} color={colors.charcoal}/>
+          <Text style={styles.deliveryModeText}>{mode === 'shipping' ? 'Livraison' : 'En main propre'}</Text>
+        </Pressable>)}
+      </View> : null}
+
+      <View style={styles.inputSection}>
+        <Text style={styles.label}>VOTRE OFFRE</Text>
+        <View style={styles.amountInputContainer}>
+          <BottomSheetTextInput
+            testID="offer-amount-input"
+            style={styles.amountInput}
+            placeholder="0"
+            keyboardType="decimal-pad"
+            value={offerAmount}
+            onChangeText={actions.setOfferAmount}
+          />
+          <Text style={styles.currencySuffix}>{' '}$</Text>
+        </View>
+        {discount !== null && discount > 0 && (
+          <Text style={[styles.discountText, discount > 50 && styles.discountWarning]}>
+            {discount}% de réduction
+          </Text>
+        )}
+      </View>
+
+      <View style={styles.inputSection}>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>MESSAGE AU VENDEUR</Text>
+          <Text style={styles.optionalLabel}>(optionnel)</Text>
+        </View>
+        <BottomSheetTextInput
+          style={styles.messageInput}
+          placeholder="Expliquez pourquoi vous faites cette offre..."
+          multiline
+          numberOfLines={4}
+          value={message}
+          onChangeText={actions.setMessage}
+          maxLength={500}
+          textAlignVertical="top"
+          placeholderTextColor={colors.muted}
+        />
+        <Text style={styles.characterCount}>{message.length}/500</Text>
+      </View>
+
+      <View style={styles.tipBox}>
+        <View style={styles.tipIconContainer}>
+          <Ionicons name="information-circle" size={18} color={colors.sage} />
+        </View>
+        <Text style={styles.tipText}>
+          {state.mode === 'shipping'
+            ? 'Votre offre sera envoyée au vendeur pour validation'
+            : 'Vous proposerez ensuite un lieu de rencontre'}
+        </Text>
+      </View>
+
+      <Pressable testID="offer-step-continue" style={styles.submitButton} onPress={handleNext}>
+        <Text style={styles.submitButtonText}>Continuer</Text>
+      </Pressable>
+    </>
+  );
+};
+
+const styles = StyleSheet.create({
+  deliveryModes: {flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg},
+  deliveryMode: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs,
+    paddingVertical: spacing.md, paddingHorizontal: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm},
+  deliveryModeSelected: {borderColor: colors.charcoal, backgroundColor: colors.cream},
+  deliveryModeText: {fontFamily: fonts.sansMedium, color: colors.charcoal, fontSize: 13},
+  articleInfo: {
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.cream,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  articleTitle: {
+    fontSize: 16,
+    fontFamily: fonts.displayMedium,
+    color: colors.charcoal,
+    marginBottom: spacing.sm,
+  },
+  currentPrice: {
+    fontSize: 15,
+    fontFamily: fonts.sansMedium,
+    color: colors.charcoal,
+  },
+  priceValue: {
+    fontFamily: fonts.sansBold,
+    fontSize: 15,
+  },
+  inputSection: {
+    marginBottom: spacing.lg,
+  },
+  label: {
+    fontSize: 9,
+    fontFamily: fonts.sansMedium,
+    color: colors.charcoal,
+    marginBottom: spacing.sm,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: spacing.sm,
+  },
+  optionalLabel: {
+    fontSize: 10,
+    fontFamily: fonts.sans,
+    color: colors.charcoal,
+    marginLeft: spacing.xs,
+  },
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: spacing.md,
+    height: 60,
+  },
+  currencySuffix: {
+    fontSize: 18,
+    fontFamily: fonts.sansMedium,
+    color: colors.muted,
+    marginLeft: spacing.sm,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 32,
+    fontFamily: fonts.sansBold,
+    color: colors.charcoal,
+  },
+  discountText: {
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: colors.sage,
+    marginTop: spacing.sm,
+  },
+  discountWarning: {
+    color: colors.warning,
+  },
+  messageInput: {
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    padding: spacing.md,
+    fontSize: 13,
+    fontFamily: fonts.sans,
+    color: colors.charcoal,
+    minHeight: 100,
+  },
+  characterCount: {
+    fontSize: 10,
+    fontFamily: fonts.sans,
+    color: colors.muted,
+    textAlign: 'right',
+    marginTop: spacing.xs,
+  },
+  tipBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: spacing.md,
+    backgroundColor: colors.cream,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  tipIconContainer: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+  },
+  tipText: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: colors.muted,
+    lineHeight: 16,
+  },
+  submitButton: {
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.lg,
+  },
+  submitButtonText: {
+    color: colors.cream,
+    fontSize: 11,
+    fontFamily: fonts.sansMedium,
+    letterSpacing: 2.16,
+    textTransform: 'uppercase',
+  },
+});
+
+export default OfferStep;

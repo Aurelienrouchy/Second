@@ -2,12 +2,11 @@
 import { storageApiOrigin } from './fixStorageUrl';
 
 export const PRIVATE_MEDIA_MAX_BYTES = 10 * 1024 * 1024;
-// Request empty token metadata; the Storage API may still generate tokens.
-// Callers must ignore upload metadata and never distribute a download URL.
+// The reserved firebaseStorageDownloadTokens field is refused by the cloud
+// API. The service may still generate a token: never distribute that token.
 export const PRIVATE_IMAGE_UPLOAD_METADATA = {
   contentType: 'image/jpeg',
   cacheControl: 'private, no-store, max-age=0',
-  customMetadata: { firebaseStorageDownloadTokens: '' },
 } as const;
 
 function isPrivatePath(path: string): boolean {

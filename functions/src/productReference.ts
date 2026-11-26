@@ -168,13 +168,54 @@ export const SIZE_REFERENCE: SizeReference[] = [
 // HELPER: Find color by ID or alias
 // ============================================
 
+/**
+ * Ramène une saisie à sa forme comparable : sans accents, sans tirets, sans
+ * pourcentages ni chiffres. « 95 % Coton bio » et « coton » doivent pouvoir se
+ * rencontrer — l'égalité stricte laissait toute variante sans identifiant.
+ */
+function normalizeReference(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[0-9]+\s*%?/g, ' ')
+    .replace(/[^a-z&]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Vrai si `needle` figure en MOTS ENTIERS dans `haystack` (« or » ≠ orange). */
+function containsTerm(haystack: string, needle: string): boolean {
+  return ` ${haystack} `.includes(` ${needle} `);
+}
+
+/**
+ * Égalité d'abord ; à défaut, le nom ou l'alias LE PLUS LONG contenu dans la
+ * saisie, pour que « cuir synthétique » ne tombe pas sur « cuir » ni
+ * « rose pâle » sur « rose ».
+ */
+function findReference<T extends { id: string; name: string; aliases: string[] }>(
+  references: T[],
+  input: string
+): T | undefined {
+  const normalized = normalizeReference(input);
+  if (!normalized) return undefined;
+
+  let best: { reference: T; length: number } | undefined;
+  for (const reference of references) {
+    for (const candidate of [reference.id, reference.name, ...reference.aliases]) {
+      const term = normalizeReference(candidate);
+      if (!term) continue;
+      if (term === normalized) return reference;
+      if (!containsTerm(normalized, term)) continue;
+      if (!best || term.length > best.length) best = { reference, length: term.length };
+    }
+  }
+  return best?.reference;
+}
+
 export function findColorByNameOrAlias(name: string): ColorReference | undefined {
-  const normalized = name.toLowerCase().trim();
-  return COLOR_REFERENCE.find(color =>
-    color.id === normalized ||
-    color.name.toLowerCase() === normalized ||
-    color.aliases.some(alias => alias.toLowerCase() === normalized)
-  );
+  return findReference(COLOR_REFERENCE, name);
 }
 
 // ============================================
@@ -182,10 +223,5 @@ export function findColorByNameOrAlias(name: string): ColorReference | undefined
 // ============================================
 
 export function findMaterialByNameOrAlias(name: string): MaterialReference | undefined {
-  const normalized = name.toLowerCase().trim();
-  return MATERIAL_REFERENCE.find(mat =>
-    mat.id === normalized ||
-    mat.name.toLowerCase() === normalized ||
-    mat.aliases.some(alias => alias.toLowerCase() === normalized)
-  );
+  return findReference(MATERIAL_REFERENCE, name);
 }

@@ -1,5 +1,7 @@
+import { establishIdentityFixture, clearIdentityFixture } from '@/tests/jest/helpers/identityFixture';
+import { renderWithQuery as render } from '@/tests/jest/helpers/queryRender';
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 
 jest.mock('@/components/ui', () => {
   const React = require('react');
@@ -12,9 +14,18 @@ jest.mock('@/utils/imageUtils', () => ({ prepareImageForUpload: jest.fn() }));
 jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
-  return { useLocalSearchParams: jest.fn(), router: { canGoBack: () => true, back: jest.fn(), replace: jest.fn() }, Stack: { Screen: (props: unknown) => React.createElement(View, props) } };
+  return {
+  useRouter: () => require('expo-router').router,
+  useNavigation: () => ({ isFocused: () => true, canGoBack: () => true }),
+  useFocusEffect: (effect: () => void | (() => void)) => require('react').useEffect(effect, [effect]),
+ useLocalSearchParams: jest.fn(), router: { canGoBack: () => true, back: jest.fn(), replace: jest.fn() }, Stack: { Screen: (props: unknown) => React.createElement(View, props) } };
 });
-jest.mock('@/hooks/useAuth', () => ({ useUser: jest.fn(), useIsLoading: () => false }));
+jest.mock('@/hooks/useAuth', () => ({
+  useAuthenticatedUid: () => require('@/config/firebaseConfig').auth.currentUser?.uid ?? null,
+  useAuthenticatedIdentity: () => { const user = require('@/hooks/useAuth').useUser(); return user?.id === require('@/config/firebaseConfig').auth.currentUser?.uid ? user : null; },
+  useAuthenticatedSession: () => ({ uid: require('@/config/firebaseConfig').auth.currentUser?.uid ?? null, identity: require('@/hooks/useAuth').useAuthenticatedIdentity() }),
+  useAuthGuardSession: () => ({ normalUser: require('@/hooks/useAuth').useUser(), identity: require('@/hooks/useAuth').useAuthenticatedIdentity(), isAuthLoading: false }),
+ useUser: jest.fn(), useIsLoading: () => false }));
 jest.mock('@/store/authSheetStore', () => ({ useAuthSheetStore: (selector: (state: unknown) => unknown) => selector({ show: jest.fn() }) }));
 jest.mock('@/components/StripePayment', () => ({ StripePayment: () => null }));
 jest.mock('@/services/swapService', () => ({
@@ -27,14 +38,17 @@ jest.mock('@/features/swap', () => {
   const React = require('react');
   const { Text, Pressable, View } = require('react-native');
   return {
+    ...jest.requireActual('@/features/swap/presentation'),
     SwapTopBar: () => React.createElement(Text, {}, 'Détail de l’échange'),
     SwapDetailSkeleton: () => React.createElement(Text, {}, 'Chargement'),
     SwapProposalView: (props: Record<string, unknown>) => React.createElement(View, { testID: 'proposal', ...props }),
     SwapStatusView: (props: Record<string, unknown>) => React.createElement(View, { testID: 'status', ...props }),
     SwapContactButton: () => null,
     SwapActions: (props: Record<string, unknown>) => React.createElement(View, { testID: 'actions', ...props }),
-    SwapStickyActions: ({ onAccept }: { onAccept: () => void }) => React.createElement(Pressable, { onPress: onAccept }, React.createElement(Text, {}, 'Accepter')),
+    SwapStickyActions: ({ onAccept, acceptDisabled }: { onAccept: () => void; acceptDisabled: boolean }) => React.createElement(Pressable, { onPress: onAccept, disabled: acceptDisabled, accessibilityState: {disabled: acceptDisabled} }, React.createElement(Text, {}, 'Accepter')),
     getSwapNextStep: () => 'Prochaine étape',
+    SwapActionSheet: ({visible, children}: {visible: boolean; children: React.ReactNode}) => visible ? React.createElement(View, null, children) : null,
+    SwapLaunchAdmissionSheet: () => null, SwapArrangementFields: () => null, SwapAgreementReview: () => null, SwapProofPhotos: () => null, SwapHoldReviewNotice: () => null,
   };
 });
 
@@ -60,7 +74,7 @@ it.each([
   { id: 'initiator', mine: 'coat', receive: 'dress', isInitiator: true },
   { id: 'receiver', mine: 'dress', receive: 'coat', isInitiator: false },
 ])('le wiring de la route préserve les articles du participant $id', ({ id, mine, receive, isInitiator }) => {
-  (useUser as jest.Mock).mockReturnValue({ id });
+  (useUser as jest.Mock).mockReturnValue({ id }); establishIdentityFixture(id);
   render(<SwapDetailScreen />);
   const props = screen.getByTestId('proposal').props;
   expect(props.myItems[0].articleId).toBe(mine);
@@ -68,25 +82,22 @@ it.each([
   expect(props.isInitiator).toBe(isInitiator);
 });
 
-it('empêche les appels d’acceptation répétés avant le retour de la mutation', async () => {
-  (useUser as jest.Mock).mockReturnValue({ id: 'receiver' });
-  let finish!: () => void;
-  (acceptSwap as jest.Mock).mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+it('ne confirme aucune acceptation avant la lecture des renseignements et conditions', () => {
+  (useUser as jest.Mock).mockReturnValue({id: 'receiver'}); establishIdentityFixture('receiver');
   render(<SwapDetailScreen />);
-  act(() => { fireEvent.press(screen.getByText('Accepter')); fireEvent.press(screen.getByText('Accepter')); });
-  expect(acceptSwap).toHaveBeenCalledTimes(1);
-  await act(async () => finish());
+  const accept = screen.getByText('Accepter'); expect(accept).toBeDisabled();
+  fireEvent.press(accept); fireEvent.press(accept); expect(acceptSwap).not.toHaveBeenCalled();
 });
 
 it('propose une connexion en visiteur sans abonnement aux données privées', () => {
-  (useUser as jest.Mock).mockReturnValue(null);
+  (useUser as jest.Mock).mockReturnValue(null); clearIdentityFixture();
   render(<SwapDetailScreen />);
   expect(screen.getByText('Se connecter')).toBeOnTheScreen();
   expect(subscribeToSwap).not.toHaveBeenCalled();
 });
 
 it('permet de réessayer lorsque l’abonnement retourne un échange indisponible', () => {
-  (useUser as jest.Mock).mockReturnValue({ id: 'initiator' });
+  (useUser as jest.Mock).mockReturnValue({ id: 'initiator' }); establishIdentityFixture('initiator');
   (subscribeToSwap as jest.Mock).mockImplementation((_id, callback) => { callback(null); return jest.fn(); });
   render(<SwapDetailScreen />);
   expect(screen.getByText('Échange indisponible')).toBeOnTheScreen();

@@ -164,8 +164,9 @@ describe('homeKeys — clés de cache des sections', () => {
 const mockRecentPartyItems = jest.fn();
 jest.mock('@/services/swapService', () => ({ getRecentPartyItems: (...args: unknown[]) => mockRecentPartyItems(...args) }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: require('react-native').View }));
-import { SwapZoneSection } from '@/components/home/SwapZoneSection';
+import { SwapZoneSection } from '@/features/home/swap-zone/SwapZoneSectionView';
 import { SwapZoneWrapper } from '@/features/home/swap-zone/SwapZoneSection';
+import { TrocMosaicRow } from '@/features/home/swap-zone/TrocMosaicRow';
 
 const previewItem: SwapPartyItem = {
   id: 'preview', partyId: 'generalist', articleId: 'a1', sellerId: 'seller', sellerName: 'Alice',
@@ -177,46 +178,58 @@ describe('Home — Espace échanges', () => {
   it('affiche le stock total et les vraies photos sans inventer de nouveautés globales', () => {
     const onPress = jest.fn();
     const { UNSAFE_getAllByType } = render(<SwapZoneSection zone={{ id: 'generalist', name: 'Swap Zone', itemsCount: 28 }} items={[previewItem]} newThisWeek={6} onPress={onPress} />);
-    expect(screen.getByText('Espace échanges')).toBeOnTheScreen();
-    expect(screen.getByText('28 articles à échanger')).toBeOnTheScreen();
+    expect(screen.getByText('Le Troc')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: /Le Troc, 28 articles à échanger/ })).toBeOnTheScreen();
+    expect(screen.queryByText('28 articles à échanger')).toBeNull();
     expect(screen.queryByText(/nouveautés|cette semaine/)).toBeNull();
     expect(UNSAFE_getAllByType(Image)[0].props.source).toEqual({ uri: previewItem.imageUrl });
-    fireEvent.press(screen.getByText('Découvrir les articles'));
+    fireEvent.press(screen.getByText('Voir les pièces à échanger'));
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+  it.each([1, 2, 12])('compose trois rangées avec %i vraies photos sans inventer de stock', (count) => {
+    const items = Array.from({ length: count }, (_, index) => ({ ...previewItem, id: `item-${index}`, articleId: `article-${index}`, imageUrl: `https://example.test/${index}.jpg` }));
+    const { UNSAFE_getAllByType } = render(<SwapZoneSection zone={{ id: 'generalist', name: 'Le Troc', itemsCount: 28 }} items={items} onPress={jest.fn()} />);
+    expect(UNSAFE_getAllByType(TrocMosaicRow)).toHaveLength(3);
+    expect(new Set(UNSAFE_getAllByType(Image).map(image => image.props.source.uri))).toEqual(new Set(items.map(item => item.imageUrl)));
+    expect(screen.getByRole('button', { name: /Le Troc, 28 articles à échanger/ })).toBeOnTheScreen();
+    expect(screen.queryByText('28 articles à échanger')).toBeNull();
+    expect(screen.queryByText(/^À TOI$|^À MOI$|^Choisissez$|^Proposez$|^Échangez$/)).toBeNull();
   });
   it('différencie absence d’espace, erreur et chargement', () => {
     const retry = jest.fn();
     const { rerender } = render(<SwapZoneSection />);
     expect(screen.getByText('Aucun espace disponible pour le moment')).toBeOnTheScreen();
-    expect(screen.queryByText('Découvrir les articles')).toBeNull();
+    expect(screen.queryByText('Voir les pièces à échanger')).toBeNull();
     rerender(<SwapZoneSection isError onRetry={retry} />);
     expect(screen.getByText('Le catalogue n’a pas pu être chargé')).toBeOnTheScreen();
     expect(screen.queryByText('Bientôt disponible')).toBeNull();
     fireEvent.press(screen.getByText('Réessayer'));
     expect(retry).toHaveBeenCalledTimes(1);
     rerender(<SwapZoneSection isLoading />);
-    expect(screen.getByLabelText('Chargement de l’Espace échanges')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Chargement du Troc')).toBeOnTheScreen();
     expect(screen.queryByText('Réessayer')).toBeNull();
   });
   it('garde l’entrée du catalogue ouvert quand le stock est vide ou les aperçus échouent', () => {
     const press = jest.fn();
-    const { rerender } = render(<SwapZoneSection zone={{ id: 'generalist', name: 'Swap Zone', itemsCount: 0 }} onPress={press} />);
+    const { rerender } = render(<SwapZoneSection zone={{ id: 'generalist', name: 'Swap Zone', itemsCount: 0 }} items={[previewItem]} onPress={press} />);
     expect(screen.getByText('Aucun article à échanger pour le moment. Vous pouvez déjà ajouter les vôtres.')).toBeOnTheScreen();
-    fireEvent.press(screen.getByText('Découvrir les articles'));
+    expect(screen.queryByTestId('home-troc-mosaic')).toBeNull();
+    fireEvent.press(screen.getByText('Voir les pièces à échanger'));
     expect(press).toHaveBeenCalledTimes(1);
     rerender(<SwapZoneSection zone={{ id: 'generalist', name: 'Swap Zone', itemsCount: 28 }} previewsError onPress={press} />);
     expect(screen.getByText('Les aperçus ne sont pas disponibles. Vous pouvez ouvrir le catalogue.')).toBeOnTheScreen();
-    fireEvent.press(screen.getByText('Découvrir les articles'));
+    fireEvent.press(screen.getByText('Voir les pièces à échanger'));
     expect(press).toHaveBeenCalledTimes(2);
   });
   it('le wrapper transmet les photos du hook et navigue vers la route existante', async () => {
     mockCallable.mockResolvedValueOnce({ data: { hasActiveParty: true, party: { id: 'generalist', name: 'Swap Zone', itemsCount: 28 } } });
     mockRecentPartyItems.mockResolvedValueOnce([previewItem]);
     const { UNSAFE_getAllByType } = render(<SwapZoneWrapper />, { wrapper: createWrapper() });
-    await waitFor(() => expect(UNSAFE_getAllByType(Image)).toHaveLength(1));
-    expect(mockRecentPartyItems).toHaveBeenCalledWith('generalist', 6);
-    expect(screen.getByText('28 articles à échanger')).toBeOnTheScreen();
-    fireEvent.press(screen.getByText('Découvrir les articles'));
+    await waitFor(() => expect(UNSAFE_getAllByType(Image).length).toBeGreaterThan(0));
+    expect(mockRecentPartyItems).toHaveBeenCalledWith('generalist', 12);
+    expect(screen.getByRole('button', { name: /Le Troc, 28 articles à échanger/ })).toBeOnTheScreen();
+    expect(screen.queryByText('28 articles à échanger')).toBeNull();
+    fireEvent.press(screen.getByText('Voir les pièces à échanger'));
     expect(router.push).toHaveBeenCalledWith({ pathname: '/swap-zone', params: { source: 'home' } });
   });
   it('le wrapper expose une erreur de chargement et permet une nouvelle tentative', async () => {

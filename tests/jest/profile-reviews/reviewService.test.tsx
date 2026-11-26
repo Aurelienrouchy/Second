@@ -56,7 +56,7 @@ import {
   getUserPublicProfile,
   getUserReviews,
   hasUserReviewedTransaction,
-} from '@/services/reviewService';
+} from '@/features/reviews/services/reviewService';
 
 // Récupère les callables jest.fn créées dans la factory.
 const { __callables } = jest.requireMock('firebase/functions') as {

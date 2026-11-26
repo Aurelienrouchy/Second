@@ -1,11 +1,12 @@
+import { FinancialRecoveryBlocked } from "../utils/financialRecoveryInterlock";
+import { financialRecoveryCommitCheckpoint } from "../utils/financialRecoverySources";
+import { financialRecoveryWalletFields } from "../utils/financialRecoverySources";
+import { withFinancialRecoveryScope } from "../utils/financialRecoveryInterlock";
 /**
  * Scheduled transaction expiration
  * Firebase Functions v7 - using onSchedule
  *
  * Expires orphaned transactions that were never completed:
- * 1. meetup_pending transactions older than 48h (seller never confirmed)
- * 1b. meetup_confirmed transactions older than 7 days (A3: neither party ever
- *     tapped "completed" → zombie tx leaving the article unsellable forever)
  * 2. pending_payment transactions older than 1h (buyer never paid)
  * 3. paid transactions older than 7 days (seller never shipped)
  *
@@ -14,20 +15,23 @@
  * - The article's isSold flag is reset to false
  * - For paid-not-shipped: buyer is notified via push notification
  *
- * Meetups are pure cash-in-hand exchanges — NO money flows through the platform,
- * so meetup expiries never refund / never touch the wallet ledger.
+ * Cash meetups have no qualified accepted expiry policy: this job preserves
+ * their agreement and reservation, regardless of historical createdAt.
  *
  * Runs every hour.
  */
-import { articleReleaseUpdate } from '../utils/articleReservation';
+import { articleReleaseUpdate, commitArticleRelease } from '../utils/articleReservation';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
-import { issueTransactionRefund } from '../utils/refund';
-import { sendPushNotification } from '../utils/notifications';
-import { logAutomatedDecision } from '../callable/automatedDecisions';
-import { captureServerEvent } from '../lib/analytics';
+import { issueTransactionRefund, resumeTransactionRefund, readPendingCancellationFunds, reconcileCanceledPurchase } from '../utils/refund';
+import { hasActiveBankDispute } from '../utils/bankDispute';
+import { hasUnsettledRefund } from '../utils/refundState';
+import { prepareOperationalNotices, type OperationalNoticeInput } from '../utils/notifications';
+import { Timestamp } from 'firebase-admin/firestore';
+import { createHash } from 'node:crypto';
+import { nonShipmentExpirySource, purchasePolicyTimeline, readPurchasePreparationSource, recordPurchasePreparationReview } from '../utils/purchasePolicy';
 
 /**
  * Cap how many docs each query pulls per scheduled run. Each paid-not-shipped
@@ -38,27 +42,14 @@ import { captureServerEvent } from '../lib/analytics';
  */
 const MAX_PER_RUN = 200;
 
+/** Taille d'une page lue par la section 5 (retours périmés), qui pagine. */
+const RETURN_PAGE_SIZE = 50;
+
 /** Process Stripe-bound work in small concurrent lots to bound network fan-out. */
 const STRIPE_LOT_SIZE = 10;
 
-/** Meetup transactions expire after 48 hours */
-const MEETUP_EXPIRY_MS = 48 * 60 * 60 * 1000;
-
-/**
- * A3: a `meetup_confirmed` transaction whose meetup was supposedly arranged but
- * which neither party ever marked `meetup_completed`. After 7 days from creation
- * we treat the meetup as abandoned and auto-cancel it, releasing the article so
- * it can be re-sold. Generous window (vs 48h for unconfirmed) because the parties
- * agreed on a date that may legitimately be days out. No money is involved
- * (cash-in-hand), so there is nothing to refund.
- */
-const MEETUP_CONFIRMED_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
-
 /** Pending payment transactions expire after 1 hour */
 const PENDING_PAYMENT_EXPIRY_MS = 1 * 60 * 60 * 1000;
-
-/** Paid but not shipped transactions expire after 7 days (seller didn't ship) */
-const PAID_NOT_SHIPPED_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * F26: a return leg with no carrier DELIVERED scan after this window is routed to
@@ -84,249 +75,63 @@ const STRIPE_PI_IN_FLIGHT = new Set([
   'succeeded',
 ]);
 
+/**
+ * Millisecondes d'un champ de date Firestore, quelle que soit sa forme :
+ * `Timestamp` (production), `Date` (Admin SDK et tests), chaîne ISO ou nombre.
+ * Renvoie `null` quand la valeur est absente ou inexploitable — jamais une date
+ * invalide, qui ferait silencieusement basculer une comparaison.
+ */
+function millisOf(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value.getTime();
+  if (typeof value === 'object' && typeof (value as { toMillis?: unknown }).toMillis === 'function') {
+    const ms = (value as { toMillis: () => number }).toMillis();
+    return Number.isFinite(ms) ? ms : null;
+  }
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const ms = new Date(value).getTime();
+    return isNaN(ms) ? null : ms;
+  }
+  return null;
+}
+
+function expirationNotices(transactionId: string, data: FirebaseFirestore.DocumentData, reason: string): OperationalNoticeInput[] {
+  const anchor = typeof data.disputeResolutionDecisionId === 'string' ? data.disputeResolutionDecisionId :
+    millisOf(data.meetupConfirmedAt) ?? millisOf(data.createdAt) ?? 'legacy';
+  const message = 'Cette commande a été annulée automatiquement parce que le paiement n’a pas été finalisé dans le délai prévu. Consultez la commande et le porte-monnaie pour leurs mouvements. Vous pouvez demander un examen humain au support.';
+  return [data.buyerId, data.sellerId].map(userId => ({ eventKey: `transaction_expired:${transactionId}:${reason}:${anchor}`,
+    userId, type: 'order_cancelled', title: 'Annulation automatique enregistrée', message,
+    data: { transactionId, cancelReason: reason,
+      ...(data.deliveryType === 'meetup' && typeof data.chatId === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(data.chatId) ? { chatId: data.chatId } : {}) },
+  }));
+}
+
 export const expireOrphanedTransactions = onSchedule(
   {
     schedule: 'every 1 hours',
     region: 'northamerica-northeast1',
     memory: '512MiB',
+    // Sans `timeoutSeconds` explicite, une fonction v2 s'arrête à 60 s. Les six
+    // sections tournent en série et chacune peut traiter jusqu'à MAX_PER_RUN
+    // documents avec, pour certaines, un appel Stripe par document : le budget
+    // par défaut est dépassé bien avant la fin, et les dernières sections ne
+    // s'exécutent alors jamais.
+    timeoutSeconds: 540,
     secrets: ['STRIPE_SECRET_KEY'],
   },
   async () => {
+    return withFinancialRecoveryScope({operation: "scheduled/transactionExpiration.expireOrphanedTransactions"}, async () => {
     const now = Date.now();
     let totalExpired = 0;
 
-    // =========================================================================
-    // 1. Expire meetup_pending transactions older than 48h
-    // =========================================================================
-
-    try {
-      const meetupCutoff = new Date(now - MEETUP_EXPIRY_MS);
-      const meetupSnap = await db
-        .collection('transactions')
-        .where('status', '==', 'meetup_pending')
-        .where('createdAt', '<', meetupCutoff)
-        .limit(MAX_PER_RUN)
-        .get();
-
-      if (!meetupSnap.empty) {
-        // F13/F83: cancel each tx TRANSACTIONALLY with a status re-check instead
-        // of a blind batch. A batch.update would (a) reject the WHOLE batch if the
-        // article was hard-deleted between query and commit, and (b) clobber a tx
-        // whose status changed (e.g. a confirmation/payment landing) in that
-        // window. The per-doc tx only cancels while status is STILL
-        // 'meetup_pending', and tolerates a missing article.
-        const cancelledMeetups: { id: string; data: FirebaseFirestore.DocumentData }[] = [];
-        for (const doc of meetupSnap.docs) {
-          try {
-            const cancelled = await db.runTransaction(async (tx) => {
-              const snap = await tx.get(doc.ref);
-              if (!snap.exists) return false;
-              const data = snap.data()!;
-              if (data.status !== 'meetup_pending') return false; // status moved on
-
-              // Read the article BEFORE writing (Admin SDK READ_AFTER_WRITE).
-              const articleRef = data.articleId
-                ? db.collection('articles').doc(data.articleId)
-                : null;
-              const articleSnap = articleRef ? await tx.get(articleRef) : null;
-              const articleUnlock = articleRef && articleSnap?.exists
-                ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, doc.id) : null;
-
-              tx.update(doc.ref, {
-                status: 'cancelled',
-                cancelledAt: FieldValue.serverTimestamp(),
-                cancelReason: 'meetup_expired_48h',
-              });
-              if (articleRef && articleUnlock) {
-                tx.update(articleRef, articleUnlock);
-              }
-              return true;
-            });
-            if (cancelled) {
-              totalExpired++;
-              cancelledMeetups.push({ id: doc.id, data: doc.data() });
-            }
-          } catch (cancelErr) {
-            logger.error('[expireOrphanedTransactions] failed to cancel meetup_pending tx', {
-              transactionId: doc.id,
-              error: cancelErr instanceof Error ? cancelErr.message : cancelErr,
-            });
-          }
-        }
-
-        // Loi 25 art. 12.1 — journal each AUTOMATED cancellation that ACTUALLY
-        // happened (status re-check passed) and notify the affected parties.
-        // Best-effort; never affects the cancellation itself.
-        for (const { id: transactionId, data } of cancelledMeetups) {
-          await logAutomatedDecision({
-            transactionId,
-            userId: typeof data.buyerId === 'string' ? data.buyerId : (data.sellerId ?? ''),
-            decisionType: 'transaction_expired',
-            criteria: {
-              status: 'meetup_pending',
-              expiryWindowHours: 48,
-              cancelReason: 'meetup_expired_48h',
-            },
-            result: 'Transaction annulée (rendez-vous non confirmé sous 48h)',
-          });
-          if (typeof data.buyerId === 'string' && data.buyerId.length > 0) {
-            const articleTitle = data.articleTitle || 'votre commande';
-            sendPushNotification(
-              data.buyerId,
-              'Commande annulée automatiquement',
-              `Votre commande ${articleTitle} a été annulée automatiquement : le rendez-vous n'a pas été confirmé dans les délais (48 h). Si vous contestez cette décision, vous pouvez nous le signaler.`,
-              { transactionId, articleId: data.articleId || '' },
-              'order_cancelled'
-            ).catch((err) => {
-              logger.warn('[expireOrphanedTransactions] Failed to notify buyer of meetup expiry', {
-                transactionId,
-                error: err instanceof Error ? err.message : err,
-              });
-            });
-
-            // Analytics (§12): system-expiry cancellation of a pending meetup.
-            await captureServerEvent(data.buyerId, 'order_cancelled', {
-              transaction_id: transactionId,
-              cancelled_by: 'system_expiry',
-              stage: 'pending_payment',
-              refunded_cents: 0,
-              article_relisted: true,
-              $insert_id: `order_cancelled_${transactionId}`,
-            });
-          }
-        }
-
-        logger.info(`[expireOrphanedTransactions] Expired ${cancelledMeetups.length} meetup_pending transactions`);
-      }
-    } catch (error) {
-      logger.error('[expireOrphanedTransactions] Error expiring meetup_pending transactions', {
-        error: error instanceof Error ? error.message : error,
-      });
-    }
-
-    // =========================================================================
-    // 1b. A3 — Expire abandoned meetup_confirmed transactions older than 7 days
-    //     The seller confirmed the appointment but neither party ever tapped
-    //     "completed" (completeMeetupTransaction). Without this branch the tx
-    //     sits in meetup_confirmed forever and the article stays unsellable
-    //     (toggleArticleSold/createTransaction treat meetup_confirmed as an
-    //     active blocking transaction). Auto-cancel + release the article.
-    //     Reuses the existing (status ASC, createdAt ASC) composite index.
-    // =========================================================================
-
-    try {
-      const meetupConfirmedCutoff = new Date(now - MEETUP_CONFIRMED_EXPIRY_MS);
-      const meetupConfirmedSnap = await db
-        .collection('transactions')
-        .where('status', '==', 'meetup_confirmed')
-        .where('createdAt', '<', meetupConfirmedCutoff)
-        .limit(MAX_PER_RUN)
-        .get();
-
-      if (!meetupConfirmedSnap.empty) {
-        let confirmedExpired = 0;
-
-        for (const doc of meetupConfirmedSnap.docs) {
-          const data = doc.data();
-          // Atomic per-doc: re-check status under the lock so this stays
-          // idempotent if a party completes/cancels between query and commit.
-          const expired = await db.runTransaction(async (tx) => {
-            const txSnap = await tx.get(doc.ref);
-            const txData = txSnap.data();
-            if (!txData || txData.status !== 'meetup_confirmed') {
-              return false;
-            }
-
-            let articleRef: FirebaseFirestore.DocumentReference | null = null;
-            let articleSnap: FirebaseFirestore.DocumentSnapshot | null = null;
-            if (typeof txData.articleId === 'string' && txData.articleId.length > 0) {
-              articleRef = db.collection('articles').doc(txData.articleId);
-              articleSnap = await tx.get(articleRef);
-            }
-
-            const articleUnlock = articleRef && articleSnap?.exists
-              ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, doc.id) : null;
-
-            tx.update(doc.ref, {
-              status: 'cancelled',
-              cancelledAt: FieldValue.serverTimestamp(),
-              cancelReason: 'meetup_confirmed_expired_7d',
-            });
-
-            if (articleRef && articleUnlock) {
-              tx.update(articleRef, articleUnlock);
-            }
-            return true;
-          }).catch((err) => {
-            logger.error('[expireOrphanedTransactions] Error expiring a meetup_confirmed tx', {
-              transactionId: doc.id,
-              error: err instanceof Error ? err.message : err,
-            });
-            return false;
-          });
-
-          if (!expired) continue;
-          confirmedExpired++;
-          totalExpired++;
-
-          // Loi 25 art. 12.1 — journal the AUTOMATED expiry (best-effort) and
-          // notify BOTH parties that the abandoned meetup was auto-cancelled and
-          // can be contested. No money moved (cash-in-hand meetup).
-          const transactionId = doc.id;
-          await logAutomatedDecision({
-            transactionId,
-            userId: typeof data.buyerId === 'string' ? data.buyerId : (data.sellerId ?? ''),
-            decisionType: 'transaction_expired',
-            criteria: {
-              status: 'meetup_confirmed',
-              expiryWindowDays: 7,
-              cancelReason: 'meetup_confirmed_expired_7d',
-            },
-            result: 'Rencontre annulée automatiquement (non finalisée sous 7 jours)',
-          });
-
-          const articleTitle = data.articleTitle || 'votre rencontre';
-          const payload = { transactionId, articleId: data.articleId || '' };
-          for (const party of [data.buyerId, data.sellerId]) {
-            if (typeof party === 'string' && party.length > 0) {
-              sendPushNotification(
-                party,
-                'Rencontre annulée automatiquement',
-                `La rencontre pour « ${articleTitle} » a été annulée automatiquement : elle n'a pas été finalisée dans les délais (7 jours). Si vous contestez cette décision, vous pouvez nous le signaler.`,
-                payload,
-                'order_cancelled'
-              ).catch((err) => {
-                logger.warn('[expireOrphanedTransactions] Failed to notify party of meetup_confirmed expiry', {
-                  transactionId,
-                  error: err instanceof Error ? err.message : err,
-                });
-              });
-            }
-          }
-
-          // Analytics (§12): system-expiry cancellation of an abandoned meetup.
-          // distinct_id = buyer (the order cycle follows the buyer).
-          if (typeof data.buyerId === 'string' && data.buyerId.length > 0) {
-            await captureServerEvent(data.buyerId, 'order_cancelled', {
-              transaction_id: transactionId,
-              cancelled_by: 'system_expiry',
-              stage: 'pending_payment',
-              refunded_cents: 0,
-              article_relisted: true,
-              $insert_id: `order_cancelled_${transactionId}`,
-            });
-          }
-        }
-
-        logger.info(
-          `[expireOrphanedTransactions] Expired ${confirmedExpired}/${meetupConfirmedSnap.size} meetup_confirmed transactions (7d)`
-        );
-      }
-    } catch (error) {
-      logger.error('[expireOrphanedTransactions] Error expiring meetup_confirmed transactions', {
-        error: error instanceof Error ? error.message : error,
-      });
-    }
+    // Cash meetup V1 records acceptance, but no accepted automatic-expiry
+    // clause or deadline. Legacy createdAt may predate that acceptance by weeks.
+    // Neither createdAt, confirmedAt nor a status alone authorizes cancellation.
+    // Preserve accepted/unknown agreements, their article reservation and offer;
+    // support and explicit participant actions remain available. A future policy
+    // must be shown and accepted before it can authorize any deadline. Pending
+    // offers keep their own native expiresAt, handled by the offer workflow.
 
     // =========================================================================
     // 2. Expire pending_payment transactions older than 1h
@@ -334,12 +139,16 @@ export const expireOrphanedTransactions = onSchedule(
 
     try {
       const paymentCutoff = new Date(now - PENDING_PAYMENT_EXPIRY_MS);
-      const paymentSnap = await db
-        .collection('transactions')
-        .where('status', '==', 'pending_payment')
-        .where('createdAt', '<', paymentCutoff)
-        .limit(MAX_PER_RUN)
-        .get();
+      const cursorRef=db.collection('job_locks').doc('pendingPaymentPreparation_cursor');
+      let cursorSnap=await cursorRef.get();
+      const cursor=cursorSnap.data(),validCursor=cursor?.protocol==='pending_payment_preparation_cursor_v1'&&cursor.createdAt instanceof Timestamp&&
+        Number.isSafeInteger(cursor.createdAt.toMillis())&&cursor.createdAt.toMillis()>0&&cursor.createdAt.toMillis()<=now&&
+        typeof cursor.id==='string'&&!!cursor.id&&!cursor.id.includes('/')&&Buffer.byteLength(cursor.id,'utf8')<=1500;
+      const query=db.collection('transactions').where('status','==','pending_payment').where('createdAt','<',paymentCutoff)
+        .orderBy('createdAt','asc').orderBy('__name__','asc').limit(MAX_PER_RUN);
+      let paymentSnap=await (validCursor?query.startAfter(cursor!.createdAt,cursor!.id):query).get();
+      if(paymentSnap.empty&&validCursor)paymentSnap=await query.get();
+
 
       if (!paymentSnap.empty) {
         const stripe = getStripe();
@@ -359,13 +168,32 @@ export const expireOrphanedTransactions = onSchedule(
               totalExpired++;
             }
           }
+          // An unknown observation is not a resolved order. Failed rows remain
+          // pending and are revisited on wrap; none can starve every later row.
+          // Checkpoint only after every IO in this lot has actually terminated.
+          const last=lot[lot.length-1],expectedRevision=cursorSnap.updateTime;
+          const checkpoint=await db.runTransaction(async tx=>{
+    const recoveryCommit = financialRecoveryCommitCheckpoint();
+            const latest=await tx.get(cursorRef);
+            if(expectedRevision?!latest.updateTime?.isEqual(expectedRevision):latest.exists)return false;
+            await recoveryCommit({refs: [(cursorRef).path]});
+    tx.set(cursorRef,{protocol:'pending_payment_preparation_cursor_v1',id:last.id,createdAt:last.data().createdAt,
+              observedAt:Timestamp.now(),lastObservationFailures:results.flatMap((r,i)=>r.status==='rejected'?[lot[i].id]:[])});
+            return true;
+          });
+          if(!checkpoint)break; // A stale runner never overwrites a successor.
+          cursorSnap=await cursorRef.get();
+          if(cursorSnap.data()?.id!==last.id||!(cursorSnap.data()?.createdAt instanceof Timestamp)||
+            !cursorSnap.data()!.createdAt.isEqual(last.data().createdAt))break;
+
         }
 
         logger.info(
-          `[expireOrphanedTransactions] Expired ${pendingExpired}/${paymentSnap.size} pending_payment transactions (rest had in-flight PaymentIntents)`
+          `[expireOrphanedTransactions] Expired ${pendingExpired}/${paymentSnap.size} pending_payment transactions (other observations remain pending or require review)`
         );
       }
     } catch (error) {
+      if (error instanceof FinancialRecoveryBlocked) throw error;
       logger.error('[expireOrphanedTransactions] Error expiring pending_payment transactions', {
         error: error instanceof Error ? error.message : error,
       });
@@ -377,13 +205,19 @@ export const expireOrphanedTransactions = onSchedule(
     // =========================================================================
 
     try {
-      const paidCutoff = new Date(now - PAID_NOT_SHIPPED_EXPIRY_MS);
-      const paidSnap = await db
+      // Inspect by document ID, including missing/malformed native clocks.
+      // A filtered/blocked page still advances, so one legacy case cannot starve
+      // newer sales. The cutoff itself is qualified again inside refund reserve.
+      const paidCursorRef = db.collection('job_locks').doc('paidNonShipmentPolicy_cursor');
+      const paidCursor = (await paidCursorRef.get()).data()?.lastId;
+      const paidQuery = db
         .collection('transactions')
         .where('status', '==', 'paid')
-        .where('createdAt', '<', paidCutoff)
-        .limit(MAX_PER_RUN)
-        .get();
+        .orderBy('__name__', 'asc')
+        .limit(MAX_PER_RUN);
+      const hasCursor = typeof paidCursor === 'string' && !!paidCursor && !paidCursor.includes('/');
+      let paidSnap = await (hasCursor ? paidQuery.startAfter(paidCursor) : paidQuery).get();
+      if (paidSnap.empty && hasCursor) paidSnap = await paidQuery.get();
 
       if (!paidSnap.empty) {
         const stripe = getStripe();
@@ -405,11 +239,14 @@ export const expireOrphanedTransactions = onSchedule(
           }
         }
 
+        await paidCursorRef.set({ lastId: paidSnap.docs[paidSnap.size - 1].id, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+
         logger.info(
           `[expireOrphanedTransactions] Expired ${paidExpired}/${paidSnap.size} paid-not-shipped transactions (7d)`
         );
       }
     } catch (error) {
+      if (error instanceof FinancialRecoveryBlocked) throw error;
       logger.error('[expireOrphanedTransactions] Error expiring paid-not-shipped transactions', {
         error: error instanceof Error ? error.message : error,
       });
@@ -453,6 +290,7 @@ export const expireOrphanedTransactions = onSchedule(
         );
       }
     } catch (error) {
+      if (error instanceof FinancialRecoveryBlocked) throw error;
       logger.error('[expireOrphanedTransactions] Error resuming interrupted refunds', {
         error: error instanceof Error ? error.message : error,
       });
@@ -468,28 +306,54 @@ export const expireOrphanedTransactions = onSchedule(
 
     try {
       const returnCutoff = new Date(now - RETURN_LEG_STALE_MS);
-      const returnSnap = await db
+      // Une transaction escaladée GARDE son statut `return_requested` : elle
+      // reste donc dans le jeu de résultats à chaque exécution, et le `continue`
+      // ci-dessous ne fait que la sauter APRÈS qu'elle a consommé un des
+      // MAX_PER_RUN slots. Passé ce nombre d'escalades non résolues, la fenêtre
+      // était intégralement remplie de dossiers déjà traités et plus aucun
+      // nouveau retour périmé n'était escaladé.
+      // On parcourt donc les pages par curseur jusqu'à épuisement, dans la
+      // limite d'un budget explicite — sans changer la FORME de la requête, pour
+      // ne dépendre d'aucun index à déployer.
+      const returnBase = db
         .collection('transactions')
         .where('status', '==', 'return_requested')
-        .where('returnRequestedAt', '<', returnCutoff)
-        .limit(MAX_PER_RUN)
-        .get();
+        .where('returnRequestedAt', '<', returnCutoff);
 
-      if (!returnSnap.empty) {
-        let escalated = 0;
+      let returnCursor: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData> | null =
+        null;
+      let returnScanned = 0;
+      let escalated = 0;
+      let returnExhausted = false;
+
+      while (returnScanned < MAX_PER_RUN) {
+        const returnQuery: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = returnCursor
+          ? returnBase.startAfter(returnCursor)
+          : returnBase;
+        const returnSnap: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> =
+          await returnQuery.limit(RETURN_PAGE_SIZE).get();
+        if (returnSnap.empty) {
+          returnExhausted = true;
+          break;
+        }
+        returnCursor = returnSnap.docs[returnSnap.docs.length - 1];
+        returnScanned += returnSnap.size;
+
         for (const doc of returnSnap.docs) {
           const data = doc.data();
           // Idempotence: already escalated.
           if (data.returnEscalatedAt) continue;
           try {
             await db.runTransaction(async (tx) => {
+    const recoveryCommit = financialRecoveryCommitCheckpoint();
               const snap = await tx.get(doc.ref);
               if (!snap.exists) return;
               const d = snap.data()!;
               if (d.status !== 'return_requested' || d.returnEscalatedAt) return;
 
               const disputeRef = db.collection('disputes').doc();
-              tx.set(disputeRef, {
+              await recoveryCommit({refs: [(disputeRef).path]});
+    tx.set(disputeRef, {
                 transactionId: doc.id,
                 type: 'return_not_delivered',
                 buyerId: d.buyerId ?? null,
@@ -504,29 +368,43 @@ export const expireOrphanedTransactions = onSchedule(
                 createdAt: FieldValue.serverTimestamp(),
               });
 
-              tx.update(doc.ref, {
+              await recoveryCommit({refs: [(doc.ref).path]});
+    tx.update(doc.ref, {
                 returnEscalatedAt: FieldValue.serverTimestamp(),
               });
             });
             escalated++;
           } catch (e) {
+      if (e instanceof FinancialRecoveryBlocked) throw e;
             logger.error('[expireOrphanedTransactions] Failed to escalate stale return', {
               transactionId: doc.id,
               error: e instanceof Error ? e.message : e,
             });
           }
         }
+
+        if (returnSnap.size < RETURN_PAGE_SIZE) {
+          returnExhausted = true;
+          break;
+        }
+      }
+
+      if (escalated > 0 || !returnExhausted) {
         logger.warn(
-          `[expireOrphanedTransactions] Escalated ${escalated}/${returnSnap.size} stale return legs to admin (21d)`
+          `[expireOrphanedTransactions] Escalated ${escalated} stale return legs to admin (21d)`,
+          { scanned: returnScanned, exhausted: returnExhausted }
         );
       }
     } catch (error) {
+      if (error instanceof FinancialRecoveryBlocked) throw error;
       logger.error('[expireOrphanedTransactions] Error escalating stale return legs', {
         error: error instanceof Error ? error.message : error,
       });
     }
 
     logger.info(`[expireOrphanedTransactions] Total expired: ${totalExpired}`);
+
+    });
   }
 );
 
@@ -557,6 +435,9 @@ async function expirePendingPayment(
   const transactionId = doc.id;
   const data = doc.data();
   const paymentIntentId = data.stripePaymentIntentId;
+  let cancelledPaymentIntent: unknown = null;
+  let expirySource:Awaited<ReturnType<typeof readPurchasePreparationSource>>=null;
+  if (hasActiveBankDispute(data) || (hasUnsettledRefund(data) && !paymentIntentId)) return false;
 
   // A submitted checkout without a persisted PI id is not an unpaid order.
   // Preserve the reservation until reconciliation certifies the outcome.
@@ -567,10 +448,21 @@ async function expirePendingPayment(
     if (paymentIntentId && stripe) {
       // 1. Is the payment in flight / already captured?
       let piStatus: string | undefined;
+      let observedPaymentIntent: unknown = null;
       try {
         const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
         piStatus = pi.status;
+        observedPaymentIntent = pi;
+        if (piStatus === 'canceled') {
+          const result = await reconcileCanceledPurchase(transactionId, pi);
+          if (!result.committed) {
+            const { recordCheckoutReconciliation } = await import('../utils/paymentCheckoutReconciliation');
+            await recordCheckoutReconciliation(transactionId, pi, data, 'cancellation_unsettled', 'expirePendingPayment', result.reason);
+          }
+          return result.committed;
+        }
       } catch (retrieveErr) {
+      if (retrieveErr instanceof FinancialRecoveryBlocked) throw retrieveErr;
         // Could not reach Stripe — be conservative and DO NOT expire this run.
         // The next hourly run will retry; expiring blindly risks cancelling a
         // captured payment.
@@ -590,6 +482,44 @@ async function expirePendingPayment(
         });
         return false;
       }
+      if (hasUnsettledRefund(data)) return false;
+
+      // Bind the actual provider object to the order and debit BEFORE cancelling
+      // it. An unqualified stored PI must never cancel somebody else's charge.
+      const mayCancel = await db.runTransaction(async tx => {
+    const recoveryCommit = financialRecoveryCommitCheckpoint();
+        const current = (await tx.get(doc.ref)).data();
+        if (!current || current.status !== 'pending_payment' || hasActiveBankDispute(current) || hasUnsettledRefund(current) ||
+            current.stripePaymentIntentId !== paymentIntentId || current.walletCheckoutAttemptId !== data.walletCheckoutAttemptId) return false;
+        if(current.deliveryType==='shipping'){
+          const source=await readPurchasePreparationSource(tx,transactionId,current);
+          if(!source||source.policyHash!==data.purchasePolicy?.hash||source.windowHash!==data.pendingPaymentPolicyWindow?.sourceHash){
+            return {permitted:false,policyUnknown:true};
+          }
+          if(Date.now()<source.expiresAtMs)return false;
+          expirySource=source;
+        } else {
+          // The query is only a candidate. Requalify the SAME one-hour
+          // createdAt rule before a provider cancellation can be attempted.
+          const createdAtMs = millisOf(current.createdAt), observedAtMs = Date.now();
+          if (createdAtMs === null || createdAtMs < 0 || createdAtMs > observedAtMs ||
+              createdAtMs + PENDING_PAYMENT_EXPIRY_MS > observedAtMs) return false;
+        }
+        const proof = await readPendingCancellationFunds(tx, transactionId, current, observedPaymentIntent, false);
+        if (proof.qualified) return true;
+        await recoveryCommit({refs: [(doc.ref).path]});
+    tx.update(doc.ref, { refundBlocked: true, refundLegacyReconciliationRequired: true,
+          pendingCancellation: { schemaVersion: 1, state: 'reconciliation_required', transactionId,
+            buyerId: typeof current.buyerId === 'string' ? current.buyerId : null,
+            sellerId: typeof current.sellerId === 'string' ? current.sellerId : null,
+            source: 'expiry_pending_1h', requestedBy: null, reason: proof.reason,
+            recordedAt: FieldValue.serverTimestamp() } });
+        return false;
+      });
+      if (typeof mayCancel==='object'&&mayCancel?.policyUnknown){
+        await recordPurchasePreparationReview(transactionId,'pending_payment','accepted_preparation_window_unknown_or_changed');return false;
+      }
+      if (!mayCancel) return false;
 
       // 2. Not in flight (requires_payment_method / requires_action /
       //    requires_confirmation / canceled). Cancel the PI so no late capture
@@ -597,13 +527,14 @@ async function expirePendingPayment(
       //    canceled PI (Stripe throws — we swallow that specific case).
       if (piStatus !== 'canceled') {
         try {
-          await stripe.paymentIntents.cancel(paymentIntentId);
+          cancelledPaymentIntent = await stripe.paymentIntents.cancel(paymentIntentId);
           logger.info('[expireOrphanedTransactions] cancelled in-flight-less PI before expiry', {
             transactionId,
             paymentIntentId,
             piStatusBefore: piStatus,
           });
         } catch (cancelErr) {
+      if (cancelErr instanceof FinancialRecoveryBlocked) throw cancelErr;
           // If it became uncancelable between retrieve and cancel (e.g. it just
           // succeeded), defer — never expire a possibly-captured payment.
           logger.warn('[expireOrphanedTransactions] PI cancel failed — deferring expiry', {
@@ -616,19 +547,57 @@ async function expirePendingPayment(
       }
     }
 
+    if(!paymentIntentId&&data.deliveryType==='shipping'){
+      expirySource=await db.runTransaction(async tx=>{
+        const current=(await tx.get(doc.ref)).data();
+        if(!current||current.status!=='pending_payment')return null;
+        const source=await readPurchasePreparationSource(tx,transactionId,current);
+        return source&&source.policyHash===data.purchasePolicy?.hash&&source.windowHash===data.pendingPaymentPolicyWindow?.sourceHash?source:null;
+      });
+      if(!expirySource){await recordPurchasePreparationReview(transactionId,'pending_payment','accepted_preparation_window_unknown_or_changed');return false;}
+      if(Date.now()<expirySource.expiresAtMs)return false;
+    }
+
     // 3. Expire the transaction + release the article atomically. The status
     //    guard inside the transaction keeps this idempotent across runs.
     const expired = await db.runTransaction(async (tx) => {
+    const recoveryCommit = financialRecoveryCommitCheckpoint();
       // ── ALL READS FIRST ──
       const txSnap = await tx.get(doc.ref);
       const txData = txSnap.data();
       if (!txData || txData.status !== 'pending_payment') {
         return false;
       }
+      if (hasActiveBankDispute(txData) || hasUnsettledRefund(txData)) return false;
+      let currentPreparationSource: Awaited<ReturnType<typeof readPurchasePreparationSource>> = null;
+      const currentCreatedAtMs = millisOf(txData.createdAt);
+      if(txData.deliveryType==='shipping'){
+        const source=await readPurchasePreparationSource(tx,transactionId,txData);
+        if(!source||!expirySource||source.sourceHash!==expirySource.sourceHash||Date.now()<source.expiresAtMs)return false;
+        currentPreparationSource = source;
+      } else {
+        const observedAtMs = Date.now();
+        if (currentCreatedAtMs === null || currentCreatedAtMs < 0 || currentCreatedAtMs > observedAtMs ||
+            currentCreatedAtMs + PENDING_PAYMENT_EXPIRY_MS > observedAtMs) return false;
+      }
 
       if ((txData.walletCheckoutOutcome === 'unknown' || txData.walletCheckoutOutcome === 'creating') && !txData.stripePaymentIntentId) return false;
       if (txData.stripePaymentIntentId !== data.stripePaymentIntentId ||
           txData.walletCheckoutAttemptId !== data.walletCheckoutAttemptId) return false;
+
+      const funds = await readPendingCancellationFunds(tx, transactionId, txData, cancelledPaymentIntent);
+      if (!funds.qualified) {
+        await recoveryCommit({refs: [(doc.ref).path]});
+    tx.update(doc.ref, { refundBlocked: true, refundLegacyReconciliationRequired: true,
+          pendingCancellation: { schemaVersion: 1, state: 'reconciliation_required', transactionId,
+            buyerId: typeof txData.buyerId === 'string' ? txData.buyerId : null,
+            sellerId: typeof txData.sellerId === 'string' ? txData.sellerId : null,
+            source: 'expiry_pending_1h', requestedBy: null, reason: funds.reason,
+            recordedAt: FieldValue.serverTimestamp() } });
+        logger.warn('[expireOrphanedTransactions] Pending cancellation requires reconciliation',
+          { transactionId, reason: funds.reason });
+        return false;
+      }
 
       let articleSnap: FirebaseFirestore.DocumentSnapshot | null = null;
       const articleRef = txData.articleId
@@ -638,31 +607,35 @@ async function expirePendingPayment(
         articleSnap = await tx.get(articleRef);
       }
 
-      // F22: a mixed (wallet_and_card) / wallet 'pending_payment' tx had its
-      // wallet part debited at createStripeCheckout time. If the buyer abandoned
-      // the Payment Sheet, that debit must be restored on expiry — same wallet
-      // reconciliation as cancelPendingTransaction. The status guard above makes
-      // this idempotent: a re-run sees 'cancelled' and never double-credits.
-      const walletAmountUsed =
-        typeof txData.walletAmountUsed === 'number' ? txData.walletAmountUsed : 0; // cents
-      const hasWalletDebit =
-        walletAmountUsed > 0 &&
-        (txData.paidVia === 'wallet_and_card' || txData.paidVia === 'wallet');
-      let buyerWalletSnap: FirebaseFirestore.DocumentSnapshot | null = null;
-      let buyerWalletRef: FirebaseFirestore.DocumentReference | null = null;
-      if (hasWalletDebit && typeof txData.buyerId === 'string' && txData.buyerId.length > 0) {
-        buyerWalletRef = db.collection('wallets').doc(txData.buyerId);
-        buyerWalletSnap = await tx.get(buyerWalletRef);
-      }
+      // Restore only the debit just qualified in the ledger/intention. A new
+      // manual checkout reserves this amount at confirmation, not preparation.
+      // Cancellation, one deterministic credit and its receipt commit together.
+      const walletAmountUsed = funds.walletAmount;
+      const hasWalletDebit = walletAmountUsed > 0;
 
       const articleUnlock = articleRef && articleSnap?.exists
         ? await articleReleaseUpdate(tx, articleRef, articleSnap.data()!, transactionId) : null;
 
+      const notices = await prepareOperationalNotices(tx, expirationNotices(transactionId, txData, 'pending_payment_expired_1h'));
+      const decisionId = 'transaction_expired_' + createHash('sha256')
+        .update(JSON.stringify([transactionId, 'pending_payment_expired_1h'])).digest('hex');
+      const decisionRef = db.collection('automatic_decisions_log').doc(decisionId), priorDecision = await tx.get(decisionRef);
+      // A matching status transition is the native replay guard above. A lone
+      // explanation on a STILL pending order is not proof of its cancellation.
+      if (priorDecision.exists) {
+        logger.warn('[expireOrphanedTransactions] Expiry decision requires reconciliation', {transactionId, decisionId});
+        return false;
+      }
       // ── ALL WRITES AFTER ALL READS ──
       const txUpdate: Record<string, any> = {
         status: 'cancelled',
         cancelledAt: FieldValue.serverTimestamp(),
         cancelReason: 'pending_payment_expired_1h',
+        pendingCancellation: { schemaVersion: 1, state: 'committed', transactionId,
+          buyerId: txData.buyerId, sellerId: txData.sellerId, source: 'expiry_pending_1h', requestedBy: null,
+          walletRefundCents: walletAmountUsed, purchaseDebitLedgerId: funds.debitLedgerId,
+          walletRefundLedgerId: hasWalletDebit ? funds.creditRef.id : null,
+          cardCapabilityNeutralized: true,...(expirySource?{preparationPolicySource:expirySource}:{}), committedAt: FieldValue.serverTimestamp() },
       };
       // F22/F73: clear the wallet markers so the PI (already cancelled in step 2)
       // can never drive a second wallet re-credit via issueTransactionRefund.
@@ -670,26 +643,28 @@ async function expirePendingPayment(
         txUpdate.walletAmountUsed = FieldValue.delete();
         txUpdate.paidVia = FieldValue.delete();
       }
-      tx.update(doc.ref, txUpdate);
+      await recoveryCommit({refs: [(doc.ref).path]});
+    tx.update(doc.ref, txUpdate);
 
       if (articleRef && articleUnlock) {
-        tx.update(articleRef, articleUnlock);
+        commitArticleRelease(tx, articleRef, articleUnlock);
       }
 
-      if (hasWalletDebit && buyerWalletRef && buyerWalletSnap && buyerWalletSnap.exists) {
-        const walletData = buyerWalletSnap.data()!;
-        tx.update(buyerWalletRef, {
+      if (hasWalletDebit && funds.wallet) {
+        await recoveryCommit({refs: [(funds.walletRef).path]});
+    tx.update(funds.walletRef, await financialRecoveryWalletFields(funds.walletRef,funds.wallet,{
           balance: FieldValue.increment(walletAmountUsed),
           updatedAt: FieldValue.serverTimestamp(),
-        });
+        },{balance: ((funds.wallet)["balance"]??0) + (walletAmountUsed)}));
 
-        const buyerLedgerRef = buyerWalletRef.collection('ledger').doc();
-        tx.set(buyerLedgerRef, {
+        await recoveryCommit({refs: [(funds.creditRef).path]});
+    tx.create(funds.creditRef, {
           type: 'refund_credit',
           amount: walletAmountUsed,
-          balanceAfter: (walletData.balance || 0) + walletAmountUsed,
+          balanceAfter: funds.wallet.balance + walletAmountUsed,
           description: 'Remboursement — paiement non finalisé (porte-monnaie)',
           transactionId,
+          currency: 'CAD', purchaseDebitLedgerId: funds.debitLedgerId,
           createdAt: FieldValue.serverTimestamp(),
         });
 
@@ -699,43 +674,32 @@ async function expirePendingPayment(
           walletAmountRefunded: walletAmountUsed,
         });
       }
+      if (funds.intent) { await recoveryCommit({refs: [(funds.intentRef).path]}); tx.update(funds.intentRef, { state: 'canceled', providerStatus: 'canceled',
+        cardCapabilityNeutralized: true, walletRestitutionLedgerId: hasWalletDebit ? funds.creditRef.id : null,
+        cancelledAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }); }
+      // The local cancellation, any attributed wallet restitution, notices and
+      // explanation share ONE commit. This describes the local decision; it
+      // does not turn an earlier provider call into a new banking attestation.
+      await recoveryCommit({refs: [(decisionRef).path]});
+    tx.create(decisionRef, {transactionId, userId: txData.buyerId, decisionType: 'transaction_expired',
+        buyerId: txData.buyerId, sellerId: txData.sellerId,
+        criteria: {status: txData.status, cancelReason: 'pending_payment_expired_1h',
+          ...(currentPreparationSource ? {clockBasis: currentPreparationSource.clockBasis,
+            nativeStartsAtMs: currentPreparationSource.startsAtMs, nativeDeadlineMs: currentPreparationSource.expiresAtMs,
+            policyVersion: currentPreparationSource.policyVersion, policyHash: currentPreparationSource.policyHash,
+            preparationSourceHash: currentPreparationSource.sourceHash, preparationWindowHash: currentPreparationSource.windowHash} :
+            {clockBasis: 'created_at', expiryWindowHours: 1, nativeStartsAtMs: currentCreatedAtMs,
+              nativeDeadlineMs: currentCreatedAtMs! + PENDING_PAYMENT_EXPIRY_MS}),
+          orderSourceRevision: txSnap.updateTime ? `${txSnap.updateTime.seconds}:${txSnap.updateTime.nanoseconds}` : null},
+        result: 'Commande annulée automatiquement après l’échéance de finalisation du paiement.',
+        executedAt: FieldValue.serverTimestamp()});
+      notices.commit();
       return true;
     });
 
-    if (expired) {
-      // Loi 25 art. 12.1 — journal the AUTOMATED expiry decision (best-effort).
-      await logAutomatedDecision({
-        transactionId,
-        userId: typeof data.buyerId === 'string' ? data.buyerId : '',
-        decisionType: 'transaction_expired',
-        criteria: {
-          status: 'pending_payment',
-          expiryWindowHours: 1,
-          cancelReason: 'pending_payment_expired_1h',
-        },
-        result: 'Transaction annulée (paiement non finalisé sous 1h)',
-      });
-
-      // Transparency notification to the buyer (best-effort).
-      if (typeof data.buyerId === 'string' && data.buyerId.length > 0) {
-        const articleTitle = data.articleTitle || 'votre commande';
-        sendPushNotification(
-          data.buyerId,
-          'Commande annulée automatiquement',
-          `Votre commande ${articleTitle} a été annulée automatiquement : le paiement n'a pas été finalisé dans le délai imparti (1 h). Si vous contestez cette décision, vous pouvez nous le signaler.`,
-          { transactionId, articleId: data.articleId || '' },
-          'order_cancelled'
-        ).catch((err) => {
-          logger.warn('[expireOrphanedTransactions] Failed to notify buyer of pending_payment expiry', {
-            transactionId,
-            error: err instanceof Error ? err.message : err,
-          });
-        });
-      }
-    }
-
     return expired;
   } catch (err) {
+      if (err instanceof FinancialRecoveryBlocked) throw err;
     logger.error('[expireOrphanedTransactions] Error expiring pending_payment transaction', {
       transactionId,
       error: err instanceof Error ? err.message : err,
@@ -791,105 +755,42 @@ async function refundPaidNotShipped(
   }
 
   try {
-    // -----------------------------------------------------------------------
-    // PHASE 1 — INTENT: mark refund_in_progress atomically (idempotent).
-    // Acts on a still-'paid' tx OR resumes a tx already flagged
-    // refund_in_progress (crash recovery on a prior run / section-4 resume).
-    // -----------------------------------------------------------------------
-    const intent = await db.runTransaction(async (tx) => {
-      const txSnap = await tx.get(doc.ref);
-      const txData = txSnap.data();
-      if (!txData) return { proceed: false as const, preData: null };
-
-      if (txData.status === 'paid') {
-        tx.update(doc.ref, {
-          status: 'refund_in_progress',
-          refundReason: 'seller_did_not_ship_7d',
-          refundStartedAt: FieldValue.serverTimestamp(),
-        });
-        return { proceed: true as const, preData: txData };
-      }
-
-      if (txData.status === 'refund_in_progress') {
-        // Resume an interrupted refund from a previous run.
-        return { proceed: true as const, preData: txData };
-      }
-
-      // Any other status (cancelled/refunded/shipped/...) → nothing to do.
-      return { proceed: false as const, preData: null };
-    });
-
-    if (!intent.proceed || !intent.preData) {
+    const fresh = (await doc.ref.get()).data();
+    if (!fresh || (!fresh.refund && fresh.status !== 'paid' && fresh.status !== 'refund_in_progress')) return false;
+    const expiry = fresh.refund ? null : nonShipmentExpirySource(fresh, transactionId);
+    if (!fresh.refund && !expiry) {
+      const timeline = purchasePolicyTimeline(fresh, transactionId);
+      if (timeline.reviewRequired || fresh.nonShipmentPolicyWindow == null) await db.runTransaction(async tx => {
+    const recoveryCommit = financialRecoveryCommitCheckpoint();
+        const current = (await tx.get(doc.ref)).data();
+        const alertRef = db.collection('admin_alerts').doc(`purchase_policy_${transactionId}`), alert = await tx.get(alertRef);
+        if (!current || current.refund || current.status !== 'paid' || nonShipmentExpirySource(current, transactionId)) return;
+        if (current.nonShipmentPolicyWindow != null && !purchasePolicyTimeline(current, transactionId).reviewRequired) return;
+        if (!alert.exists) { await recoveryCommit({refs: [(alertRef).path]}); tx.create(alertRef, { kind: 'purchase_policy_reconciliation', refId: transactionId, status: 'open',
+          message: 'Rapprocher la politique acceptée, le paiement enregistré et les scans avant une décision sur cette vente.', createdAt: FieldValue.serverTimestamp() }); }
+        await recoveryCommit({refs: [(doc.ref).path]});
+    tx.update(doc.ref, { purchasePolicyReviewRequired: true, purchasePolicyReviewReason: 'non_shipment_clock_reconciliation_required' });
+      });
       return false;
     }
-
-    // -----------------------------------------------------------------------
-    // PHASE 2 — CORE: shared idempotent Stripe refund + atomic reconciliation.
-    // The core issues a plain platform-charge refund (single-rail model),
-    // re-credits the buyer wallet portion, debits the seller
-    // exactly sellerCreditedCents, re-lists the article, sets status='refunded'.
-    // On Stripe failure it dead-letters (stripe_refund_failed, key rf_${txId})
-    // and throws — we leave the tx in refund_in_progress for the next run.
-    // -----------------------------------------------------------------------
-    await issueTransactionRefund(transactionId, intent.preData, {
-      reason: 'seller_did_not_ship_7d',
-      idempotencyKey: `rf_${transactionId}`,
-      // Item never shipped — it still exists, so re-list it (default).
-      relistArticle: true,
-      source: 'expireOrphanedTransactions_paidNotShipped',
+    const result = fresh.refund ? await resumeTransactionRefund(transactionId) : await issueTransactionRefund(transactionId, fresh, {
+      reason: 'seller_did_not_ship_7d', idempotencyKey: 'rf_' + transactionId, relistArticle: true,
+      source: 'expireOrphanedTransactions_paidNotShipped', allowedInitialStatuses: ['paid', 'refund_in_progress'],
+      nonShipmentExpiry: expiry!,
     });
+    if (!result.success) return false;
+    const settled = (await doc.ref.get()).data();
+    // Another initiator owns its reason, partial amounts and audit context.
+    if (settled?.refund?.source !== 'expireOrphanedTransactions_paidNotShipped') return true;
 
-    // -----------------------------------------------------------------------
-    // PHASE 3 — STAMP audit fields the generic core does not own. Best-effort
-    // merge — the core already set status='refunded' + refundedAt atomically.
-    // -----------------------------------------------------------------------
-    await doc.ref
-      .update({
-        cancelledAt: FieldValue.serverTimestamp(),
-        cancelReason: 'seller_did_not_ship_7d',
-      })
-      .catch((err) =>
-        logger.warn('[expireOrphanedTransactions] failed to stamp cancel fields after refund', {
-          transactionId,
-          error: err instanceof Error ? err.message : err,
-        })
-      );
-
-    // Loi 25 art. 12.1 — journal the AUTOMATED expiry+refund decision
-    // (best-effort, never affects the refund already committed by the core).
-    await logAutomatedDecision({
-      transactionId,
-      userId: typeof data.buyerId === 'string' ? data.buyerId : '',
-      decisionType: 'transaction_expired',
-      criteria: {
-        status: 'paid',
-        expiryWindowDays: 7,
-        cancelReason: 'seller_did_not_ship_7d',
-      },
-      result: 'Commande annulée et remboursée (vendeur n\'a pas expédié sous 7 jours)',
-    });
-
-    // Notify buyer that the order was cancelled and refunded (non-blocking).
-    // ENRICHED for Loi 25 transparency: states the decision was AUTOMATIC and
-    // that it can be contested (right to human review).
-    if (data.buyerId) {
-      const articleTitle = data.articleTitle || 'votre article';
-      sendPushNotification(
-        data.buyerId,
-        'Commande annulée et remboursée automatiquement',
-        `Votre commande ${articleTitle} a été annulée automatiquement car le vendeur n'a pas expédié dans les délais (7 jours). Le remboursement est en cours. Si vous contestez cette décision, vous pouvez nous le signaler.`,
-        { transactionId, articleId: data.articleId || '' },
-        'order_cancelled'
-      ).catch((err) => {
-        logger.warn('[expireOrphanedTransactions] Failed to notify buyer of paid expiry', {
-          transactionId,
-          error: err instanceof Error ? err.message : err,
-        });
-      });
-    }
+    // The native refund core commits cancellation metadata and its immutable
+    // explanation WITH the local settlement. A replay never rewrites its date.
+    // The qualified refund core already committed both party notices. An
+    // automatic cancellation must not emit a detached duplicate refund claim.
 
     return true;
   } catch (err) {
+      if (err instanceof FinancialRecoveryBlocked) throw err;
     // issueTransactionRefund already dead-lettered a Stripe failure with the
     // deterministic key; the tx stays refund_in_progress so section 4 re-drives
     // it next run. Just log domain context.

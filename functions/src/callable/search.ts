@@ -12,9 +12,11 @@ import { PredictionServiceClient, helpers } from '@google-cloud/aiplatform';
 import { db, FieldValue } from '../config/firebase';
 import { checkRateLimit, resolveCallerKey } from '../utils/rateLimit';
 import { generateAndStoreEmbedding } from '../triggers/embeddings';
+import {assertPrivateAccountSession,withPrivateAccountSession} from '../utils/privateAccountSession';
+import { isIndexableArticle } from '../utils/search';
+import { requireRuntimeProjectId } from '../config/runtimeEnvironment';
 
 // Vertex AI configuration (same as triggers/embeddings.ts)
-const VERTEX_PROJECT = process.env.GCLOUD_PROJECT || 'seconde-b47a6';
 const VERTEX_LOCATION = 'us-central1';
 const EMBEDDING_MODEL = 'multimodalembedding@001';
 
@@ -47,7 +49,7 @@ function getVertexClient(): PredictionServiceClient {
 async function generateQueryEmbedding(imageBase64: string): Promise<number[] | null> {
   try {
     const client = getVertexClient();
-    const endpoint = `projects/${VERTEX_PROJECT}/locations/${VERTEX_LOCATION}/publishers/google/models/${EMBEDDING_MODEL}`;
+    const endpoint = `projects/${requireRuntimeProjectId()}/locations/${VERTEX_LOCATION}/publishers/google/models/${EMBEDDING_MODEL}`;
 
     const instanceValue = helpers.toValue({
       image: { bytesBase64Encoded: imageBase64 },
@@ -201,10 +203,8 @@ export const visualSearch = onCall(
       const article = articlesMap.get(doc.id);
       if (!article) continue;
 
-      // The embeddings collection only tracks `isActive`, not `isSold`, so a
-      // sold (but still active) article would otherwise leak into results.
-      // Filter it out post-fetch using the freshly loaded article doc.
-      if (article.isSold === true || article.isActive === false) continue;
+      // The projection is asynchronous: always recheck current public visibility.
+      if (!isIndexableArticle(article) || doc.data().imageUrl !== article.images?.[0]?.url) continue;
 
       // Cosine distance to similarity percentage (1 - distance) * 100
       const distance = doc.get('vector_distance') || 0;
@@ -263,9 +263,12 @@ export const getSimilarProducts = onCall(
     }
 
     // 1. Get source article embedding
-    const embeddingDoc = await db.collection('embeddings').doc(articleId).get();
+    const [embeddingDoc, sourceArticle] = await Promise.all([
+      db.collection('embeddings').doc(articleId).get(),
+      db.collection('articles').doc(articleId).get(),
+    ]);
 
-    if (!embeddingDoc.exists) {
+    if (!embeddingDoc.exists || !sourceArticle.exists || !isIndexableArticle(sourceArticle.data()!)) {
       // No embedding yet, return empty with fallback flag
       return { results: [], fallback: true };
     }
@@ -273,7 +276,7 @@ export const getSimilarProducts = onCall(
     const embeddingData = embeddingDoc.data()!;
     const sourceEmbedding = embeddingData.embedding;
 
-    if (!sourceEmbedding) {
+    if (!sourceEmbedding || embeddingData.imageUrl !== sourceArticle.data()!.images?.[0]?.url) {
       return { results: [], fallback: true };
     }
 
@@ -351,10 +354,7 @@ export const getSimilarProducts = onCall(
       const article = articlesMap.get(doc.id);
       if (!article) continue;
 
-      // The embeddings collection only tracks `isActive`, not `isSold`, so a
-      // sold (but still active) article would otherwise leak into results.
-      // Filter it out post-fetch using the freshly loaded article doc.
-      if (article.isSold === true || article.isActive === false) continue;
+      if (!isIndexableArticle(article) || doc.data().imageUrl !== article.images?.[0]?.url) continue;
 
       const distance = doc.get('vector_distance') || 0;
 
@@ -426,7 +426,7 @@ export const backfillEmbeddings = onCall(
     timeoutSeconds: 540, // 9 minutes max (Cloud Functions v2 limit is 540s for callable)
     memory: '1GiB',
   },
-  async (request) => {
+  async (request) => withPrivateAccountSession(request, async () => {
     // Auth check: must be authenticated
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentication required');
@@ -434,16 +434,14 @@ export const backfillEmbeddings = onCall(
 
     // Admin check: verify custom claim or isAdmin field in Firestore
     const uid = request.auth.uid;
-    const isAdminClaim = request.auth.token.admin === true;
-
-    if (!isAdminClaim) {
-      // Fallback: check Firestore user doc for isAdmin field
-      const userDoc = await db.collection('users').doc(uid).get();
-      const userData = userDoc.data();
-      if (!userData?.isAdmin) {
-        throw new HttpsError('permission-denied', 'Admin access required');
-      }
-    }
+    const admit = async (tx?: FirebaseFirestore.Transaction): Promise<void> => {
+      if (!tx) return db.runTransaction(current => admit(current));
+      const session = await assertPrivateAccountSession(request,tx);
+      const admin = (await tx.get(db.collection('users').doc(uid))).data();
+      if (admin?.isActive === false || !session.currentAdminClaim && admin?.isAdmin !== true)
+        throw new HttpsError('permission-denied','Admin access required');
+    };
+    await admit();
 
     const batchSize = Math.min(
       Math.max(request.data?.batchSize || BACKFILL_BATCH_SIZE, 1),
@@ -456,8 +454,10 @@ export const backfillEmbeddings = onCall(
     const articlesSnapshot = await db.collection('articles')
       .where('isActive', '==', true)
       .where('isSold', '==', false)
-      .select('images', 'categoryIds', 'category', 'brand', 'price', 'isActive')
+      .select('images', 'categoryIds', 'category', 'brand', 'price', 'isActive', 'isSold',
+        'moderationStatus', 'privacyWithdrawal', 'sellerId')
       .get();
+    await admit();
 
     if (articlesSnapshot.empty) {
       logger.info('[backfillEmbeddings] No active articles found');
@@ -471,6 +471,7 @@ export const backfillEmbeddings = onCall(
     const embeddingsSnapshot = await db.collection('embeddings')
       .select() // only need doc IDs, no fields
       .get();
+    await admit();
 
     for (const doc of embeddingsSnapshot.docs) {
       existingEmbeddingIds.add(doc.id);
@@ -484,7 +485,7 @@ export const backfillEmbeddings = onCall(
       if (!existingEmbeddingIds.has(doc.id)) {
         const data = doc.data();
         // Only include articles with at least one image
-        if (data.images?.[0]?.url) {
+        if (isIndexableArticle(data) && data.images?.[0]?.url) {
           missingArticles.push({ id: doc.id, data });
         }
       }
@@ -504,12 +505,26 @@ export const backfillEmbeddings = onCall(
 
     for (let i = 0; i < toProcess.length; i++) {
       const { id, data } = toProcess[i];
+      let authorizationFailure: unknown;
+      const authorize = async (tx?: FirebaseFirestore.Transaction): Promise<void> => {
+        if (!tx) return db.runTransaction(current => authorize(current));
+        try {
+          await admit(tx);
+          const current = (await tx.get(db.collection('articles').doc(id))).data();
+          if (!current || !isIndexableArticle(current) ||
+              current.sellerId !== data.sellerId || current.images?.[0]?.url !== data.images?.[0]?.url)
+            throw new HttpsError('failed-precondition','La source de cet article a changé. Relancez le rattrapage après vérification.');
+        } catch (error) {authorizationFailure=error;throw error;}
+      };
 
       try {
-        await generateAndStoreEmbedding(id, data);
+        await authorize();
+        await generateAndStoreEmbedding(id, data, authorize);
 
         // Verify the embedding was actually stored
+        await authorize();
         const embDoc = await db.collection('embeddings').doc(id).get();
+        await authorize();
         if (embDoc.exists) {
           succeeded++;
         } else {
@@ -517,6 +532,8 @@ export const backfillEmbeddings = onCall(
           errors.push({ articleId: id, error: 'Embedding generation returned no error but doc was not stored' });
         }
       } catch (error) {
+        if (error === authorizationFailure) throw error;
+        await admit();
         failed++;
         const errorMessage = error instanceof Error ? error.message : String(error);
         errors.push({ articleId: id, error: errorMessage });
@@ -536,9 +553,10 @@ export const backfillEmbeddings = onCall(
       remaining: missingArticles.length - toProcess.length,
       errors: errors.slice(0, 50), // Cap error list to avoid huge responses
     };
+    await admit();
 
     logger.info('[backfillEmbeddings] Backfill complete', result);
 
     return result;
-  }
+  })
 );

@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MeetupNeighborhood } from '@/types';
 import { getNeighborhoodById } from '@/data/neighborhoods';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing } from '@/constants/theme';
 
 // Quick-pick tags resolved from the canonical neighborhood catalogue so the
 // emitted objects carry the real id + borough (validated server-side, B4).
@@ -29,30 +29,37 @@ export const HandDeliveryCard = React.memo(function HandDeliveryCard({
   onViewMore,
 }: HandDeliveryCardProps) {
   return (
-    <Pressable
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.deliveryCard,
         isActive && styles.deliveryCardActive,
-        pressed && { opacity: 0.7 },
       ]}
-      onPress={onToggle}
     >
-      <View style={styles.deliveryCardHeader}>
-        <View
-          style={[
-            styles.radioOuter,
-            isActive && styles.radioOuterActive,
-          ]}
-        >
-          {isActive && <View style={styles.radioInner} />}
-        </View>
+      {/* Seul l'en-tête bascule l'option : un appui sur le corps désactivait la
+          seule livraison disponible. */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.deliveryCardHeader,
+          pressed && { opacity: 0.7 },
+        ]}
+        onPress={onToggle}
+        accessibilityRole="checkbox"
+        accessibilityLabel="Remise en main propre"
+        accessibilityState={{ checked: isActive }}
+      >
+        <Ionicons
+          name={isActive ? 'checkbox' : 'square-outline'}
+          size={20}
+          color={isActive ? colors.charcoal : colors.borderStrong}
+          style={styles.checkbox}
+        />
         <View style={styles.deliveryCardContent}>
           <Text style={styles.deliveryCardTitle}>Remise en main propre</Text>
           <Text style={styles.deliveryCardSubtitle}>
             Rencontre dans un quartier de Montréal
           </Text>
         </View>
-      </View>
+      </Pressable>
 
       {isActive && (
         <View style={styles.deliveryBody}>
@@ -101,7 +108,7 @@ export const HandDeliveryCard = React.memo(function HandDeliveryCard({
           {selectedNeighborhoods.filter(
             (n) => !QUICK_TAG_ID_SET.has(n.id),
           ).length > 0 && (
-            <View style={[styles.deliveryTagRow, { marginTop: 6 }]}>
+            <View style={[styles.deliveryTagRow, styles.extraNeighborhoods]}>
               {selectedNeighborhoods
                 .filter((n) => !QUICK_TAG_ID_SET.has(n.id))
                 .map((n) => (
@@ -126,7 +133,7 @@ export const HandDeliveryCard = React.memo(function HandDeliveryCard({
                       name="close"
                       size={10}
                       color={colors.cream}
-                      style={{ marginLeft: 4 }}
+                      style={styles.removeIcon}
                     />
                   </Pressable>
                 ))}
@@ -134,7 +141,7 @@ export const HandDeliveryCard = React.memo(function HandDeliveryCard({
           )}
         </View>
       )}
-    </Pressable>
+    </View>
   );
 });
 
@@ -157,24 +164,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.borderStrong,
-    justifyContent: 'center',
-    alignItems: 'center',
+  checkbox: {
     flexShrink: 0,
-  },
-  radioOuterActive: {
-    borderColor: colors.charcoal,
-  },
-  radioInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.charcoal,
   },
   deliveryCardContent: {
     flex: 1,
@@ -209,6 +200,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   deliveryTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: '100%',
+    gap: spacing.xs,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderWidth: 1,
@@ -220,12 +215,19 @@ const styles = StyleSheet.create({
     borderColor: colors.charcoal,
   },
   deliveryTagText: {
+    flexShrink: 1,
     fontFamily: fonts.sans,
     fontSize: 11,
     color: colors.charcoal,
   },
   deliveryTagTextActive: {
     color: colors.cream,
+  },
+  extraNeighborhoods: {
+    marginTop: spacing.sm,
+  },
+  removeIcon: {
+    flexShrink: 0,
   },
   deliveryTagMore: {
     flexDirection: 'row',

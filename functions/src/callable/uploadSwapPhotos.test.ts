@@ -8,7 +8,7 @@ const storageState = vi.hoisted(() => ({
 }));
 const fs = createFirestoreMock();
 holder.fs = fs;
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() { return holder.fs!.db; },
   get FieldValue() { return holder.fs!.FieldValue; },
   storage: { bucket: () => ({ name: 'test-bucket', file: (path: string) => ({ getMetadata: () => storageState.getMetadata(path) }) }) },
@@ -29,7 +29,7 @@ import { uploadSwapPhotos } from './swaps';
 const call = uploadSwapPhotos as unknown as (request: { auth: { uid: string }; data: { swapId: string; photoUrls: unknown[] } }) => Promise<unknown>;
 const path = (uid: string, name = 'proof.jpg') => `swaps/swap-1/photos/${uid}/${name}`;
 const url = (objectPath: string, bucket = 'test-bucket') => `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(objectPath)}?alt=media&token=test`;
-const request = (uid = 'alice', photoUrls: unknown[] = [url(path(uid))]) => ({ auth: { uid }, data: { swapId: 'swap-1', photoUrls } });
+const request = (uid = 'alice', photoUrls: unknown[] = [url(path(uid))]) => ({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid }, data: { expectedUid: uid, swapId: 'swap-1', photoUrls } });
 const swap = { initiatorId: 'alice', receiverId: 'bob', status: 'photos_pending' };
 
 beforeEach(() => {

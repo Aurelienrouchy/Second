@@ -30,9 +30,14 @@ import {
   getStatusDescription,
   getStatusLabel,
   getStatusVariant,
-} from '@/lib/transactionStatusMeta';
+} from '@/features/orders/lib/transactionStatusMeta';
 
 describe('transactionStatusMeta — perspectives acheteur vs vendeur', () => {
+  it.each(['buyer', 'seller'] as const)('une remise déclarée terminée ne certifie aucun règlement externe (%s)', perspective => {
+    expect(getStatusLabel('meetup_completed', perspective)).toBe('Remise déclarée terminée');
+    expect(getStatusDescription('meetup_completed', perspective)).toBe('Un participant a déclaré la remise terminée. Le paiement reste hors plateforme.');
+    expect(getStatusDescription('meetup_completed', perspective)).not.toMatch(/paiement (reçu|confirmé)|fonds disponibles/i);
+  });
   it('formule différemment le statut "paid" selon la perspective (même statut technique)', () => {
     // Le paiement est reçu : l'acheteur voit "en préparation", le vendeur voit
     // l'action attendue "À expédier".

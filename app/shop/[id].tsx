@@ -1,9 +1,9 @@
+import { PAYMENTS_ENABLED, SQUARE_INVENTORY_PILOT_ENABLED } from '@/config/featureFlags';
 /**
  * Shop Detail Page
  * Displays complete information about a physical shop
  */
 
-import { PAYMENTS_ENABLED } from '@/config/featureFlags';
 import { ShopService } from '@/services/shopService';
 import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
@@ -14,18 +14,20 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Linking,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { ScreenHeader } from '@/components/ui';
+import { Button, ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Image } from 'expo-image';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { colors } from '@/constants/theme';
-import { useUser } from '@/hooks/useAuth';
+import { colors, sizing, spacing } from '@/constants/theme';
+import { useAuthenticatedUid, useUser } from '@/hooks/useAuth';
+import { captureTradeSession } from '@/services/tradeOperation';
 
 // react-native-maps : on utilise le provider natif par défaut (Apple Maps sur iOS,
 // Google Maps natif sur Android). PROVIDER_GOOGLE sur iOS exigerait une clé Maps
@@ -39,18 +41,33 @@ const getCountryLabel = (country: string) => COUNTRY_LABELS[country] ?? country;
 
 export default function ShopDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: routeId } = useLocalSearchParams<{ id: string | string[] }>();
+  const id = typeof routeId === 'string' && routeId.trim() === routeId && !routeId.includes('/') ? routeId : '';
   const user = useUser();
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const uid = useAuthenticatedUid();
+  const [gallerySelection, setGallerySelection] = useState({shopId: id, index: 0});
+  const contactLock = useRef(false);
 
-  const { data: shop = null, isLoading } = useQuery<Shop | null>({
+  const { data: shop = null, isLoading, isError, refetch } = useQuery<Shop | null>({
     queryKey: queryKeys.shops.detail(id ?? ''),
     queryFn: () => ShopService.getShopById(id!),
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
   });
+  const selectedImageIndex = gallerySelection.shopId === id && gallerySelection.index < (shop?.images?.length ?? 0) ? gallerySelection.index : 0;
+  const setSelectedImageIndex = (index: number) => setGallerySelection({shopId: id, index});
 
   const isOwner = !!shop && !!user && shop.ownerId === user.id;
+  const canOpenSquare = SQUARE_INVENTORY_PILOT_ENABLED && !!uid && isOwner && shop?.ownerId === uid &&
+    (shop.status === 'approved' || shop.status === 'pending');
+  const openSquare = () => {
+    if (!canOpenSquare || !uid || !shop) return;
+    try { captureTradeSession(uid); } catch { return; }
+    router.push({ pathname: '/shop/square', params: { shopId: shop.id } });
+  };
+  const mapCoordinates = typeof shop?.location.latitude === 'number' && Number.isFinite(shop.location.latitude) && Math.abs(shop.location.latitude) <= 90 &&
+    typeof shop.location.longitude === 'number' && Number.isFinite(shop.location.longitude) && Math.abs(shop.location.longitude) <= 180
+    ? {latitude: shop.location.latitude, longitude: shop.location.longitude} : null;
 
   const shopViewedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -67,25 +84,36 @@ export default function ShopDetailScreen() {
     });
   }, [isLoading, shop, isOwner]);
 
+  const openContact = async (url: string) => {
+    if (contactLock.current) return;
+    contactLock.current = true;
+    try {await Linking.openURL(url);}
+    catch {Alert.alert('Ouverture impossible', 'Cette action n’est pas disponible sur votre appareil pour le moment.');}
+    finally {contactLock.current = false;}
+  };
+
   const handleCall = () => {
     if (shop?.phoneNumber) {
       track('shop_contact_tapped', { shop_id: shop.id, channel: 'phone' });
-      Linking.openURL(`tel:${shop.phoneNumber}`);
+      void openContact(`tel:${shop.phoneNumber}`);
     }
   };
 
   const handleEmail = () => {
     if (shop?.email) {
       track('shop_contact_tapped', { shop_id: shop.id, channel: 'email' });
-      Linking.openURL(`mailto:${shop.email}`);
+      void openContact(`mailto:${shop.email}`);
     }
   };
 
   const handleWebsite = () => {
     if (shop?.website) {
       track('shop_contact_tapped', { shop_id: shop.id, channel: 'website' });
-      const url = shop.website.startsWith('http') ? shop.website : `https://${shop.website}`;
-      Linking.openURL(url);
+      try {
+        const url = new URL(/^https?:\/\//i.test(shop.website) ? shop.website : `https://${shop.website}`);
+        if (!['https:', 'http:'].includes(url.protocol)) throw new Error('Invalid website');
+        void openContact(url.toString());
+      } catch {Alert.alert('Site indisponible', 'Le lien de cette boutique ne peut pas être ouvert.');}
     }
   };
 
@@ -98,10 +126,10 @@ export default function ShopDetailScreen() {
     track('shop_contact_tapped', { shop_id: shop.id, channel: platform });
 
     const url = platform === 'instagram'
-      ? `https://instagram.com/${username}`
-      : `https://facebook.com/${username}`;
+      ? `https://instagram.com/${encodeURIComponent(username.replace(/^@/, ''))}`
+      : `https://facebook.com/${encodeURIComponent(username.replace(/^@/, ''))}`;
 
-    Linking.openURL(url);
+    void openContact(url);
   };
 
   const renderOpeningHours = () => {
@@ -177,6 +205,14 @@ export default function ShopDetailScreen() {
     );
   }
 
+  if (isError) return <View style={styles.container}>
+    <ScreenHeader title="Boutique" onBack={() => router.back()}/>
+    <View style={styles.errorContainer}>
+      <Text style={styles.errorText}>Impossible de charger cette boutique.</Text>
+      <Pressable accessibilityRole="button" style={styles.actionButton} onPress={() => {void refetch();}}><Text style={styles.actionButtonText}>Réessayer</Text></Pressable>
+    </View>
+  </View>;
+
   if (!shop) {
     return (
       <View style={styles.container}>
@@ -199,6 +235,7 @@ export default function ShopDetailScreen() {
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={colors.muted} />
           <Text style={styles.unavailableText}>Boutique indisponible</Text>
+          {canOpenSquare && <Button variant="secondary" onPress={openSquare}>Tester Square</Button>}
         </View>
       </View>
     );
@@ -265,14 +302,14 @@ export default function ShopDetailScreen() {
 
           {/* Contact Actions */}
           <View style={styles.actionsContainer}>
-            <Pressable style={styles.actionButton} onPress={handleCall}>
+            {shop.phoneNumber ? <Pressable style={styles.actionButton} onPress={handleCall}>
               <Ionicons name="call-outline" size={20} color={colors.primary} />
               <Text style={styles.actionButtonText}>Appeler</Text>
-            </Pressable>
-            <Pressable style={styles.actionButton} onPress={handleEmail}>
+            </Pressable> : null}
+            {shop.email ? <Pressable style={styles.actionButton} onPress={handleEmail}>
               <Ionicons name="mail-outline" size={20} color={colors.primary} />
               <Text style={styles.actionButtonText}>Email</Text>
-            </Pressable>
+            </Pressable> : null}
             {shop.website && (
               <Pressable style={styles.actionButton} onPress={handleWebsite}>
                 <Ionicons name="globe-outline" size={20} color={colors.primary} />
@@ -295,23 +332,20 @@ export default function ShopDetailScreen() {
           </View>
 
           {/* Map */}
-          {shop.location && (
+          {mapCoordinates && (
             <View style={styles.mapContainer}>
               <MapView
                 style={styles.map}
                 provider={mapProvider}
                 initialRegion={{
-                  latitude: shop.location.latitude,
-                  longitude: shop.location.longitude,
+                  latitude: mapCoordinates.latitude,
+                  longitude: mapCoordinates.longitude,
                   latitudeDelta: 0.01,
                   longitudeDelta: 0.01,
                 }}
               >
                 <Marker
-                  coordinate={{
-                    latitude: shop.location.latitude,
-                    longitude: shop.location.longitude,
-                  }}
+                  coordinate={mapCoordinates}
                 />
               </MapView>
             </View>
@@ -366,6 +400,19 @@ export default function ShopDetailScreen() {
                 <Text style={styles.viewArticlesButtonText}>Voir tous les articles</Text>
                 <Ionicons name="chevron-forward" size={20} color={colors.primary} />
               </Pressable>
+            </View>
+          )}
+
+          {canOpenSquare && (
+            <View style={styles.squareSection}>
+              <Button
+                variant="secondary"
+                fullWidth
+                onPress={openSquare}
+                leftIcon={<Ionicons name="storefront-outline" size={sizing.iconSM} color={colors.primaryDark} />}
+              >
+                Tester Square
+              </Button>
             </View>
           )}
 
@@ -615,6 +662,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.primary,
+  },
+  squareSection: {
+    marginBottom: spacing.lg,
   },
   manageTierButton: {
     flexDirection: 'row',

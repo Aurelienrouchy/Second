@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@/utils/environmentStorage';
 import * as Crypto from 'expo-crypto';
 
 import type { Article } from '@/types';

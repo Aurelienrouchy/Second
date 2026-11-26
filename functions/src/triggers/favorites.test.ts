@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFirestoreMock, type MockFirestore } from '../utils/testHelpers/firestoreMock';
+import {Timestamp} from 'firebase-admin/firestore';
+import {installFinancialSubjectTransactions} from '../utils/financialSubjectTransaction';
 const holder = vi.hoisted(() => ({ fs: null as MockFirestore | null }));
 const fs = createFirestoreMock();
 holder.fs = fs;
-vi.mock('../config/firebase', () => ({ get db() { return holder.fs!.db; }, get FieldValue() { return holder.fs!.FieldValue; } }));
+const db=fs.db as any;
+db.doc=(path:string)=>{const a=path.split('/');let r:any=db.collection(a[0]).doc(a[1]);for(let i=2;i<a.length;i+=2)r=r.collection(a[i]).doc(a[i+1]);return r;};
+installFinancialSubjectTransactions(db);
+vi.mock('../config/firebase', () => ({ get db() { return holder.fs!.db; }, get FieldValue() { return {...holder.fs!.FieldValue,serverTimestamp:()=>Timestamp.now()}; } }));
 vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentWritten: (_: unknown, handler: unknown) => handler, onDocumentUpdated: (_: unknown, handler: unknown) => handler }));
 vi.mock('../utils/notifications', () => ({ sendPushNotification: vi.fn() }));
 import { onArticleFavorited } from './favorites';

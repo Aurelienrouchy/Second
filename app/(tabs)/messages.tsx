@@ -13,7 +13,16 @@ import {
 
 import { useUser } from '@/hooks/useAuth';
 import { useRequireAuth } from '@/hooks/useAuthRequired';
-import { useChats } from '@/hooks/useChat';
+import { useChats } from '@/features/chat/hooks/useChat';
+import {
+  CONVERSATION_TABS,
+  conversationTypeOf,
+  firstNonEmptyTab,
+  formatBadgeCount,
+  formatConversationTimestamp,
+  getLastMessagePreview,
+  type ConversationType,
+} from '@/features/chat/utils/conversationDisplay';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { track } from '@/lib/analytics';
 import { ModerationService } from '@/services/moderationService';
@@ -27,9 +36,7 @@ import { useBottomTabOverflow } from '@/components/ui/TabBarBackground';
 import { fixStorageUrl } from '@/utils/fixStorageUrl';
 import { formatDisplayName } from '@/utils/formatName';
 
-type ConversationType = 'achats' | 'ventes' | 'autres';
 
-const CONVERSATION_TABS = ['ventes', 'achats', 'autres'] as const;
 
 const TAB_LABELS: Record<ConversationType, string> = {
   ventes: 'VENTES',
@@ -43,10 +50,6 @@ const chatKeyExtractor = (item: Chat): string => item.id;
 
 // Clamp an unread counter so a large badge stays compact ("99+" max).
 // Shared by both badge sites (tab + conversation row) for visual parity.
-function formatBadgeCount(count: number, max = 99): string {
-  return count > max ? `${max}+` : String(count);
-}
-
 export default function MessagesScreen() {
   const user = useUser();
   const { showAuthSheet } = useRequireAuth();
@@ -85,30 +88,30 @@ export default function MessagesScreen() {
   );
 
   const getConversationType = useCallback(
-    (chat: Chat): ConversationType => {
-      // Contact-profile chats are created without a sellerId (see
-      // createOrGetChat: sellerId is only set for article-scoped chats), so a
-      // missing sellerId means the conversation isn't tied to a sale/purchase.
-      if (!chat.sellerId) return 'autres';
-      if (!user) return 'autres';
-      // Current user is the article owner → "vente" (sale); otherwise "achat".
-      if (chat.sellerId === user.id) return 'ventes';
-      return 'achats';
-    },
+    (chat: Chat) => conversationTypeOf(chat, user?.id),
     [user],
   );
 
   // Default tab, derived synchronously at render (no effect, no flash): the
   // first non-empty tab in display order (ventes → achats → autres). The
   // user's explicit pick always wins once set.
-  const defaultTab = useMemo<ConversationType>(() => {
-    const firstNonEmpty = CONVERSATION_TABS.find((tab) =>
-      chats.some((c) => getConversationType(c) === tab),
-    );
-    return firstNonEmpty ?? 'ventes';
-  }, [chats, getConversationType]);
+  const defaultTab = useMemo<ConversationType>(
+    () => firstNonEmptyTab(chats, user?.id),
+    [chats, user],
+  );
 
-  const activeTab = pickedTab ?? defaultTab;
+  // L'onglet par défaut se FIGE dès que la liste est chargée. Il restait vivant
+  // en permanence : une conversation arrivant en temps réel dans un onglet plus
+  // prioritaire faisait basculer l'écran sous le doigt de l'utilisateur, qui se
+  // retrouvait dans VENTES en train de lire ses ACHATS — et pouvait ouvrir la
+  // mauvaise conversation. Le calcul reste vivant PENDANT le chargement, pour
+  // ne pas afficher un onglet vide le temps que les conversations arrivent.
+  const [latchedDefault, setLatchedDefault] = useState<ConversationType | null>(null);
+  if (latchedDefault === null && !isLoading && chats.length > 0) {
+    setLatchedDefault(defaultTab);
+  }
+
+  const activeTab = pickedTab ?? latchedDefault ?? defaultTab;
 
   const handleChatPress = useCallback(
     (chat: Chat) => {
@@ -365,8 +368,8 @@ const ConversationItem = React.memo(function ConversationItem({
     otherParticipant?.userImage ||
     undefined;
 
-  const lastMessagePreview = getLastMessagePreviewStatic(chat);
-  const timestamp = formatTimestampStatic(chat.lastMessageTimestamp);
+  const lastMessagePreview = getLastMessagePreview(chat);
+  const timestamp = formatConversationTimestamp(chat.lastMessageTimestamp, APP_LOCALE);
 
   const handlePress = useCallback(() => onPress(chat), [onPress, chat]);
 
@@ -446,50 +449,6 @@ const ConversationItem = React.memo(function ConversationItem({
     </Pressable>
   );
 });
-
-// Pure functions extracted for use in memoized component
-function getLastMessagePreviewStatic(chat: Chat): string {
-  if (!chat.lastMessage) return 'Aucun message';
-
-  switch (chat.lastMessageType) {
-    case 'image':
-      return '[Photo]';
-    case 'offer': {
-      const msg = chat.lastMessage.toLowerCase();
-      if (msg.includes('contre-offre')) return '[Contre-offre]';
-      if (msg.includes('meetup') || msg.includes('remise en main')) return '[Offre meetup]';
-      return '[Offre]';
-    }
-    case 'system':
-      return `ℹ️ ${chat.lastMessage}`;
-    default:
-      return chat.lastMessage;
-  }
-}
-
-function formatTimestampStatic(timestamp?: Date): string {
-  if (!timestamp) return '';
-
-  const now = new Date();
-  const diff = now.getTime() - timestamp.getTime();
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-  if (days === 0) {
-    return timestamp.toLocaleTimeString(APP_LOCALE, {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } else if (days === 1) {
-    return 'Hier';
-  } else if (days < 7) {
-    return timestamp.toLocaleDateString(APP_LOCALE, { weekday: 'short' });
-  } else {
-    return timestamp.toLocaleDateString(APP_LOCALE, {
-      day: '2-digit',
-      month: '2-digit',
-    });
-  }
-}
 
 const styles = StyleSheet.create({
   container: {

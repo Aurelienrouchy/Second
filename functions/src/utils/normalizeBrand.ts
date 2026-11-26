@@ -26,6 +26,9 @@ export function brandKey(brand: string | null | undefined): string {
   return brand.trim().toLowerCase();
 }
 
+/** Un sigle déjà tout en capitales est une écriture voulue : MSGM, IRO, YSL. */
+const ACRONYM = /^[A-Z0-9&]{2,5}$/;
+
 function titleCaseWord(word: string): string {
   if (word.length === 0) return word;
   // Capitalize after spaces and hyphens, but never after an apostrophe.
@@ -33,6 +36,7 @@ function titleCaseWord(word: string): string {
     .split('-')
     .map((segment) => {
       if (segment.length === 0) return segment;
+      if (ACRONYM.test(segment)) return segment;
       return segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase();
     })
     .join('-');
@@ -50,4 +54,13 @@ export function brandDisplay(brand: string | null | undefined): string {
     .split(' ')
     .map((word) => titleCaseWord(word))
     .join(' ');
+}
+
+/**
+ * Identifiant du document `brands`. Doit rester identique a celui de
+ * scripts/import-brands.js : une marque ajoutee a la main sous un autre
+ * identifiant que celui du catalogue cree un doublon invisible.
+ */
+export function brandDocId(brand: string | null | undefined): string {
+  return brandKey(brand).replace(/\//g, '_').replace(/\s/g, '-');
 }

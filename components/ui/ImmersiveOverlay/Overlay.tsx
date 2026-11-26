@@ -8,8 +8,10 @@
  * - pointerEvents toggled via JS state (not animated — only changes 2× per cycle)
  */
 
-import React from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useCallback, useLayoutEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import Animated, {
   useAnimatedStyle,
   interpolate,
@@ -17,6 +19,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useImmersiveOverlayStore } from '@/store/immersiveOverlayStore';
+import { spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/Button';
 
 import { Gradient } from './Gradient';
 
@@ -25,8 +29,20 @@ import { Gradient } from './Gradient';
 interface OverlayProps {
   progress: SharedValue<number>;
   breathe: SharedValue<number>;
-  /** Drives the content (camera) fade-in AFTER the entrance animation. */
+  /** Prepared content overlaps the entrance tail; generic content reveals afterward. */
   contentReveal: SharedValue<number>;
+  cycleId: number | null;
+  mountContent: boolean;
+  prepareContent: boolean;
+  entranceFinished: boolean;
+  contentVisible: boolean;
+  contentActive: boolean;
+  onLayerLayout: (cycleId: number) => void;
+  onSceneReady: (cycleId: number) => void;
+  onContentMounted: (cycleId: number) => void;
+  onContentLayout: (cycleId: number) => void;
+  onPreparedReady: (cycleId: number, ready: boolean) => void;
+  onPendingCancel: (cycleId: number) => void;
 }
 
 // ─── Content sub-component ─────────────────────────────────────────────────
@@ -34,18 +50,18 @@ interface OverlayProps {
 const Content: React.FC<{
   reveal: SharedValue<number>;
   contentComponent: React.ReactNode;
-}> = React.memo(function Content({ reveal, contentComponent }) {
-  // Clean fade-in (with a subtle settle) driven by `reveal`, which only starts
-  // once the entrance gradient + blurred circles have finished. No entrance
-  // warp here — the content simply fades in over the settled backdrop.
-  const animatedStyles = useAnimatedStyle(() => ({
-    flex: 1,
+  prepared: boolean;
+  onMounted: () => void;
+}> = React.memo(function Content({ reveal, contentComponent, prepared, onMounted }) {
+  useLayoutEffect(onMounted, [onMounted]);
+  // The prepared camera uses opacity alone while the gradient finishes.
+  const animatedStyles = useAnimatedStyle(() => prepared ? {opacity: reveal.value} : ({
     opacity: reveal.value,
     transform: [{ scale: interpolate(reveal.value, [0, 1], [1.03, 1]) }],
   }));
 
   return (
-    <Animated.View style={animatedStyles}>{contentComponent}</Animated.View>
+    <Animated.View style={[styles.content, animatedStyles]}>{contentComponent}</Animated.View>
   );
 });
 
@@ -55,11 +71,31 @@ const Overlay: React.FC<OverlayProps> = React.memo(function Overlay({
   progress,
   breathe,
   contentReveal,
+  cycleId,
+  mountContent,
+  prepareContent,
+  entranceFinished,
+  contentVisible,
+  contentActive,
+  onLayerLayout,
+  onSceneReady,
+  onContentMounted,
+  onContentLayout,
+  onPreparedReady,
+  onPendingCancel,
 }) {
-  const contentComponent = useImmersiveOverlayStore(
-    (s) => s.contentComponent
-  );
-  const isActive = useImmersiveOverlayStore((s) => s.isActive);
+  const { contentComponent, preparedContent, isActive } = useImmersiveOverlayStore(useShallow(
+    (state) => ({ contentComponent: state.contentComponent, preparedContent: state.preparedContent, isActive: state.isActive })
+  ));
+  const handleSceneReady = useCallback(() => {
+    if (cycleId !== null) onSceneReady(cycleId);
+  }, [cycleId, onSceneReady]);
+  const handleContentMounted = useCallback(() => {
+    if (cycleId !== null) onContentMounted(cycleId);
+  }, [cycleId, onContentMounted]);
+  const handlePreparedReady = useCallback((ready: boolean) => {
+    if (cycleId !== null) onPreparedReady(cycleId, ready);
+  }, [cycleId, onPreparedReady]);
 
   const containerStyle = useAnimatedStyle(() => {
     const opacity = interpolate(progress.value, [0, 0.15, 1], [0, 1, 1]);
@@ -74,13 +110,53 @@ const Overlay: React.FC<OverlayProps> = React.memo(function Overlay({
       style={[styles.container, containerStyle]}
       pointerEvents={isActive ? 'auto' : 'none'}
     >
-      {isActive && <Gradient progress={progress} breathe={breathe} />}
-
-      {isActive && contentComponent != null && (
+      {isActive && cycleId !== null && (
         <Animated.View
-          style={[StyleSheet.absoluteFill, styles.contentLayer]}
+          key={cycleId}
+          testID="immersive-overlay-layer"
+          collapsable={false}
+          style={StyleSheet.absoluteFill}
+          onLayout={() => onLayerLayout(cycleId)}
         >
-          <Content reveal={contentReveal} contentComponent={contentComponent} />
+          <Gradient progress={progress} breathe={breathe} onSceneReady={handleSceneReady} />
+
+          {(mountContent && contentComponent != null || prepareContent && preparedContent != null) && (
+            <Animated.View
+              testID="immersive-overlay-content"
+              style={[StyleSheet.absoluteFill, styles.contentLayer]}
+              onLayout={() => onContentLayout(cycleId)}
+              pointerEvents={preparedContent && !contentVisible ? 'none' : 'auto'}
+              accessibilityElementsHidden={!!preparedContent && !contentVisible}
+              importantForAccessibility={preparedContent && !contentVisible ? 'no-hide-descendants' : 'auto'}
+            >
+              <Content
+                reveal={contentReveal}
+                prepared={preparedContent != null}
+                contentComponent={preparedContent ? preparedContent({
+                  entranceFinished,
+                  visible: contentVisible,
+                  active: contentActive,
+                  onReady: handlePreparedReady,
+                }) : contentComponent}
+                onMounted={handleContentMounted}
+              />
+            </Animated.View>
+          )}
+
+          {(contentComponent == null && preparedContent == null || preparedContent != null && !contentVisible) && (
+            <SafeAreaView edges={['top']} style={styles.pendingLayer} pointerEvents="box-none">
+              <View style={styles.pendingControls}>
+                <Button
+                  variant="ghost"
+                  size="small"
+                  testID="immersive-overlay-cancel"
+                  onPress={() => onPendingCancel(cycleId)}
+                >
+                  Annuler
+                </Button>
+              </View>
+            </SafeAreaView>
+          )}
         </Animated.View>
       )}
     </Animated.View>
@@ -96,6 +172,18 @@ const styles = StyleSheet.create({
   },
   contentLayer: {
     zIndex: 1001,
+  },
+  content: {
+    flex: 1,
+  },
+  pendingLayer: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 1001,
+  },
+  pendingControls: {
+    alignSelf: 'flex-end',
+    marginTop: spacing.sm,
+    marginRight: spacing.md,
   },
 });
 

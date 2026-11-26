@@ -27,7 +27,7 @@ const stripeMock: StripeMock = createStripeMock();
 holder.fs = fs;
 holder.stripe = stripeMock;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -36,7 +36,8 @@ vi.mock('../config/firebase', () => ({
   },
 }));
 
-vi.mock('firebase-admin/firestore', () => ({
+vi.mock('firebase-admin/firestore', async importOriginal => ({
+  ...await importOriginal<typeof import('firebase-admin/firestore')>(),
   Timestamp: {
     fromMillis: (ms: number) => ({ toMillis: () => ms, __ts: true }),
   },
@@ -152,13 +153,13 @@ describe('openSwapDispute — guards', () => {
   it('rejects a non-participant', async () => {
     seedSwap('s1');
     await expect(
-      callOpen({ auth: { uid: 'stranger' }, data: { swapId: 's1', reason: 'x' } })
+      callOpen({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'stranger' }, data: { expectedUid: 'stranger', swapId: 's1', reason: 'x' } })
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
   it('accepts a dispute from accepted (F51 — payer stranded post-payment)', async () => {
     seedSwap('s1', { status: 'accepted' });
-    const res = await callOpen({ auth: { uid: 'P' }, data: { swapId: 's1', reason: 'silence' } });
+    const res = await callOpen({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'P' }, data: { expectedUid: 'P', swapId: 's1', reason: 'silence' } });
     expect(res.success).toBe(true);
     expect(fs.getDoc('swaps/s1')!.status).toBe('disputed');
     expect(fs.getDoc('swaps/s1')!.statusBeforeDispute).toBe('accepted');
@@ -166,7 +167,7 @@ describe('openSwapDispute — guards', () => {
 
   it('does NOT auto-refund on open (freeze only — closes the exploit)', async () => {
     seedSwap('s1', { status: 'completed', topUpFundsHeldAt: { __ts: true } });
-    await callOpen({ auth: { uid: 'P' }, data: { swapId: 's1', reason: 'item not as described' } });
+    await callOpen({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'P' }, data: { expectedUid: 'P', swapId: 's1', reason: 'item not as described' } });
     expect(fs.getDoc('swaps/s1')!.status).toBe('disputed');
     expect(stripeMock.calls.refundsCreate.length).toBe(0);
   });
@@ -174,14 +175,14 @@ describe('openSwapDispute — guards', () => {
   it('rejects a dispute after the window (topUpReleasedAt set)', async () => {
     seedSwap('s1', { status: 'completed', topUpReleasedAt: { __ts: true } });
     await expect(
-      callOpen({ auth: { uid: 'P' }, data: { swapId: 's1', reason: 'late' } })
+      callOpen({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'P' }, data: { expectedUid: 'P', swapId: 's1', reason: 'late' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
 
   it('rejects re-opening an already disputed swap (single dispute)', async () => {
     seedSwap('s1', { status: 'disputed' });
     await expect(
-      callOpen({ auth: { uid: 'P' }, data: { swapId: 's1', reason: 'again' } })
+      callOpen({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'P' }, data: { expectedUid: 'P', swapId: 's1', reason: 'again' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
 });
@@ -201,14 +202,14 @@ describe('resolveSwapDispute — auth', () => {
     fs.setDoc('users/u1', { isAdmin: false });
     seedSwap('s1', { status: 'disputed' });
     await expect(
-      callResolve({ auth: { uid: 'u1', token: {} }, data: { swapId: 's1', issue: 'refund_payer' } })
+      callResolve({ auth: { uid: 'u1', token: { auth_time: Math.floor(Date.now() / 1000),} }, data: { expectedUid: 'u1', swapId: 's1', issue: 'refund_payer' } })
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
   it('rejects an invalid issue', async () => {
     seedSwap('s1', { status: 'disputed' });
     await expect(
-      callResolve({ auth: { uid: 'admin1', token: { admin: true } }, data: { swapId: 's1', issue: 'nope' } })
+      callResolve({ auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } }, data: { expectedUid: 'admin1', swapId: 's1', issue: 'nope' } })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
@@ -216,8 +217,8 @@ describe('resolveSwapDispute — auth', () => {
     seedSwap('s1', { status: 'shipping' });
     await expect(
       callResolve({
-        auth: { uid: 'admin1', token: { admin: true } },
-        data: { swapId: 's1', issue: 'refund_payer' },
+        auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } },
+        data: { expectedUid: 'admin1', swapId: 's1', issue: 'refund_payer' },
       })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
@@ -231,8 +232,8 @@ describe('resolveSwapDispute — refund_payer', () => {
   it('refunds the payer (idempotent key) and cancels the swap', async () => {
     seedSwap('s1', { status: 'disputed', partyId: undefined });
     const res = await callResolve({
-      auth: { uid: 'admin1', token: { admin: true } },
-      data: { swapId: 's1', issue: 'refund_payer' },
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } },
+      data: { expectedUid: 'admin1', swapId: 's1', issue: 'refund_payer' },
     });
     expect(res.success).toBe(true);
     expect(fs.getDoc('swaps/s1')!.status).toBe('cancelled');
@@ -248,8 +249,8 @@ describe('resolveSwapDispute — refund_payer', () => {
     fs.setDoc('articles/a2', { sellerId: 'Q', isSold: false });
     seedSwap('s1', { status: 'disputed' });
     await callResolve({
-      auth: { uid: 'admin1', token: { admin: true } },
-      data: { swapId: 's1', issue: 'refund_payer' },
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } },
+      data: { expectedUid: 'admin1', swapId: 's1', issue: 'refund_payer' },
     });
     expect(fs.getDoc('articles/a1')!.isSold).toBe(false);
     expect(fs.getDoc('articles/a2')!.isSold).toBe(false);
@@ -269,8 +270,8 @@ describe('resolveSwapDispute — release_payee', () => {
     seedSwap('s1', { status: 'disputed', topUpFundsHeldAt: { __ts: true } });
 
     const res = await callResolve({
-      auth: { uid: 'admin1', token: { admin: true } },
-      data: { swapId: 's1', issue: 'release_payee' },
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } },
+      data: { expectedUid: 'admin1', swapId: 's1', issue: 'release_payee' },
     });
 
     expect(res.success).toBe(true);
@@ -291,8 +292,8 @@ describe('resolveSwapDispute — release_payee', () => {
     seedSwap('s1', { status: 'disputed', statusBeforeDispute: 'accepted' });
 
     const res = await callResolve({
-      auth: { uid: 'admin1', token: { admin: true } },
-      data: { swapId: 's1', issue: 'release_payee' },
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } },
+      data: { expectedUid: 'admin1', swapId: 's1', issue: 'release_payee' },
     });
 
     expect(res.movedCents).toBe(5000);
@@ -305,8 +306,8 @@ describe('resolveSwapDispute — release_payee', () => {
     fs.setDoc('wallets/Q', { balance: 0, pendingBalance: 0, heldBalance: 5000 });
     seedSwap('s1', { status: 'disputed', topUpFundsHeldAt: { __ts: true } });
     await callResolve({
-      auth: { uid: 'admin1', token: { admin: true } },
-      data: { swapId: 's1', issue: 'release_payee' },
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } },
+      data: { expectedUid: 'admin1', swapId: 's1', issue: 'release_payee' },
     });
     expect(stripeMock.calls.refundsCreate.length).toBe(0);
   });
@@ -322,14 +323,14 @@ describe('resolveSwapDispute — idempotence', () => {
     seedSwap('s1', { status: 'disputed', topUpFundsHeldAt: { __ts: true } });
 
     await callResolve({
-      auth: { uid: 'admin1', token: { admin: true } },
-      data: { swapId: 's1', issue: 'release_payee' },
+      auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } },
+      data: { expectedUid: 'admin1', swapId: 's1', issue: 'release_payee' },
     });
     // Replay must fail the precondition (status is now 'completed').
     await expect(
       callResolve({
-        auth: { uid: 'admin1', token: { admin: true } },
-        data: { swapId: 's1', issue: 'release_payee' },
+        auth: { uid: 'admin1', token: { auth_time: Math.floor(Date.now() / 1000), admin: true } },
+        data: { expectedUid: 'admin1', swapId: 's1', issue: 'release_payee' },
       })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
 

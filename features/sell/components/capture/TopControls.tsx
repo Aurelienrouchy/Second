@@ -9,6 +9,7 @@ interface TopControlsProps {
   maxPhotos: number;
   torchActive: boolean;
   torchAvailable?: boolean;
+  flipAvailable?: boolean;
   onClose: () => void;
   onFlipCamera: () => void;
   onToggleTorch: () => void;
@@ -20,6 +21,7 @@ export const TopControls = React.memo(function TopControls({
   maxPhotos,
   torchActive,
   torchAvailable = true,
+  flipAvailable = true,
   onClose,
   onFlipCamera,
   onToggleTorch,
@@ -31,6 +33,8 @@ export const TopControls = React.memo(function TopControls({
         style={styles.circleButton}
         onPress={onClose}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel="Fermer"
       >
         <Ionicons name="close" size={20} color={colors.cream} />
       </Pressable>
@@ -45,11 +49,12 @@ export const TopControls = React.memo(function TopControls({
         <Pressable
           style={[styles.circleButton, torchActive && styles.circleButtonActive]}
           testID="sell-torch-button"
-          accessibilityLabel="Activer ou désactiver le flash"
-          accessibilityState={{ disabled: !torchAvailable }}
+          accessibilityLabel="Flash"
+          accessibilityState={{ disabled: !torchAvailable, checked: torchActive }}
           disabled={!torchAvailable}
           onPress={onToggleTorch}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
         >
           <Ionicons
             name={torchActive ? 'flash' : 'flash-off'}
@@ -61,9 +66,12 @@ export const TopControls = React.memo(function TopControls({
         <Pressable
           style={styles.circleButton}
           testID="sell-flip-camera-button"
-          accessibilityLabel="Changer de caméra"
+          accessibilityLabel="Retourner la caméra"
+          accessibilityState={{ disabled: !flipAvailable }}
+          disabled={!flipAvailable}
           onPress={onFlipCamera}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
         >
           <Ionicons
             name="camera-reverse-outline"

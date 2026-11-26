@@ -21,7 +21,7 @@ const stripeMock = createStripeMock();
 holder.fs = fs;
 holder.stripe = stripeMock;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -137,7 +137,7 @@ describe('getStripeAccountStatus — full status contract (F62/F117)', () => {
       },
     });
 
-    const res = await callStatus({ auth: { uid: 'seller1' }, data: {} });
+    const res = await callStatus({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1',} });
 
     // Full contract surfaced to the app.
     expect(res.status).toBe('restricted');
@@ -161,7 +161,7 @@ describe('getStripeAccountStatus — full status contract (F62/F117)', () => {
 
   it('returns the no-account contract when stripeAccountId is absent', async () => {
     fs.setDoc('users/seller_none', {});
-    const res = await callStatus({ auth: { uid: 'seller_none' }, data: {} });
+    const res = await callStatus({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller_none' }, data: { expectedUid: 'seller_none',} });
     expect(res.hasAccount).toBe(false);
     expect(res.requirementsCurrentlyDue).toEqual([]);
     expect(res.disabledReason).toBe(null);
@@ -186,14 +186,14 @@ describe('uploadStripeIdentityDocument — KYC remediation (F59b)', () => {
   it('rejects when the front image is missing', async () => {
     fs.setDoc('users/seller1', { stripeAccountId: 'acct_1' });
     await expect(
-      callUpload({ auth: { uid: 'seller1' }, data: {} })
+      callUpload({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1',} })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
   it('rejects when the seller has no Stripe account', async () => {
     fs.setDoc('users/seller_noacct', {});
     await expect(
-      callUpload({ auth: { uid: 'seller_noacct' }, data: { frontImageBase64: frontB64 } })
+      callUpload({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller_noacct' }, data: { expectedUid: 'seller_noacct', frontImageBase64: frontB64 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
   });
 
@@ -213,8 +213,8 @@ describe('uploadStripeIdentityDocument — KYC remediation (F59b)', () => {
     });
 
     const res = await callUpload({
-      auth: { uid: 'seller1' },
-      data: { frontImageBase64: frontB64, backImageBase64: backB64 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' },
+      data: { expectedUid: 'seller1', frontImageBase64: frontB64, backImageBase64: backB64 },
     });
 
     // Two files created (front + back), attached via accounts.update.
@@ -233,8 +233,8 @@ describe('uploadStripeIdentityDocument — KYC remediation (F59b)', () => {
   it('uploads front only when no back image is provided', async () => {
     fs.setDoc('users/seller1', { stripeAccountId: 'acct_1' });
     const res = await callUpload({
-      auth: { uid: 'seller1' },
-      data: { frontImageBase64: frontB64 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' },
+      data: { expectedUid: 'seller1', frontImageBase64: frontB64 },
     });
     expect(stripeMock.calls.filesCreate.length).toBe(1);
     const updateArg = stripeMock.calls.accountsUpdate[0][1] as any;
@@ -271,7 +271,7 @@ describe('addBankAccount — replacement support (F60a)', () => {
       data: [{ id: 'ba_old' }, { id: 'ba_new' }],
     });
 
-    const res = await callAddBank({ auth: { uid: 'seller1' }, data: validBank });
+    const res = await callAddBank({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', ...(validBank) } });
 
     // New external account created with default_for_currency: true.
     const createArg = stripeMock.calls.accountsCreateExternalAccount[0][1] as any;
@@ -293,7 +293,7 @@ describe('addBankAccount — replacement support (F60a)', () => {
   it('rejects an invalid transit number', async () => {
     fs.setDoc('users/seller1', { stripeAccountId: 'acct_1' });
     await expect(
-      callAddBank({ auth: { uid: 'seller1' }, data: { ...validBank, transitNumber: '12' } })
+      callAddBank({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', ...validBank, transitNumber: '12' } })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 });

@@ -1,3 +1,4 @@
+import {runtimeEnvironment} from '@/config/firebaseEnvironment';
 /**
  * authStore — orchestration MÉTIER de la session (Zustand 5).
  *
@@ -24,12 +25,15 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {auth} from '@/config/firebaseConfig';
+import EnvironmentStorage from '@/utils/environmentStorage';
 
 const mockGetCurrentUser = jest.fn();
 const mockRollback = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockAuthSignOut = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockEnsureUsername = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockRecordConsent = jest.fn();
+const mockAcknowledgeConsent = jest.fn(() => Promise.resolve());
 const mockSignUpWithEmail = jest.fn();
 const mockSignInWithEmail = jest.fn();
 const mockSignInWithGoogle = jest.fn();
@@ -42,6 +46,7 @@ jest.mock('@/services/authService', () => ({
     signOut: (...a: unknown[]) => mockAuthSignOut(...a),
     ensureUsernameAssigned: (...a: unknown[]) => mockEnsureUsername(...a),
     recordConsentForCurrentUser: (...a: unknown[]) => mockRecordConsent(...a),
+    acknowledgeSignupConsent: (...a: unknown[]) => mockAcknowledgeConsent(...a),
     signUpWithEmail: (...a: unknown[]) => mockSignUpWithEmail(...a),
     signInWithEmail: (...a: unknown[]) => mockSignInWithEmail(...a),
     signInWithGoogle: (...a: unknown[]) => mockSignInWithGoogle(...a),
@@ -64,12 +69,10 @@ jest.mock('@/services/guestPreferencesService', () => ({
 
 const mockRemoveExpoPushToken = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockRemoveFcmToken = jest.fn((..._args: unknown[]) => Promise.resolve());
-jest.mock('@/services/userService', () => ({
-  UserService: {
-    getUserById: jest.fn((..._args: unknown[]) => Promise.resolve(null)),
-    removeFcmToken: (...a: unknown[]) => mockRemoveFcmToken(...a),
-    removeExpoPushToken: (...a: unknown[]) => mockRemoveExpoPushToken(...a),
-  },
+jest.mock('@/services/userAuthData', () => ({
+  getUserById: jest.fn((..._args: unknown[]) => Promise.resolve(null)),
+  removeFcmToken: (...a: unknown[]) => mockRemoveFcmToken(...a),
+  removeExpoPushToken: (...a: unknown[]) => mockRemoveExpoPushToken(...a),
 }));
 
 const mockQueryClientClear = jest.fn();
@@ -131,7 +134,7 @@ describe('authStore.hydrateFromFirebase — consent gate Loi 25', () => {
     expect(state.pendingConsent).toBe(true);
     expect(state.pendingConsentUser?.id).toBe('uid-1');
     // Jamais de persistance d'un user non-consenti.
-    expect(await AsyncStorage.getItem('user_data')).toBeNull();
+    expect(await EnvironmentStorage.getItem('user_data')).toBeNull();
   });
 
   it('compte AVEC dateOfBirth → authentifié, pendingConsent effacé, persisté', async () => {
@@ -144,7 +147,7 @@ describe('authStore.hydrateFromFirebase — consent gate Loi 25', () => {
     expect(state.isLoading).toBe(false);
     expect(state.pendingConsent).toBe(false);
     expect(state.pendingConsentUser).toBeNull();
-    const persisted = await AsyncStorage.getItem('user_data');
+    const persisted = await EnvironmentStorage.getItem('user_data');
     expect(persisted).not.toBeNull();
     expect(JSON.parse(persisted as string).id).toBe('uid-1');
   });
@@ -191,6 +194,24 @@ describe('authStore.beginPendingConsent', () => {
 });
 
 describe('authStore.completeConsent — ordre strict réserve → signIn → merge', () => {
+  beforeEach(() => {
+    Object.defineProperty(auth, 'currentUser', {value: fbUser, writable: true, configurable: true});
+  });
+
+  it('acquitte le reçu uniquement après adoption et sans rejouer la garde de focus devenue ancienne', async () => {
+    let focused = true;
+    const context = {assertCurrent: jest.fn(() => {if (!focused) throw new Error('focus lost');})};
+    mockRecordConsent.mockResolvedValue(CONSENTED_USER);
+    mockAcknowledgeConsent.mockImplementationOnce(async (_consent, adoptionContext) => {
+      expect(useAuthStore.getState().user?.id).toBe('uid-1');
+      focused = false;
+      adoptionContext.assertCurrent();
+    });
+    await expect(useAuthStore.getState().completeConsent({dateOfBirth: '1995-01-01', acceptedTerms: true,
+      acceptedPrivacy: true, marketingOptIn: false} as never, context)).resolves.toEqual(CONSENTED_USER);
+    expect(mockAcknowledgeConsent).toHaveBeenCalledTimes(1);
+    expect(context.assertCurrent).toHaveBeenCalledTimes(1);
+  });
   it('orchestre recordSignupConsent puis signIn puis merge, dans CET ordre', async () => {
     const order: string[] = [];
     mockRecordConsent.mockImplementation(() => {
@@ -345,13 +366,13 @@ describe('authStore.rollbackSocialSignIn (shim déprécié)', () => {
 describe('authStore.signOut — teardown complet et robuste', () => {
   it('efface user, USER_DATA_KEY, Firebase et query cache', async () => {
     await useAuthStore.getState().signIn(CONSENTED_USER);
-    expect(await AsyncStorage.getItem('user_data')).not.toBeNull();
+    expect(await EnvironmentStorage.getItem('user_data')).not.toBeNull();
 
     await useAuthStore.getState().signOut();
 
     expect(mockAuthSignOut).toHaveBeenCalled();
     expect(mockQueryClientClear).toHaveBeenCalled();
-    expect(await AsyncStorage.getItem('user_data')).toBeNull();
+    expect(await EnvironmentStorage.getItem('user_data')).toBeNull();
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().isLoading).toBe(false);
   });
@@ -365,18 +386,20 @@ describe('authStore.signOut — teardown complet et robuste', () => {
     expect(mockAuthSignOut).toHaveBeenCalled();
   });
 
-  it('un échec de removeFcmToken NE bloque PAS la suite du teardown', async () => {
-    notificationPushToken.value = 'push-token-1';
-    mockRemoveFcmToken.mockRejectedValueOnce(new Error('permission-denied'));
-    await useAuthStore.getState().signIn(CONSENTED_USER);
-
-    await useAuthStore.getState().signOut();
-
-    expect(mockRemoveFcmToken).toHaveBeenCalledWith('uid-1', 'push-token-1');
-    expect(mockAuthSignOut).toHaveBeenCalled();
-    expect(await AsyncStorage.getItem('user_data')).toBeNull();
-    expect(useAuthStore.getState().user).toBeNull();
-    expect(useAuthStore.getState().isLoading).toBe(false);
+  it('un échec du nettoyage FCM historique de production ne bloque pas le teardown', async () => {
+    const previous = runtimeEnvironment.name;
+    try {
+      runtimeEnvironment.name = 'production';
+      notificationPushToken.value = 'push-token-1';
+      mockRemoveFcmToken.mockRejectedValueOnce(new Error('permission-denied'));
+      await useAuthStore.getState().signIn(CONSENTED_USER);
+      await useAuthStore.getState().signOut();
+      expect(mockRemoveFcmToken).toHaveBeenCalledWith('uid-1', 'push-token-1');
+      expect(mockAuthSignOut).toHaveBeenCalled();
+      expect(await EnvironmentStorage.getItem('user_data')).toBeNull();
+      expect(useAuthStore.getState().user).toBeNull();
+      expect(useAuthStore.getState().isLoading).toBe(false);
+    } finally {runtimeEnvironment.name = previous;}
   });
 
   it('skipRemoteFcmCleanup saute le retrait FCM distant mais finit le teardown', async () => {
@@ -388,7 +411,7 @@ describe('authStore.signOut — teardown complet et robuste', () => {
     expect(mockRemoveFcmToken).not.toHaveBeenCalled();
     expect(mockAuthSignOut).toHaveBeenCalled();
     expect(mockQueryClientClear).toHaveBeenCalled();
-    expect(await AsyncStorage.getItem('user_data')).toBeNull();
+    expect(await EnvironmentStorage.getItem('user_data')).toBeNull();
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().isLoading).toBe(false);
   });

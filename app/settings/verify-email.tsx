@@ -5,9 +5,9 @@
 import { useUser } from '@/hooks/useAuth';
 import { track } from '@/lib/analytics';
 import { AuthService } from '@/services/authService';
+import { useTradeOperation } from '@/hooks/useTradeOperation';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Caption, ScreenHeader } from '@/components/ui';
-import { Button } from '@/components/ui';
+import { Text, Caption, ScreenHeader, Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -22,21 +22,32 @@ import {
 export default function VerifyEmailScreen() {
   const router = useRouter();
   const user = useUser();
+  const context = useTradeOperation('settings-verify-email', user?.id ?? null);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [formFrame, setFormFrame] = useState(context.frame);
+  if (formFrame !== context.frame) {
+    setFormFrame(context.frame); setEmailSent(false); setIsVerified(false); setLoading(false); setChecking(false);
+  }
 
   const checkVerificationStatus = async () => {
+    let operation;
+    try {operation = context.start('verification');} catch {return;}
+    if (!operation) return;
     setChecking(true);
     try {
       await AuthService.reloadUser();
+      context.assertCurrent(operation);
       const verified = AuthService.isEmailVerified();
       setIsVerified(verified);
     } catch (error) {
+      if (!context.isCurrent(operation)) return;
       if (__DEV__) console.error('Error checking verification status:', error);
     } finally {
-      setChecking(false);
+      context.finish(operation);
+      if (context.isCurrent(operation)) setChecking(false);
     }
   };
 
@@ -44,13 +55,20 @@ export default function VerifyEmailScreen() {
     (async () => {
       await checkVerificationStatus();
     })();
-  }, []);
+    // A first render may precede navigation focus. Read again when that focus
+    // becomes current; local loading/status changes must not start another read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context.frame, context.focusRevision]);
 
   const handleSendVerification = async () => {
+    let operation;
+    try {operation = context.start('verification');} catch {return;}
+    if (!operation) return;
     setLoading(true);
     const isResend = emailSent;
     try {
       await AuthService.sendEmailVerification();
+      context.assertCurrent(operation);
       setEmailSent(true);
       track('email_verification_sent', { is_resend: isResend, result: 'success' });
       Alert.alert(
@@ -58,18 +76,24 @@ export default function VerifyEmailScreen() {
         'Un email de vérification a été envoyé à votre adresse email. Cliquez sur le lien dans l\'email pour vérifier votre compte.'
       );
     } catch (error: unknown) {
+      if (!context.isCurrent(operation)) return;
       track('email_verification_sent', { is_resend: isResend, result: 'error' });
       const message = error instanceof Error ? error.message : 'Une erreur est survenue';
       Alert.alert('Erreur', message);
     } finally {
-      setLoading(false);
+      context.finish(operation);
+      if (context.isCurrent(operation)) setLoading(false);
     }
   };
 
   const handleCheckVerification = async () => {
+    let operation;
+    try {operation = context.start('verification');} catch {return;}
+    if (!operation) return;
     setChecking(true);
     try {
       await AuthService.reloadUser();
+      context.assertCurrent(operation);
       const verified = AuthService.isEmailVerified();
       setIsVerified(verified);
 
@@ -79,7 +103,7 @@ export default function VerifyEmailScreen() {
         Alert.alert(
           'Email vérifié !',
           'Votre adresse email a été vérifiée avec succès.',
-          [{ text: 'OK', onPress: () => router.back() }]
+          [{ text: 'OK', onPress: () => {if (context.isCurrent(operation)) router.back();} }]
         );
       } else {
         Alert.alert(
@@ -88,11 +112,13 @@ export default function VerifyEmailScreen() {
         );
       }
     } catch (error: unknown) {
+      if (!context.isCurrent(operation)) return;
       track('email_verification_checked', { result: 'error' });
       const message = error instanceof Error ? error.message : 'Une erreur est survenue';
       Alert.alert('Erreur', message);
     } finally {
-      setChecking(false);
+      context.finish(operation);
+      if (context.isCurrent(operation)) setChecking(false);
     }
   };
 
@@ -155,6 +181,7 @@ export default function VerifyEmailScreen() {
                   variant="primary"
                   fullWidth
                   loading={checking}
+                  disabled={!user || loading}
                   onPress={handleCheckVerification}
                   style={styles.actionButton}
                 >
@@ -164,7 +191,7 @@ export default function VerifyEmailScreen() {
                 <Pressable
                   style={({ pressed }) => [styles.resendButton, pressed && { opacity: 0.7 }]}
                   onPress={handleSendVerification}
-                  disabled={loading}
+                  disabled={!user || loading || checking}
                 >
                   {loading ? (
                     <ActivityIndicator color={colors.primary} />
@@ -180,9 +207,10 @@ export default function VerifyEmailScreen() {
                 variant="primary"
                 fullWidth
                 loading={loading}
+                disabled={!user || checking}
                 onPress={handleSendVerification}
                 style={styles.actionButton}
-                leftIcon={<Ionicons name="mail" size={20} color={colors.white} />}
+                leftIcon={<Ionicons name="mail" size={20} color={colors.foreground} />}
               >
                 Envoyer l&apos;email de vérification
               </Button>

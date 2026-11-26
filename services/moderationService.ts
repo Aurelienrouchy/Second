@@ -1,6 +1,10 @@
-import { auth, firestore } from '@/config/firebaseConfig';
+import { phase1HttpsCallable as httpsCallable } from '@/services/phase1Callable';
+
+import { auth, firestore, functions } from '@/config/firebaseConfig';
+import { assertTradeSessionCurrent, captureTradeSession } from '@/services/tradeOperation';
+import { acknowledgeArticleReportAttempt, articleReportTupleHash, parseArticleReportObservation, parseArticleReportPreview, rememberArticleReportAttempt } from '@/services/articleReportJournal';
+import type { ArticleReportAttempt, ArticleReportObservation, ArticleReportPreview } from '@/types/articleReportEvidence';
 import {
-  addDoc,
   arrayRemove,
   arrayUnion,
   collection,
@@ -8,7 +12,6 @@ import {
   getDoc,
   getDocs,
   query,
-  serverTimestamp,
   updateDoc,
   where,
 } from 'firebase/firestore';
@@ -61,6 +64,51 @@ export class ModerationService {
   private static readonly REPORTS_COLLECTION = 'reports';
   private static readonly USERS_COLLECTION = 'users';
 
+  static async previewArticleReport(uid: string, articleId: string, sellerId: string,
+    examined: Record<string, unknown>, assertContext: () => void): Promise<ArticleReportPreview> {
+    const session = captureTradeSession(uid); assertContext();
+    const response = await httpsCallable<unknown, unknown>(functions, 'submitReport')({operation: 'previewArticleReport',
+      expectedUid: uid, targetId: articleId, expectedArticle: examined});
+    assertTradeSessionCurrent(session); assertContext();
+    const preview = await parseArticleReportPreview(response.data, uid, articleId, sellerId, examined, assertContext);
+    assertTradeSessionCurrent(session); assertContext(); return preview;
+  }
+
+  static async submitArticleReport(attempt: ArticleReportAttempt, assertContext: () => void): Promise<ArticleReportObservation> {
+    const session = captureTradeSession(attempt.uid); assertContext();
+    await rememberArticleReportAttempt(attempt, assertContext); assertTradeSessionCurrent(session); assertContext();
+    const {version: _version, uid, ...payload} = attempt;
+    const response = await httpsCallable<unknown, unknown>(functions, 'submitReport')({...payload, expectedUid: uid});
+    assertTradeSessionCurrent(session); assertContext();
+    const receipt = await parseArticleReportObservation(response.data, attempt, assertContext);
+    assertTradeSessionCurrent(session); assertContext(); return receipt;
+  }
+
+  static async observeArticleReport(attempt: ArticleReportAttempt, assertContext: () => void): Promise<ArticleReportObservation> {
+    const session = captureTradeSession(attempt.uid); assertContext();
+    const response = await httpsCallable<unknown, unknown>(functions, 'submitReport')({operation: 'observeArticleReport',
+      expectedUid: attempt.uid, targetId: attempt.targetId, requestId: attempt.requestId});
+    assertTradeSessionCurrent(session); assertContext();
+    const receipt = await parseArticleReportObservation(response.data, attempt, assertContext);
+    assertTradeSessionCurrent(session); assertContext(); return receipt;
+  }
+
+  static async acknowledgeArticleReport(attempt: ArticleReportAttempt, assertContext: () => void): Promise<ArticleReportObservation> {
+    const receipt = await this.observeArticleReport(attempt, assertContext); assertContext();
+    await acknowledgeArticleReportAttempt(attempt, receipt, assertContext); return receipt;
+  }
+
+  static async neutralizeArticleReport(attempt: ArticleReportAttempt, assertContext: () => void): Promise<ArticleReportObservation> {
+    const session = captureTradeSession(attempt.uid); assertContext();
+    await rememberArticleReportAttempt(attempt, assertContext); assertTradeSessionCurrent(session); assertContext();
+    const expectedTupleHash = await articleReportTupleHash(attempt); assertTradeSessionCurrent(session); assertContext();
+    const {version: _version, uid, ...payload} = attempt;
+    const response = await httpsCallable<unknown, unknown>(functions, 'submitReport')({...payload, operation: 'neutralizeArticleReport', expectedUid: uid, expectedTupleHash});
+    assertTradeSessionCurrent(session); assertContext();
+    const receipt = await parseArticleReportObservation(response.data, attempt, assertContext);
+    assertTradeSessionCurrent(session); assertContext(); return receipt;
+  }
+
   // ============================================
   // REPORTING
   // ============================================
@@ -68,40 +116,63 @@ export class ModerationService {
   /**
    * Signaler un utilisateur, un article ou un message
    */
+  /**
+   * Signaler un utilisateur, un article ou un message.
+   *
+   * Passe par la callable `submitReport` (Admin SDK) plutôt que par une écriture
+   * cliente directe. Le rail serveur existait, était déployé, et n'était appelé
+   * par aucun code : il valide les champs, borne les longueurs, dérive le nom du
+   * signaleur du document utilisateur — que le client ne peut pas falsifier — et
+   * impose « un signalement par personne et par cible » via un identifiant
+   * déterministe posé dans une transaction. Une écriture cliente ne pouvait rien
+   * garantir de tout cela : un même utilisateur pouvait signaler cent fois la
+   * même cible, et se déclarer sous n'importe quel nom.
+   *
+   * `reporterId` et `reporterName` restent dans la signature — les appelants les
+   * fournissent — mais le SERVEUR les dérive lui-même de l'appelant authentifié.
+   */
   static async createReport(
-    reporterId: string,
-    reporterName: string,
+    _reporterId: string,
+    _reporterName: string,
     targetType: ReportType,
     targetId: string,
     reason: ReportReason,
     description?: string,
     targetOwnerId?: string
   ): Promise<string> {
+    if (targetType === 'article') throw new Error('Examinez l’aperçu actuel de l’article avant de confirmer son signalement.');
     try {
-      const report: Omit<Report, 'id'> = {
-        reporterId,
-        reporterName,
+      const submitReportFn = httpsCallable<
+        {
+          targetType: ReportType;
+          targetId: string;
+          reason: ReportReason;
+          description?: string;
+          targetOwnerId?: string;
+        },
+        { ok: true; reportId: string; status: 'pending' }
+      >(functions, 'submitReport');
+
+      const res = await submitReportFn({
         targetType,
         targetId,
-        targetOwnerId,
         reason,
-        description,
-        status: 'pending',
-        createdAt: new Date(),
-      };
+        // Champs optionnels OMIS quand ils sont absents : la callable refuse
+        // explicitement `undefined`, comme le SDK le refusait avant elle.
+        ...(description ? { description } : {}),
+        ...(targetOwnerId ? { targetOwnerId } : {}),
+      });
 
-      const docRef = await addDoc(
-        collection(firestore, this.REPORTS_COLLECTION),
-        {
-          ...report,
-          createdAt: serverTimestamp(),
-        }
-      );
-
-      return docRef.id;
+      return res.data.reportId;
     } catch (error) {
       console.error('Error creating report:', error);
-      throw new Error('Erreur lors de l\'envoi du signalement');
+      // Le serveur distingue le doublon du reste : « déjà signalé » n'est pas une
+      // erreur pour l'utilisateur, c'est une information.
+      const code = (error as { code?: string })?.code ?? '';
+      if (code.includes('already-exists')) {
+        throw new Error('Vous avez déjà signalé cet élément.');
+      }
+      throw new Error("Erreur lors de l'envoi du signalement");
     }
   }
 
@@ -185,7 +256,16 @@ export class ModerationService {
 
       const userData = userDoc.data();
       const blockedUsers = userData?.blockedUsers || [];
-      const userToRemove = blockedUsers.find(
+      // TOUTES les entrées, pas seulement la première. `blockUser` horodate
+      // chaque objet (`blockedAt`), donc deux blocages successifs de la même
+      // personne produisent deux objets DIFFÉRENTS qu'`arrayUnion` empile au
+      // lieu de dédupliquer — et aucun des deux points d'entrée ne vérifie
+      // l'état préalable. Ne retirer que la première laissait `blockedUsers`
+      // porter un résidu : les règles Firestore, qui lisent `blockedUserIds`,
+      // acceptaient alors le message, tandis que le trigger serveur, qui lit
+      // les DEUX formes, le supprimait. La personne se croyait débloquée et
+      // tous les messages reçus étaient détruits en silence, définitivement.
+      const usersToRemove = blockedUsers.filter(
         (u: any) => u.userId === blockedUserId
       );
 
@@ -194,8 +274,8 @@ export class ModerationService {
       const update: Record<string, unknown> = {
         blockedUserIds: arrayRemove(blockedUserId),
       };
-      if (userToRemove) {
-        update.blockedUsers = arrayRemove(userToRemove);
+      if (usersToRemove.length > 0) {
+        update.blockedUsers = arrayRemove(...usersToRemove);
       }
 
       await updateDoc(doc(firestore, this.USERS_COLLECTION, userId), update);
@@ -216,12 +296,27 @@ export class ModerationService {
       const userData = userDoc.data();
       const blockedUsers = userData?.blockedUsers || [];
 
-      return blockedUsers.map((u: any) => ({
-        userId,
-        blockedUserId: u.userId,
-        blockedUserName: u.userName,
-        blockedAt: new Date(u.blockedAt),
-      }));
+      // Déduplication à la lecture : un double blocage empile deux objets
+      // (horodatages distincts), qui afficheraient deux fois la même personne
+      // dans Réglages → Utilisateurs bloqués. On garde le blocage le plus
+      // ancien, celui qui date de la décision initiale.
+      const seen = new Set<string>();
+      return blockedUsers
+        .map((u: any) => ({
+          userId,
+          blockedUserId: u.userId,
+          blockedUserName: u.userName,
+          blockedAt: new Date(u.blockedAt),
+        }))
+        .sort(
+          (a: BlockedUser, b: BlockedUser) =>
+            a.blockedAt.getTime() - b.blockedAt.getTime()
+        )
+        .filter((u: BlockedUser) => {
+          if (seen.has(u.blockedUserId)) return false;
+          seen.add(u.blockedUserId);
+          return true;
+        });
     } catch (error) {
       console.error('Error fetching blocked users:', error);
       return [];

@@ -2,9 +2,7 @@
  * ValueComparisonBox — comparaison de valeur + complément en argent (propose-swap).
  *
  * Comportement MÉTIER :
- *  - calcule et affiche la différence de valeur et indique EN FAVEUR DE QUI.
- *  - affiche "Valeurs equivalentes" quand les totaux sont égaux (pas de
- *    suggestion de complément).
+ *  - affiche les totaux indicatifs du bon côté sans jugement monétaire.
  *  - propose un montant suggéré = différence ; le tap pré-remplit le champ.
  *  - sanitise la saisie (chiffres uniquement).
  *  - bascule le payeur (Je paie / l'autre paie).
@@ -29,12 +27,14 @@ jest.mock('@/components/ui', () => {
   const { Text: RNText } = require('react-native');
   const Text = (props: Record<string, unknown>) => React.createElement(RNText, props);
   const Caption = (props: Record<string, unknown>) => React.createElement(RNText, props);
-  return { Text, Caption };
+  return {
+  Button: jest.requireActual('@/components/ui/Button').Button,
+ Text, Caption };
 });
 
-// Import direct du composant (pas via le barrel @/features/propose-swap) pour
+// Import direct du composant (pas via le barrel @/features/swap) pour
 // isoler le test du reste de la feature.
-import { ValueComparisonBox } from '@/features/propose-swap/components/ValueComparisonBox';
+import { ValueComparisonBox } from '@/features/swap/components/propose/ValueComparisonBox';
 
 const baseProps = {
   initiatorTotal: 0,
@@ -46,30 +46,12 @@ const baseProps = {
   onComplementPayerChange: jest.fn(),
 };
 
-describe('<ValueComparisonBox /> — différence de valeur', () => {
-  it('annonce la différence EN SA FAVEUR quand le receveur a plus de valeur', () => {
-    render(
-      <ValueComparisonBox {...baseProps} initiatorTotal={40} receiverTotal={100} />
-    );
-
-    // 100 - 40 = 60 $ en sa faveur (le receveur donne plus).
-    expect(screen.getByText('Différence de 60 $ en sa faveur')).toBeOnTheScreen();
-  });
-
-  it('annonce la différence EN TA FAVEUR quand l’initiateur a plus de valeur', () => {
-    render(
-      <ValueComparisonBox {...baseProps} initiatorTotal={120} receiverTotal={50} />
-    );
-
-    expect(screen.getByText('Différence de 70 $ en votre faveur')).toBeOnTheScreen();
-  });
-
-  it('affiche "Valeurs equivalentes" et aucun bouton suggéré quand les totaux sont égaux', () => {
-    render(
-      <ValueComparisonBox {...baseProps} initiatorTotal={60} receiverTotal={60} />
-    );
-
-    expect(screen.getByText('Valeurs équivalentes')).toBeOnTheScreen();
+describe('<ValueComparisonBox /> — valeurs indicatives', () => {
+  it.each([[40, 100], [120, 50], [60, 60]])('conserve le bon total de chaque côté (%s / %s), sans jugement sur la valeur', (initiatorTotal, receiverTotal) => {
+    render(<ValueComparisonBox {...baseProps} initiatorTotal={initiatorTotal} receiverTotal={receiverTotal} />);
+    expect(screen.getByLabelText(`Vous recevez, ${receiverTotal} $`)).toBeOnTheScreen();
+    expect(screen.getByLabelText(`Vous proposez, ${initiatorTotal} $`)).toBeOnTheScreen();
+    expect(screen.queryByText(/Différence|en sa faveur|en votre faveur|équivalentes/)).toBeNull();
     expect(screen.queryByText(/Suggéré:/)).toBeNull();
   });
 });
@@ -77,8 +59,7 @@ describe('<ValueComparisonBox /> — différence de valeur', () => {
 describe('<ValueComparisonBox /> — paiements désactivés', () => {
   it('garde les valeurs indicatives et masque toutes les commandes de complément', () => {
     render(<ValueComparisonBox {...baseProps} initiatorTotal={40} receiverTotal={100} />);
-    expect(screen.getByText('Valeur affichée · à titre indicatif')).toBeOnTheScreen();
-    expect(screen.getByText('Un écart de valeur n’empêche pas l’échange.')).toBeOnTheScreen();
+    expect(screen.getByText('Valeurs indicatives')).toBeOnTheScreen();
     expect(screen.queryByText(/complément en argent/)).toBeNull();
     expect(screen.queryByText('Je paie')).toBeNull();
     expect(screen.queryByPlaceholderText('0')).toBeNull();
@@ -103,13 +84,13 @@ describe('<ValueComparisonBox /> — montant suggéré', () => {
     fireEvent.press(suggest);
 
     // Le complément suggéré = différence absolue (60), passé en string.
-    expect(onComplementAmountChange).toHaveBeenCalledWith('60');
+    expect(onComplementAmountChange).toHaveBeenCalledWith('60.00');
   });
 });
 
 describe('<ValueComparisonBox /> — saisie du complément', () => {
   beforeEach(() => { paymentFlags.PAYMENTS_ENABLED = true; });
-  it('sanitise la saisie en ne gardant que les chiffres', () => {
+  it('conserve la saisie brute pour sa validation monétaire explicite', () => {
     const onComplementAmountChange = jest.fn();
     render(
       <ValueComparisonBox
@@ -123,7 +104,7 @@ describe('<ValueComparisonBox /> — saisie du complément', () => {
     const input = screen.getByPlaceholderText('0');
     fireEvent.changeText(input, '1a2$3');
 
-    expect(onComplementAmountChange).toHaveBeenCalledWith('123');
+    expect(onComplementAmountChange).toHaveBeenCalledWith('1a2$3');
   });
 });
 

@@ -1,9 +1,17 @@
+import { chatIdForPair } from '@/services/chat/primitives';
+import { assertNewSaleAdmission, assertNewProposalAdmission } from '@/services/newSaleAdmission';
+import { useTradeOperation } from '@/hooks/useTradeOperation';
+import { useTradeAdmissionError } from '@/hooks/useTradeAdmissionError';
+import { useAuthenticatedUid } from '@/hooks/useAuth';
+import { acknowledgeMeetupProposal } from '@/services/chat/offers';
+import { ArticlesService } from '@/services/articlesService';
+import { queryKeys } from '@/lib/queryKeys';
 /**
  * Checkout — Meetup Spot Selection
  * Design System: Editorial Luxe — Cream, Charcoal, Rust, Sage
  *
  * Select a meetup location from seller's preferred spots OR choose
- * "A convenir par messagerie" to skip spot selection.
+ * "À convenir par messagerie" to skip spot selection.
  *
  * Sends a structured meetup OFFER in the chat (renders an interactive
  * OfferBubble) and navigates to success. The transaction is NOT created here
@@ -13,7 +21,7 @@
  * 48h dead-end (audit F8).
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   View,
@@ -24,24 +32,24 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { doc, getDoc } from 'firebase/firestore';
 import * as Haptics from 'expo-haptics';
 
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { formatPrice } from '@/utils/formatPrice';
 import { ScreenHeader } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { firestore, auth } from '@/config/firebaseConfig';
+import { auth } from '@/config/firebaseConfig';
 import { Article, MeetupSpot, MeetupSpotCategoryLabels } from '@/types';
+import { meetupSpotsForArticle } from '@/features/checkout-shipping/utils/meetupSpots';
 import { ChatService } from '@/services/chatService';
 import { ModerationService } from '@/services/moderationService';
 import { homeKeys } from '@/features/home/query-keys';
 import { track } from '@/lib/analytics';
-import { MEETUP_TO_ARRANGE_SPOT } from '@/components/MakeOfferModal/types';
+import { MEETUP_TO_ARRANGE_SPOT } from '@/features/offers/components/MakeOfferModal/types';
 
 // Special sentinel for "to be decided via chat"
 const VIA_CHAT_OPTION = '__via_chat__';
@@ -60,7 +68,9 @@ export default function MeetupCheckoutScreen() {
     negotiatedPrice?: string;
   }>();
 
+  const uid = useAuthenticatedUid();
   const currentUser = auth.currentUser;
+  const showAdmissionError = useTradeAdmissionError();
 
   // H5 — Auth guard: redirect unauthenticated users
   useEffect(() => {
@@ -69,10 +79,13 @@ export default function MeetupCheckoutScreen() {
     }
   }, [currentUser, router]);
 
-  const [article, setArticle] = useState<Article | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: article = null, isLoading: loading } = useQuery({
+    queryKey: queryKeys.articles.detail(articleId ?? ''),
+    queryFn: () => ArticlesService.getArticleById(articleId!),
+    enabled: !!articleId && !!uid,
+    staleTime: 10 * 60 * 1000,
+  });
   const [submitting, setSubmitting] = useState(false);
-  const submittingRef = useRef(false);
   const [reviewing, setReviewing] = useState(false);
   // selectedOption: either a MeetupSpot or VIA_CHAT_OPTION string
   const [selectedOption, setSelectedOption] = useState<MeetupSpot | string | null>(null);
@@ -86,35 +99,23 @@ export default function MeetupCheckoutScreen() {
     && article != null
     && parseFloat(negotiatedPrice) !== article.price;
 
-  // =============================================================================
-  // LOAD ARTICLE
-  // =============================================================================
-
-  useEffect(() => {
-    async function loadArticle() {
-      try {
-        const articleRef = doc(firestore, 'articles', articleId);
-        const articleDoc = await getDoc(articleRef);
-        if (articleDoc.exists()) {
-          const data = articleDoc.data();
-          const art = { id: articleDoc.id, ...data } as Article;
-          setArticle(art);
-
-          // Auto-select first preferred spot if available, otherwise "via chat"
-          if (art.preferredMeetupSpots && art.preferredMeetupSpots.length > 0) {
-            setSelectedOption(art.preferredMeetupSpots[0]);
-          } else {
-            setSelectedOption(VIA_CHAT_OPTION);
-          }
-        }
-      } catch (error) {
-        if (__DEV__) console.error('Error loading article:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadArticle();
-  }, [articleId]);
+  const operationContext = useTradeOperation(JSON.stringify([articleId, article?.sellerId, selectedOption, finalPrice]), uid);
+  const [previousOwner, setPreviousOwner] = useState(operationContext.frame);
+  const [previousFocus, setPreviousFocus] = useState(operationContext.focusRevision);
+  if (previousOwner !== operationContext.frame || previousFocus !== operationContext.focusRevision) {
+    setPreviousOwner(operationContext.frame);
+    setPreviousFocus(operationContext.focusRevision);
+    setSubmitting(false);
+  }
+  const selectionKey = JSON.stringify([articleId, uid]);
+  const [selectionOwner, setSelectionOwner] = useState(selectionKey);
+  if (selectionOwner !== selectionKey) {
+    setSelectionOwner(selectionKey);
+    setSelectedOption(null);
+    setReviewing(false);
+  } else if (article && !selectedOption) {
+    setSelectedOption(meetupSpotsForArticle(article)[0] ?? VIA_CHAT_OPTION);
+  }
 
   // =============================================================================
   // HANDLERS
@@ -134,7 +135,7 @@ export default function MeetupCheckoutScreen() {
       option: 'seller_spot',
       spot_category: spot.category,
       neighborhood_id: spot.neighborhood?.id,
-      seller_spots_count: article.preferredMeetupSpots?.length ?? 0,
+      seller_spots_count: meetupSpotsForArticle(article).length,
     });
   };
 
@@ -144,20 +145,28 @@ export default function MeetupCheckoutScreen() {
     track('meetup_spot_selected', {
       article_id: article.id,
       option: 'via_chat',
-      seller_spots_count: article.preferredMeetupSpots?.length ?? 0,
+      seller_spots_count: meetupSpotsForArticle(article).length,
     });
   };
 
   const handleConfirm = async () => {
-    if (!article || !selectedOption || submittingRef.current || !currentUser) return;
+    if (!article || !selectedOption || !uid) return;
+    let operation;
+    const capturedPrice = finalPrice;
+    const meetupLocation: MeetupSpot = JSON.parse(JSON.stringify(selectedSpot ?? MEETUP_TO_ARRANGE_SPOT)) as MeetupSpot;
 
     try {
-      submittingRef.current = true;
+      operation = operationContext.start();
+      if (!operation) return;
       setSubmitting(true);
+      const assertCurrent = () => operationContext.assertCurrent(operation!);
+      await assertNewProposalAdmission(uid, 'buy', { chatId: chatIdForPair(uid, article.sellerId, article.id), amount: capturedPrice, location: meetupLocation, message: `Demande de meetup pour "${article.title}"` }, assertCurrent);
+      assertCurrent();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       // Check if users are blocked before proceeding
-      const blocked = await ModerationService.areUsersBlocked(currentUser.uid, article.sellerId);
+      const blocked = await ModerationService.areUsersBlocked(uid, article.sellerId);
+      assertCurrent();
       if (blocked) {
         Alert.alert('Action impossible', 'Vous ne pouvez pas acheter cet article.');
         return;
@@ -165,24 +174,30 @@ export default function MeetupCheckoutScreen() {
 
       // Create or get chat
       const chat = await ChatService.createOrGetChat(
-        currentUser.uid,
+        uid,
         article.sellerId,
         article.id,
       );
+
+      assertCurrent();
 
       // Send the structured meetup OFFER in the chat only — no transaction is
       // created here (audit F8). It is created server-side by
       // `acceptMeetupOffer` when the seller accepts, which also locks the
       // article atomically. Pre-locking it here made the offer un-acceptable.
-      const meetupLocation: MeetupSpot = selectedSpot ?? MEETUP_TO_ARRANGE_SPOT;
       const messageId = await ChatService.sendMeetupOffer(
         chat.id,
-        currentUser.uid,
+        uid,
         article.sellerId,
-        finalPrice,
+        capturedPrice,
         meetupLocation,
         `Demande de meetup pour "${article.title}"`,
+        assertCurrent,
+        { deferAdoption: true, beforeNewDispatch: () => assertNewSaleAdmission(uid, 'buy', assertCurrent) },
       );
+      assertCurrent();
+      if (!messageId) throw new Error('La réception de cette proposition doit être vérifiée.');
+      acknowledgeMeetupProposal(messageId, assertCurrent);
       track('offer_sent', {
         article_id: article.id,
         seller_id: article.sellerId,
@@ -190,10 +205,10 @@ export default function MeetupCheckoutScreen() {
         message_id: messageId,
         source: 'checkout_direct',
         mode: 'meetup',
-        offer_amount_cents: Math.round(finalPrice * 100),
+        offer_amount_cents: Math.round(capturedPrice * 100),
         list_price_cents: Math.round(article.price * 100),
         discount_pct: article.price
-          ? Math.round(((article.price - finalPrice) / article.price) * 100)
+          ? Math.round(((article.price - capturedPrice) / article.price) * 100)
           : 0,
         has_message: false,
         spot_category: meetupLocation.category,
@@ -212,32 +227,31 @@ export default function MeetupCheckoutScreen() {
         params: {
           deliveryType: 'meetup',
           articleTitle: article.title,
-          amount: String(finalPrice),
-          spotName: selectedSpot?.name || MEETUP_TO_ARRANGE_SPOT.name,
+          amount: String(capturedPrice),
+          spotName: meetupLocation.name,
           chatId: chat.id,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (!operation || !operationContext.isCurrent(operation)) return;
       if (__DEV__) console.error('Error creating meetup transaction:', error);
       track('offer_send_failed', {
         article_id: article.id,
         source: 'checkout_direct',
         mode: 'meetup',
-        offer_amount_cents: Math.round(finalPrice * 100),
+        offer_amount_cents: Math.round(capturedPrice * 100),
         failure_type: 'server_error',
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
-      // Cloud Function errors arrive as FirebaseError with a readable
-      // message (e.g. "Cet article a deja ete vendu"). Surface it
-      // directly so the buyer understands why the purchase failed.
-      const msg = error?.message || 'Impossible de confirmer le meetup.';
-      Alert.alert('Article indisponible', msg, [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      if (!showAdmissionError(error, { isCurrent: () => operationContext.isCurrent(operation!), retry: () => { void handleConfirm(); } })) {
+        Alert.alert('Proposition non envoyée', error instanceof Error ? error.message : 'Impossible de confirmer le meetup. Votre sélection est conservée.');
+      }
     } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
+      if (operation) {
+        if (operationContext.isCurrent(operation)) setSubmitting(false);
+        operationContext.finish(operation);
+      }
     }
   };
 
@@ -353,7 +367,7 @@ export default function MeetupCheckoutScreen() {
     );
   }
 
-  const spots = article.preferredMeetupSpots || [];
+  const spots = meetupSpotsForArticle(article);
 
   return (
     <View style={styles.container} testID="checkout-meetup-screen">
@@ -416,6 +430,7 @@ export default function MeetupCheckoutScreen() {
                   key={`spot-${index}`}
                   style={[styles.spotCard, isSelected && styles.spotCardSelected]}
                   onPress={() => handleSelectSpot(spot)}
+                  disabled={submitting}
                 >
                   <View style={styles.spotIcon}>
                     <Ionicons name="location-outline" size={16} color={colors.sage} />
@@ -444,6 +459,7 @@ export default function MeetupCheckoutScreen() {
           testID="checkout-meetup-messaging-option"
           style={[styles.spotCard, isViaChatSelected && styles.spotCardSelected]}
           onPress={handleSelectViaChat}
+          disabled={submitting}
         >
           <View style={[styles.spotIcon, styles.spotIconChat]}>
             <Ionicons name="chatbubble-outline" size={16} color={colors.rust} />

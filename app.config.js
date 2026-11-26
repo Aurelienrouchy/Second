@@ -1,12 +1,40 @@
+const fs = require('node:fs');
+const firebaseProjects = require('./config/firebaseProjects.json');
+const developmentOAuth = require('./config/firebase/development/oauth.json');
+
+const appEnvironment = process.env.EXPO_PUBLIC_APP_ENV || 'development';
+if (!['development', 'production'].includes(appEnvironment)) {
+  throw new Error('EXPO_PUBLIC_APP_ENV doit valoir development ou production.');
+}
+// Expo evaluates config in development mode during the native prebuild step.
+const isStoreBuild = process.env.EAS_BUILD === 'true' && process.env.EAS_BUILD_PROFILE === 'production';
+if (process.env.NODE_ENV === 'development' && appEnvironment === 'production' && !isStoreBuild) {
+  throw new Error('Le lancement local utilise exclusivement Seconde Dev.');
+}
+const isProduction = appEnvironment === 'production';
+const appScheme = isProduction ? 'seconde' : 'seconde-dev';
+const bundleIdentifier = isProduction ? 'com.seconde.app' : 'com.seconde.app.dev';
+const devIosGoogleFile = './config/firebase/development/GoogleService-Info.plist';
+const devAndroidGoogleFile = './config/firebase/development/google-services.json';
+const iosGoogleClientId = isProduction
+  ? '628214013296-fspuqlslcg8tln3aonhce95c435oauts.apps.googleusercontent.com'
+  : process.env.EXPO_PUBLIC_DEV_GOOGLE_IOS_CLIENT_ID || developmentOAuth.googleIosClientId;
+if (!isProduction && iosGoogleClientId && !iosGoogleClientId.startsWith(`${firebaseProjects.development.messagingSenderId}-`)) {
+  throw new Error('Le client Google iOS Dev doit appartenir au projet Firebase Seconde Dev.');
+}
+const googleUrlScheme = iosGoogleClientId
+  ? `com.googleusercontent.apps.${iosGoogleClientId.replace('.apps.googleusercontent.com', '')}`
+  : undefined;
+
 export default {
   "expo": {
-    "name": "Seconde",
+    "name": isProduction ? "Seconde" : "Seconde Dev",
     "slug": "seconde",
     "jsEngine": "hermes",
-    "version": "1.0.0",
+    "version": isProduction ? "1.0.2" : "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "seconde",
+    "scheme": appScheme,
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
@@ -27,7 +55,7 @@ export default {
         }
       ],
       "expo-router",
-      "expo-dev-client",
+      ["expo-dev-client", { "addGeneratedScheme": isProduction }],
       [
         "expo-splash-screen",
         {
@@ -55,9 +83,10 @@ export default {
           "recordAudioAndroid": false
         }
       ],
-      [
-        "@react-native-google-signin/google-signin"
-      ],
+      ...(googleUrlScheme ? [[
+        "@react-native-google-signin/google-signin",
+        { iosUrlScheme: googleUrlScheme }
+      ]] : []),
       [
         "@stripe/stripe-react-native",
         {
@@ -66,11 +95,12 @@ export default {
       ],
       "expo-image",
       "expo-localization",
+      ["expo-secure-store", { "configureAndroidBackup": true, "faceIDPermission": false }],
       [
         "react-native-maps",
         {
-          "androidGoogleMapsApiKey": process.env.EXPO_PUBLIC_ANDROID_GOOGLE_MAPS_API_KEY,
-          "iosGoogleMapsApiKey": process.env.EXPO_PUBLIC_IOS_GOOGLE_MAPS_API_KEY
+          "androidGoogleMapsApiKey": isProduction ? process.env.EXPO_PUBLIC_ANDROID_GOOGLE_MAPS_API_KEY : process.env.EXPO_PUBLIC_DEV_ANDROID_GOOGLE_MAPS_API_KEY,
+          "iosGoogleMapsApiKey": isProduction ? process.env.EXPO_PUBLIC_IOS_GOOGLE_MAPS_API_KEY : process.env.EXPO_PUBLIC_DEV_IOS_GOOGLE_MAPS_API_KEY
         }
       ],
       "expo-sharing",
@@ -78,26 +108,35 @@ export default {
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "16.4"
+            "deploymentTarget": "16.4",
+            "extraPods": [
+              { "name": "GoogleUtilities", "modular_headers": true },
+              { "name": "RecaptchaInterop", "modular_headers": true }
+            ]
           },
           "android": {
             "compileSdkVersion": 36,
-            "targetSdkVersion": 35,
+            "targetSdkVersion": 36,
             "buildToolsVersion": "36.0.0",
-            "kotlinVersion": "2.1.20"
+            "kotlinVersion": "2.1.20",
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            // Backport Stripe's R8 rule for the optional Issuing feature.
+            "extraProguardRules": "-dontwarn com.stripe.android.pushProvisioning.**"
           }
         }
       ]
     ],
     "ios": {
+      ...(!isProduction ? { appleTeamId: "B6D5JY9LKV" } : {}),
       "buildNumber": "1",
-      "googleServicesFile": "./GoogleService-Info.plist",
+      "googleServicesFile": isProduction ? "./GoogleService-Info.plist" : fs.existsSync(devIosGoogleFile) ? devIosGoogleFile : undefined,
       "supportsTablet": false,
       "usesAppleSignIn": true,
-      "associatedDomains": [
+      "associatedDomains": isProduction ? [
         "applinks:seconde.ca",
         "applinks:www.seconde.ca"
-      ],
+      ] : [],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleAllowMixedLocalizations": true,
@@ -111,18 +150,17 @@ export default {
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
-              "seconde",
-              "exp+seconde",
-              // Google Sign-In reversed client ID from GoogleService-Info.plist (project: seconde-b47a6)
-              "com.googleusercontent.apps.628214013296-fspuqlslcg8tln3aonhce95c435oauts"
+              appScheme,
+              ...(isProduction ? ["exp+seconde"] : []),
+              ...(googleUrlScheme ? [googleUrlScheme] : [])
             ]
           }
         ]
       },
-      "bundleIdentifier": "com.seconde.app"
+      "bundleIdentifier": bundleIdentifier
     },
     "android": {
-      "googleServicesFile": "./google-services.json",
+      "googleServicesFile": isProduction ? "./google-services.json" : fs.existsSync(devAndroidGoogleFile) ? devAndroidGoogleFile : undefined,
       // Locks android:windowSoftInputMode="adjustResize" through `expo prebuild`.
       // The chat KeyboardAvoidingView uses offset 0 on Android and depends on it.
       "softwareKeyboardLayoutMode": "resize",
@@ -136,7 +174,7 @@ export default {
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE"
       ],
-      "intentFilters": [
+      "intentFilters": isProduction ? [
         {
           "action": "VIEW",
           "autoVerify": true,
@@ -284,14 +322,16 @@ export default {
           ],
           "category": ["BROWSABLE", "DEFAULT"]
         }
-      ],
-      "package": "com.seconde.app"
+      ] : [],
+      "package": bundleIdentifier
     },
     // The marketplace is mobile-only. Hosting serves public/index.html as a
     // static native-app deep-link landing, without a React root. index.web.ts
     // preserves that scope if a local web export is requested; it never mounts
     // the marketplace. react-native-web remains a transitive dependency.
     "extra": {
+      "appEnvironment": appEnvironment,
+      "firebaseProjectId": firebaseProjects[appEnvironment].projectId,
       "eas": {
         "projectId": "5f72091d-3473-467c-a4fd-96fe18cda4d2"
       }

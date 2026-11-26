@@ -38,9 +38,6 @@ export { Skeleton, SkeletonText, SkeletonAvatar, SkeletonImage } from './Skeleto
 // NAVIGATION COMPONENTS
 // =============================================================================
 
-export { TabBar } from './TabBar';
-export { SearchBar } from './SearchBar';
-export { CategoryChip } from './CategoryChip';
 // SectionHeader removed — duplicate of components/home/SectionHeader, no consumers.
 // PersonalizedHeader removed — 238 lines, zero consumers (dead code cleanup).
 export { ScreenHeader } from './ScreenHeader';
@@ -56,11 +53,6 @@ export { OfflineBanner } from './OfflineBanner';
 // OVERLAY COMPONENTS
 // =============================================================================
 
-export {
-  ThemedBottomSheet,
-  ThemedBottomSheetModal,
-} from './ThemedBottomSheet';
-export type { ThemedBottomSheetRef } from './ThemedBottomSheet';
 
 export { ImmersiveOverlay } from './ImmersiveOverlay';
 export { useImmersiveOverlay } from './ImmersiveOverlay';
@@ -69,5 +61,4 @@ export { useImmersiveOverlay } from './ImmersiveOverlay';
 // EXISTING COMPONENTS (Re-export)
 // =============================================================================
 
-export { IconSymbol } from './IconSymbol';
 export { default as TabBarBackground } from './TabBarBackground';

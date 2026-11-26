@@ -41,7 +41,11 @@ serviceAccountKey.json
 
 # Secrets - never commit
 .env
+/.argent/secrets.env
 functions/.env
+functions/.env.*
+!functions/.env.example
+!functions/.env.*.example
 *-firebase-adminsdk-*.json
 firestore-debug.log
 
@@ -55,6 +59,7 @@ functions/lib-scripts/
 
 # Maestro execution artifacts (flows/subflows are kept, run output is not)
 .maestro/tests/
+.firebase/
 
 # Local signing material and private planning documents
 credentials.json

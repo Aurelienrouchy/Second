@@ -34,7 +34,7 @@ jest.mock('@/services/articlesService', () => ({
   },
 }));
 
-import { useArticleSearch } from '@/hooks/useArticleSearch';
+import { useArticleSearch } from '@/features/search/hooks/useArticleSearch';
 import type { ArticleSize } from '@/types';
 
 function makeArticle(id: string) {

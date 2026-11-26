@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Linking } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Linking, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 
@@ -9,13 +9,14 @@ interface PermissionDeniedProps {
   onContinue?: () => void;
   onClose?: () => void;
   onRetry?: () => void;
+  onPrivacyOpen?: () => void;
 }
 
 export const PermissionDenied = React.memo(function PermissionDenied({
   onGalleryPress, photoCount = 0, onContinue, onClose, onRetry,
 }: PermissionDeniedProps) {
   return (
-    <View style={styles.permissionDenied}>
+    <ScrollView style={styles.permissionScroll} contentContainerStyle={styles.permissionDenied}>
       <View style={styles.permissionIconCircle}>
         <Ionicons name="camera-outline" size={32} color={colors.muted} />
       </View>
@@ -45,22 +46,33 @@ export const PermissionDenied = React.memo(function PermissionDenied({
         </Text>
       </Pressable>
       {photoCount > 0 && onContinue && (
-        <Pressable testID="sell-capture-continue" style={styles.settingsButton} onPress={onContinue}>
-          <Text style={styles.settingsButtonText}>CONTINUER · {photoCount} PHOTO{photoCount > 1 ? 'S' : ''}</Text>
-        </Pressable>
+        <View style={styles.continueContainer}>
+          <Pressable testID="sell-capture-continue" style={styles.settingsButton} onPress={onContinue}>
+            <Text style={styles.settingsButtonText}>CONTINUER · {photoCount} PHOTO{photoCount > 1 ? 'S' : ''}</Text>
+          </Pressable>
+        </View>
       )}
       {onClose && (
         <Pressable testID="sell-close-button" style={styles.galleryFallbackButton} onPress={onClose}>
           <Text style={styles.galleryFallbackText}>Fermer</Text>
         </Pressable>
       )}
-    </View>
+    </ScrollView>
   );
 });
 
 const styles = StyleSheet.create({
-  permissionDenied: {
+  continueContainer: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    marginTop: spacing.sm,
+  },
+  permissionScroll: {
     flex: 1,
+    backgroundColor: colors.surfaceWarm,
+  },
+  permissionDenied: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,

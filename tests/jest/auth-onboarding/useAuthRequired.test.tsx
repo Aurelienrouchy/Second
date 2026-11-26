@@ -23,8 +23,8 @@ jest.mock('@/services/guestPreferencesService', () => ({
     clearGuestSession: jest.fn((..._args: unknown[]) => Promise.resolve()),
   },
 }));
-jest.mock('@/services/userService', () => ({
-  UserService: { getUserById: jest.fn(), removeFcmToken: jest.fn() },
+jest.mock('@/services/userAuthData', () => ({
+  getUserById: jest.fn(), removeFcmToken: jest.fn(), removeExpoPushToken: jest.fn(),
 }));
 jest.mock('@/services/authService', () => ({ AuthService: {} }));
 jest.mock('@/lib/queryClient', () => ({ queryClient: { clear: jest.fn() } }));

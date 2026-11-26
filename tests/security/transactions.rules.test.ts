@@ -52,10 +52,16 @@ describe('transactions rules', () => {
     await assertFails(getDoc(doc(db, 'transactions', TX_ID)));
   });
 
-  it('allows seller to update status to meetup_confirmed', async () => {
+  // La confirmation de rencontre passe par la callable `confirmMeetupTransaction`
+  // depuis le 2026-06-02. La branche de règles qui autorisait le vendeur à
+  // l'écrire lui-même a été supprimée : elle laissait passer une confirmation
+  // sans auteur (`meetupConfirmedBy` était hors de l'ensemble de clés autorisé)
+  // et sans contrainte d'horodatage, alors que la fenêtre d'avis et le balayage
+  // à 7 jours se calent sur `meetupConfirmedAt`.
+  it('refuse au vendeur d\'écrire lui-même meetup_confirmed (callable seule)', async () => {
     const env = await getTestEnv();
     const db = env.authenticatedContext(BOB).firestore();
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(db, 'transactions', TX_ID), { status: 'meetup_confirmed' }),
     );
   });
@@ -76,15 +82,23 @@ describe('transactions rules', () => {
     );
   });
 
-  it('allows seller meetup confirmation with meetupConfirmedAt + updatedAt', async () => {
+  it('refuse la confirmation cliente même complète (statut + horodatage)', async () => {
     const env = await getTestEnv();
     const db = env.authenticatedContext(BOB).firestore();
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(db, 'transactions', TX_ID), {
         status: 'meetup_confirmed',
         meetupConfirmedAt: new Date(),
         updatedAt: new Date(),
       }),
+    );
+  });
+
+  it('laisse passer le seul écrit client encore autorisé : updatedAt', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'transactions', TX_ID), { updatedAt: new Date() }),
     );
   });
 
@@ -102,6 +116,26 @@ describe('transactions rules', () => {
     await assertFails(
       updateDoc(doc(db, 'transactions', TX_ID), { disputed: true }),
     );
+  });
+
+  it('denies a party creating a bank dispute state (server-only)', async () => {
+    const env = await getTestEnv();
+    const db = env.authenticatedContext(BOB).firestore();
+    await assertFails(updateDoc(doc(db, 'transactions', TX_ID), {
+      bankDispute: { id: 'du_forged', state: 'closed', outcome: 'won', closedAt: new Date() },
+    }));
+  });
+
+  it('denies a party clearing or qualifying the bank guard while updating updatedAt', async () => {
+    const env = await getTestEnv();
+    await env.withSecurityRulesDisabled(async ctx => {
+      await updateDoc(doc(ctx.firestore(), 'transactions', TX_ID), {
+        bankDispute: { id: 'du_open', state: 'open', outcome: null },
+      });
+    });
+    const db = env.authenticatedContext(ALICE).firestore();
+    await assertFails(updateDoc(doc(db, 'transactions', TX_ID), { bankDispute: null, updatedAt: new Date() }));
+    await assertFails(updateDoc(doc(db, 'transactions', TX_ID), { 'bankDispute.state': 'closed' }));
   });
 
   it('denies client setting fundsReleaseAt (escrow release is CF-only)', async () => {
@@ -219,5 +253,24 @@ describe('transactions rules', () => {
     await assertSucceeds(
       updateDoc(doc(db, 'transactions', TX_ID), { updatedAt: new Date() }),
     );
+  });
+});
+
+describe('transactions refund fields are server-only', () => {
+  beforeAll(async () => { await getTestEnv(); });
+  afterAll(async () => { await teardownTestEnv(); });
+  beforeEach(async () => {
+    const env = await getTestEnv(); await env.clearFirestore();
+    await env.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(), 'transactions', TX_ID), {
+      ...baseTx, refundBlocked: true, refund: { intentId: 'server_intent', state: 'pending', cardAmountCents: 5000 },
+    }); });
+  });
+  it.each([ALICE, BOB])('denies %s injecting or erasing refund intent/reserve', async uid => {
+    const db = (await getTestEnv()).authenticatedContext(uid).firestore();
+    await assertFails(updateDoc(doc(db, 'transactions', TX_ID), { refund: { state: 'succeeded', fundsAppliedAt: new Date() } }));
+    await assertFails(updateDoc(doc(db, 'transactions', TX_ID), { refund: null }));
+    await assertFails(updateDoc(doc(db, 'transactions', TX_ID), { refundBlocked: false }));
+    await assertFails(updateDoc(doc(db, 'transactions', TX_ID), { 'refund.freezeCents': 0 }));
+    await assertFails(updateDoc(doc(db, 'transactions', TX_ID), { 'refund.attemptId': 'client_retry' }));
   });
 });

@@ -7,23 +7,71 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_USE_RN_FETCH": "1" }
+      "env": {
+        "EXPO_PUBLIC_USE_RN_FETCH": "1",
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_PAYMENTS_ENABLED": "true",
+        "EXPO_PUBLIC_SHIPPING_ENABLED": "true",
+        "EXPO_PUBLIC_COMMERCE_TEST_MODE": "true"
+      },
+      "environment": "development",
+      "channel": "development",
+      "prebuildCommand": "prebuild --template expo-template-bare-minimum@56.0.38"
     },
     "preview": {
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_USE_RN_FETCH": "1" }
+      "env": {
+        "EXPO_PUBLIC_USE_RN_FETCH": "1",
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_PAYMENTS_ENABLED": "true",
+        "EXPO_PUBLIC_SHIPPING_ENABLED": "true",
+        "EXPO_PUBLIC_COMMERCE_TEST_MODE": "true"
+      },
+      "environment": "development",
+      "channel": "preview",
+      "prebuildCommand": "prebuild --template expo-template-bare-minimum@56.0.38"
+    },
+    "testflight-dev": {
+      "extends": "preview",
+      "developmentClient": false,
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_EMULATORS": "0"
+      },
+      "environment": "development",
+      "channel": "testflight-dev",
+      "ios": {
+        "buildConfiguration": "Release"
+      }
     },
     "production": {
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_USE_RN_FETCH": "1" }
+      "prebuildCommand": "prebuild --template expo-template-bare-minimum@56.0.38",
+      "env": {
+        "EXPO_PUBLIC_USE_RN_FETCH": "1",
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_FIREBASE_EMULATORS": "0",
+        "EXPO_PUBLIC_PAYMENTS_ENABLED": "false",
+        "EXPO_PUBLIC_SHIPPING_ENABLED": "false",
+        "EXPO_PUBLIC_COMMERCE_TEST_MODE": "false"
+      },
+      "environment": "production",
+      "channel": "production"
     }
   },
   "submit": {
+    "testflight-dev": {
+      "ios": {
+        "ascAppId": "6832167210",
+        "appleTeamId": "B6D5JY9LKV",
+        "bundleIdentifier": "com.seconde.app.dev"
+      }
+    },
     "production": {
       "ios": {
-        "appleId": "joseph.caling1@gmail.com",
         "ascAppId": "6757828492",
-        "appleTeamId": "2VZTF24GKY",
+        "appleTeamId": "B6D5JY9LKV",
         "bundleIdentifier": "com.seconde.app"
       }
     }

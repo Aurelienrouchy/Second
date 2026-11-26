@@ -55,6 +55,7 @@ export const colors = {
 
   // Semantic
   danger: '#D64545',
+  dangerDark: '#A62B2B',      // Destructive text on warm, light surfaces
   dangerLight: 'rgba(214, 69, 69, 0.1)',
   success: '#3D9970',
   successLight: 'rgba(61, 153, 112, 0.1)',
@@ -122,6 +123,13 @@ export const fonts = {
 } as const;
 
 export const typography = {
+  // Le Troc — graphic sans identity, isolated from the editorial marketplace.
+  trocHomeTitle: { fontFamily: fonts.sansMedium, fontSize: 34, lineHeight: 40, letterSpacing: -0.8 },
+  trocTitle: { fontFamily: fonts.sansBold, fontSize: 40, lineHeight: 44, letterSpacing: -1.5 },
+  trocScreenTitle: { fontFamily: fonts.sansBold, fontSize: 22, lineHeight: 28, letterSpacing: -0.5 },
+  trocItemTitle: { fontFamily: fonts.sansBold, fontSize: 18, lineHeight: 24, letterSpacing: -0.3 },
+  trocComparisonTitle: { fontFamily: fonts.sansBold, fontSize: 16, lineHeight: 21, letterSpacing: -0.3 },
+  trocValue: { fontFamily: fonts.sansMedium, fontSize: 16, lineHeight: 22, letterSpacing: 0 },
   // Display Headlines (Cormorant Garamond — elegant, editorial)
   hero: {
     fontFamily: fonts.displayBold,
@@ -367,6 +375,7 @@ export const animations = {
   scale: {
     pressed: 0.97,
     pressedCard: 0.98,
+    draggedPhoto: 1.04,
   },
 } as const;
 
@@ -388,13 +397,79 @@ export const haptics = {
 // =============================================================================
 
 export const components = {
-  // Button — uppercase labels, flat
+  photoReview: {
+    columns: 3,
+    gridGap: spacing.sm,
+    tileRadius: radius.xl,
+    removeDiscSize: sizing.minTouchTarget - spacing.sm * 2,
+    badgeInset: spacing.sm,
+    emptyBorderWidth: 1,
+  },
+  troc: {
+    borderWidth: 1,
+    cardRadius: radius.none,
+    fieldRadius: radius.sm,
+    sheetRadius: radius.xl,
+    gridGap: spacing.sm,
+    pagePadding: spacing.md,
+    compactWidth: 360,
+    largeFontScale: 1.3,
+    photoRatio: 4 / 5,
+    featuredPhotoRatio: 3 / 2,
+    comparisonMultiPhotoRatio: 4 / 3,
+    exchangeDiscSize: 48,
+    previewHeight: 120,
+    messageMinHeight: 80,
+    depositThumbWidth: 64,
+    sheetMaxHeightRatio: 0.8,
+    sheetMinHeight: 240,
+    sheetHeaderEstimate: 80,
+    sheetHandleHeight: 24,
+    avatarSize: 40,
+    buttonHeight: sizing.buttonHeight,
+    pressedOpacity: 0.75,
+    disabledOpacity: 0.4,
+    skeletonPhotoHeight: 200,
+    mosaicTileWidth: 80,
+    mosaicTileHeight: 84,
+    mosaicRows: 3,
+    mosaicSpeed: 12, // Points per second: quiet, continuous movement.
+  },
+  // Button — lightly tinted, framed actions with quiet editorial proportions.
+  // These presentation tokens are also shared by local marketplace CTAs.
   button: {
     height: sizing.buttonHeight,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,     // 8px
+    paddingVertical: spacing.sm,
+    borderRadius: radius.xs,
     borderWidth: 1,
+    disabledOpacity: 0.5,
+    container: {
+      minHeight: sizing.buttonHeight,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.surfaceWarm,
+      borderRadius: radius.xs,
+      borderWidth: 1,
+      borderColor: colors.muted,
+    },
+    primary: { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+    secondary: { backgroundColor: colors.surfaceWarm, borderColor: colors.muted },
+    ghost: { backgroundColor: colors.transparent, borderWidth: 0 },
+    danger: { backgroundColor: colors.dangerLight, borderColor: colors.danger },
+    muted: { backgroundColor: colors.surfaceWarm, borderColor: colors.borderStrong },
+    label: { ...typography.label, textAlign: 'center', flexShrink: 1 },
+    primaryLabel: { color: colors.foreground },
+    secondaryLabel: { color: colors.foregroundSecondary },
+    ghostLabel: { color: colors.primaryDark, textDecorationLine: 'underline' },
+    dangerLabel: { color: colors.dangerDark },
+    mutedLabel: { color: colors.foregroundSecondary },
+    small: { minHeight: sizing.minTouchTarget, paddingHorizontal: spacing.md },
+    smallLabel: { ...typography.bodySmall },
   },
 
   // Input — clean, minimal

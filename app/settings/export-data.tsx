@@ -1,18 +1,21 @@
 /**
- * Export Data Settings (Loi 25 / LPRPDE)
+ * Selected data export with explicit source coverage.
  */
 
-import { useUser } from '@/hooks/useAuth';
+import { useAuthenticatedUid } from '@/hooks/useAuth';
+import { useLabelLifecycleContext } from '@/hooks/useLabelLifecycleContext';
+import { captureTradeSession, staleTradeOperation } from '@/services/tradeOperation';
+import { assertSupportProjectionGeneration, getSupportProjectionGeneration } from '@/services/supportProjectionGuard';
+import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from 'expo-crypto';
 import { track } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
-import { Button } from '@/components/ui';
+import { Text, Label, Caption, ScreenHeader, Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -40,70 +43,83 @@ const DataItem = ({ icon, title, description }: DataItemProps) => (
 
 export default function ExportDataScreen() {
   const router = useRouter();
-  const user = useUser();
-  const [loading, setLoading] = useState(false);
-  const [exported, setExported] = useState(false);
+  const uid = useAuthenticatedUid();
+  const context = useLabelLifecycleContext('settings-export-data', uid);
+  const lock = useRef(false);
+  const selection = useRef(0);
+  const [loadingState, setLoadingState] = useState<{frame: symbol; focus: string} | null>(null);
+  const [returnedShare, setReturnedShare] = useState<{frame: symbol; focus: string} | null>(null);
+  const loading = loadingState?.frame === context.frame && loadingState.focus === context.focusRevision;
+  const exported = returnedShare?.frame === context.frame && returnedShare.focus === context.focusRevision;
 
   const handleExportData = async () => {
-    if (!user) return;
-
-    setLoading(true);
+    if (!uid || lock.current) return;
+    let operation;
+    try { operation = context.start(); } catch { return; }
+    if (!operation) return;
+    lock.current = true;
+    const capturedSelection = selection.current;
+    const supportGeneration = getSupportProjectionGeneration();
+    const guard = () => {context.assertCurrent(operation); assertSupportProjectionGeneration(supportGeneration); if (selection.current !== capturedSelection) throw staleTradeOperation();};
+    const stamp = {frame: context.frame, focus: context.focusRevision};
+    setLoadingState(stamp);
+    setReturnedShare(null);
     let filePath: string | null = null;
     try {
-      // Récupérer toutes les données de l'utilisateur
-      const data = await UserService.exportUserData(user.id);
-
-      const fileName = `seconde_data_${user.id}_${Date.now()}.json`;
-      const baseDir = FileSystem.documentDirectory;
-      if (!baseDir) {
-        throw new Error('Impossible d\'accéder au stockage local');
+      guard();
+      const data = await UserService.exportUserData(uid, guard);
+      guard();
+      const available = await Sharing.isAvailableAsync();
+      guard();
+      if (!available) {
+        track('data_export_requested', {outcome: 'sharing_unavailable'});
+        guard();
+        Alert.alert('Partage indisponible', 'Le fichier ne peut pas être transmis sur cet appareil. Réessayez depuis un appareil prenant en charge le partage.');
+        return;
       }
-      filePath = `${baseDir}${fileName}`;
-
-      await FileSystem.writeAsStringAsync(
-        filePath,
-        JSON.stringify(data, null, 2),
-        { encoding: FileSystem.EncodingType.UTF8 }
-      );
-
-      // Vérifier si le partage est disponible
-      const isAvailable = await Sharing.isAvailableAsync();
-
-      if (isAvailable) {
-        await Sharing.shareAsync(filePath, {
-          mimeType: 'application/json',
-          dialogTitle: 'Exporter mes données Seconde',
-          UTI: 'public.json',
-        });
-        setExported(true);
-        track('data_export_requested', { outcome: 'shared' });
-      } else {
-        // Sans module de partage, le fichier reste dans le bac à sable de
-        // l'app et n'est pas accessible à l'utilisateur : ne pas afficher de
-        // chemin inutilisable.
-        track('data_export_requested', { outcome: 'sharing_unavailable' });
-        Alert.alert(
-          'Partage indisponible',
-          'Le partage de fichiers n\'est pas disponible sur cet appareil. Réessayez depuis un appareil prenant en charge le partage.'
-        );
-      }
-    } catch (error: unknown) {
-      if (__DEV__) console.error('Error exporting data:', error);
-      track('data_export_requested', { outcome: 'error' });
-      const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de l\'export';
-      Alert.alert('Erreur', message);
+      const baseDir = FileSystem.cacheDirectory;
+      if (!baseDir) throw new Error('export/cache_unavailable');
+      const session = captureTradeSession(uid);
+      const fileIdentity = await digestStringAsync(CryptoDigestAlgorithm.SHA256, JSON.stringify([uid, session.generation, context.focusRevision, randomUUID()]));
+      guard();
+      filePath = `${baseDir}seconde_export_${fileIdentity}.json`;
+      const json = JSON.stringify(data, null, 2);
+      if (json.length > data.limits.maxFileJsonCodeUnits) throw new Error('export/file_size_limit');
+      guard();
+      await UserService.assertUserDataExportSession(uid, guard);
+      guard();
+      await FileSystem.writeAsStringAsync(filePath, json, {encoding: FileSystem.EncodingType.UTF8});
+      guard();
+      await UserService.assertUserDataExportSession(uid, guard);
+      guard();
+      await Sharing.shareAsync(filePath, {mimeType: 'application/json', dialogTitle: 'Partager mon export Seconde', UTI: 'public.json'});
+      guard();
+      setReturnedShare(stamp);
+    } catch {
+      try { guard(); } catch { return; }
+      track('data_export_requested', {outcome: 'error'});
+      guard();
+      Alert.alert('Export indisponible', 'Le fichier n’a pas pu être préparé ou partagé dans cette session. Réessayez ; si nécessaire, reconnectez-vous au compte concerné ou contactez notre équipe. Aucune transmission n’est confirmée.');
     } finally {
-      // Supprimer le fichier temporaire (le partage en a déjà fait une copie).
+      // Only this operation's unique cache file is removed, even after its session ends.
       if (filePath) {
-        FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => {});
+        try { await FileSystem.deleteAsync(filePath, {idempotent: true}); }
+        catch { /* No path, private data or success claim is sent to another session. */ }
       }
-      setLoading(false);
+      context.finish(operation);
+      lock.current = false;
+      try {
+        // A changed support projection invalidates the payload, but must not strand this still-current screen's loading state.
+        context.assertCurrent(operation);
+        if (selection.current !== capturedSelection) throw staleTradeOperation();
+        setLoadingState(null);
+      } catch { /* An older navigation or session has no UI callback. */ }
     }
   };
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Exporter mes données" onBack={() => router.back()} />
+      <ScreenHeader title="Exporter mes données" onBack={() => {selection.current++; router.back();}} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         {/* Privacy Info Box */}
@@ -111,43 +127,53 @@ export default function ExportDataScreen() {
           <View style={styles.rgpdIconContainer}>
             <Ionicons name="shield-checkmark" size={48} color={colors.success} />
           </View>
-          <Text variant="h3" style={styles.rgpdTitle}>Droit à la portabilité</Text>
+          <Text variant="h3" style={styles.rgpdTitle}>Un export limité et lisible</Text>
           <Caption style={styles.rgpdText}>
-            Conformément à la Loi 25 du Québec et à la LPRPDE (PIPEDA), vous avez le droit
-            de recevoir vos données personnelles dans un format structuré, couramment utilisé
-            et lisible par machine.
+            Ce fichier JSON reprend une sélection de champs lisibles depuis votre session.
+            Chaque source indique si elle a été lue sur le serveur, si le document est absent,
+            si la lecture est indisponible ou si la source n’est pas incluse.
+            Il ne certifie pas l’exhaustivité de vos données ni le rétablissement de votre compte.
+            La session est vérifiée sur le serveur avant et après les lectures, puis avant la
+            création du fichier et l’ouverture du partage. Ces contrôles restent distincts.
           </Caption>
         </View>
 
         {/* Data Included Section */}
-        <Label style={styles.sectionHeader}>Données incluses dans l&apos;export</Label>
+        <Label style={styles.sectionHeader}>Sources et limites de l’export</Label>
         <View style={styles.dataList}>
           <DataItem
             icon="person"
             title="Profil"
-            description="Nom, email, bio, photo, préférences"
+            description="Champs sélectionnés du profil, ou absence et indisponibilité signalées"
           />
           <DataItem
             icon="shirt"
             title="Articles"
-            description="Tous vos articles publiés"
+            description="Champs sélectionnés des articles dont vous êtes vendeur"
           />
           <DataItem
             icon="heart"
             title="Favoris"
-            description="Articles sauvegardés"
+            description="Identifiants enregistrés dans votre document de favoris"
           />
           <DataItem
             icon="notifications"
             title="Notifications"
-            description="Historique de vos notifications"
+            description="Métadonnées lisibles ; titres et corps non inclus"
           />
           <DataItem
             icon="chatbubbles"
             title="Messages"
-            description="Vos messages envoyés"
+            description="Métadonnées de vos messages envoyés ; textes et images non inclus"
           />
+          <DataItem icon="receipt" title="Commandes et autres sources" description="Champs sélectionnés des achats, ventes et avis ; recherches et consentements lisibles" />
+          <DataItem icon="swap-horizontal" title="Trocs" description="Identifiants, votre rôle et états datés ; sans articles, photos, adresses ni identité de la contrepartie" />
+          <DataItem icon="wallet" title="Portefeuille" description="Lignes qualifiées du ledger et des demandes de retrait, avec anomalies ; sans données bancaires, total ni signe financier déduit" />
+          <DataItem icon="help-circle" title="Support" description="Métadonnées de vos tickets ; récits, pièces, originaux confinés et notes internes exclus" />
+          <DataItem icon="information-circle" title="Limites et exclusions" description="10 pages et 200 lignes au plus par source, avec limites de volume indiquées dans le fichier. Brouillon local et autres pièces ou sous-dossiers privés exclus." />
         </View>
+
+        {!uid ? <Caption>Connectez-vous au compte concerné pour demander cette lecture.</Caption> : null}
 
         {/* Format Info */}
         <View style={styles.formatBox}>
@@ -163,7 +189,7 @@ export default function ExportDataScreen() {
           <View style={styles.successBox}>
             <Ionicons name="checkmark-circle" size={24} color={colors.success} />
             <Text variant="bodySmall" style={styles.successText}>
-              Export réussi ! Vos données ont été téléchargées.
+              Le dialogue de partage est revenu à l’application. Cela ne confirme ni un téléchargement, ni une copie enregistrée ou remise à un destinataire.
             </Text>
           </View>
         )}
@@ -173,8 +199,9 @@ export default function ExportDataScreen() {
           variant="primary"
           fullWidth
           loading={loading}
+          disabled={!uid || !context.focused || loading}
           onPress={handleExportData}
-          leftIcon={<Ionicons name="download" size={20} color={colors.white} />}
+          leftIcon={<Ionicons name="download" size={20} color={colors.foreground} />}
           style={styles.exportButton}
         >
           {exported ? 'Exporter à nouveau' : 'Exporter mes données'}
@@ -182,9 +209,12 @@ export default function ExportDataScreen() {
 
         {/* Note */}
         <Caption style={styles.note}>
-          L&apos;export peut prendre quelques secondes selon la quantité de données.
-          Vos données seront téléchargées dans un fichier JSON que vous pourrez
-          ouvrir avec n&apos;importe quel éditeur de texte.
+          Les lectures sont distinctes et certains champs ne sont pas inclus. La progression,
+          les troncatures et les lectures inconnues sont indiquées par source. Une source
+          indisponible n’est pas déclarée vide. Le retour du partage ne prouve pas
+          l’enregistrement du fichier. Une suppression du seul fichier de cache créé
+          pour cette demande est tentée ensuite ; les copies choisies hors de l’application
+          ne sont pas contrôlées ici. Pour les données non incluses, utilisez le support.
         </Caption>
       </ScrollView>
     </View>

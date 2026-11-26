@@ -11,7 +11,7 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import { useSwapZoneFilters } from '@/features/swap-party/hooks/useSwapZoneFilters';
+import { useSwapZoneFilters } from '@/features/swap/hooks/useSwapZoneFilters';
 import type { SwapPartyItemExtended } from '@/types';
 
 // ---------------------------------------------------------------------------

@@ -37,6 +37,10 @@ export interface ArrayUnionSentinel {
   __sentinel: 'arrayUnion';
   values: unknown[];
 }
+export interface ArrayRemoveSentinel {
+  __sentinel: 'arrayRemove';
+  values: unknown[];
+}
 export interface DeleteSentinel {
   __sentinel: 'delete';
 }
@@ -45,7 +49,8 @@ type Sentinel =
   | IncrementSentinel
   | ServerTimestampSentinel
   | ArrayUnionSentinel
-  | DeleteSentinel;
+  | DeleteSentinel
+  | ArrayRemoveSentinel;
 
 function isSentinel(v: unknown): v is Sentinel {
   return typeof v === 'object' && v !== null && '__sentinel' in (v as Record<string, unknown>);
@@ -86,7 +91,9 @@ export interface MockFirestore {
 }
 
 interface MockDb {
+  doc(path: string): MockDocRef;
   collection(name: string): MockCollectionRef;
+  collectionGroup(name: string): MockQuery;
   runTransaction<T>(fn: (tx: MockTransaction) => Promise<T>): Promise<T>;
   batch(): MockBatch;
   bulkWriter(): MockBulkWriter;
@@ -96,6 +103,7 @@ interface MockFieldValue {
   serverTimestamp(): ServerTimestampSentinel;
   increment(n: number): IncrementSentinel;
   arrayUnion(...args: unknown[]): ArrayUnionSentinel;
+  arrayRemove(...args: unknown[]): ArrayRemoveSentinel;
   delete(): DeleteSentinel;
 }
 
@@ -117,7 +125,13 @@ interface MockCollectionRef {
   where(...a: unknown[]): MockQuery;
   orderBy(...a: unknown[]): MockQuery;
   limit(...a: unknown[]): MockQuery;
+  select(...fields: string[]): MockQuery;
   get(): Promise<MockQuerySnap>;
+}
+
+interface OrderClause {
+  field: string;
+  dir: 'asc' | 'desc';
 }
 
 interface MockQuery {
@@ -125,6 +139,7 @@ interface MockQuery {
   orderBy(...a: unknown[]): MockQuery;
   limit(...a: unknown[]): MockQuery;
   startAfter(...a: unknown[]): MockQuery;
+  select(...fields: string[]): MockQuery;
   get(): Promise<MockQuerySnap>;
   count(): MockAggregateQuery;
 }
@@ -147,9 +162,16 @@ interface MockQuerySnap {
 }
 
 interface MockTransaction {
+  /**
+   * L'Admin SDK accepte une référence de document OU une REQUÊTE
+   * (`tx.get(query)`), qui est la façon correcte de lire une collection dans une
+   * transaction : la lecture entre alors dans l'ensemble de lecture et déclenche
+   * une reprise en cas d'écriture concurrente. Le mock ne connaissait que la
+   * référence, donc tout code migré vers `tx.get(query)` cassait ici.
+   */
   get(ref: MockDocRef): Promise<MockSnap>;
-  get(ref: MockQuery): Promise<MockQuerySnap>;
-  get(ref: MockAggregateQuery): Promise<{ data(): { count: number } }>;
+  get(query: MockQuery): Promise<MockQuerySnap>;
+  getAll(...refs: MockDocRef[]): Promise<MockSnap[]>;
   set(ref: MockDocRef, data: DocData, opts?: { merge?: boolean }): void;
   update(ref: MockDocRef, data: DocData): void;
   create(ref: MockDocRef, data: DocData): void;
@@ -174,6 +196,37 @@ interface MockBulkWriter {
  * Apply a write (with sentinel resolution) onto a target document object,
  * mutating it in place. Mirrors Firestore semantics for increment/serverTimestamp.
  */
+/**
+ * Résout une clé de champ vers le conteneur qui la porte.
+ *
+ * Firestore n'interprète la notation pointée QUE dans `update()` : là,
+ * `{ 'offer.status': 'expired' }` écrit le champ imbriqué `status` dans la map
+ * `offer` sans toucher au reste de la map. Dans `set()` (avec ou sans merge),
+ * la même clé est un nom de champ LITTÉRAL contenant un point.
+ *
+ * Sans cette distinction, le mock rangeait `'offer.status'` comme clé de premier
+ * niveau : un test lisant `doc.offer.status` voyait l'ancienne valeur et passait
+ * au vert sur du code qui, en production, avait bien écrit — ou l'inverse.
+ */
+function resolveFieldPath(
+  target: DocData,
+  key: string,
+  interpretDots: boolean
+): { container: DocData; leaf: string } {
+  if (!interpretDots || !key.includes('.')) return { container: target, leaf: key };
+  const parts = key.split('.');
+  const leaf = parts.pop()!;
+  let container = target;
+  for (const part of parts) {
+    const next = container[part];
+    if (typeof next !== 'object' || next === null || Array.isArray(next)) {
+      container[part] = {};
+    }
+    container = container[part] as DocData;
+  }
+  return { container, leaf };
+}
+
 function applyWrite(
   target: DocData,
   data: DocData,
@@ -183,7 +236,15 @@ function applyWrite(
     // Overwrite: clear existing keys first.
     for (const k of Object.keys(target)) delete target[k];
   }
-  for (const [k, v] of Object.entries(data)) {
+  const interpretDots = mode === 'update';
+  for (const [rawKey, v] of Object.entries(data)) {
+    const { container: target_, leaf: k } = resolveFieldPath(target, rawKey, interpretDots);
+    applyField(target_, k, v);
+  }
+}
+
+function applyField(target: DocData, k: string, v: unknown): void {
+  {
     if (isSentinel(v)) {
       if (v.__sentinel === 'increment') {
         const cur = typeof target[k] === 'number' ? (target[k] as number) : 0;
@@ -194,6 +255,9 @@ function applyWrite(
         const arr = Array.isArray(target[k]) ? (target[k] as unknown[]).slice() : [];
         for (const item of v.values) if (!arr.includes(item)) arr.push(item);
         target[k] = arr;
+      } else if (v.__sentinel === 'arrayRemove') {
+        const arr = Array.isArray(target[k]) ? (target[k] as unknown[]) : [];
+        target[k] = arr.filter((item) => !v.values.includes(item));
       } else if (v.__sentinel === 'delete') {
         delete target[k];
       }
@@ -309,6 +373,67 @@ export function createFirestoreMock(options: { enforceReadBeforeWrite?: boolean 
     return out;
   }
 
+  /**
+   * Documents d'un GROUPE de collection : tous les `…/<name>/<id>`, à
+   * n'importe quelle profondeur. Le chemin complet est conservé, les tâches
+   * planifiées en tirant l'identifiant du propriétaire (`users/{uid}/…`).
+   */
+  function candidateGroupDocs(name: string): Array<{ id: string; path: string; data: DocData }> {
+    const out: Array<{ id: string; path: string; data: DocData }> = [];
+    for (const [path, data] of store.entries()) {
+      if (tombstones.has(path)) continue;
+      const segments = path.split('/');
+      if (segments.length >= 2 && segments[segments.length - 2] === name) {
+        out.push({ id: segments[segments.length - 1], path, data: { ...data } });
+      }
+    }
+    return out;
+  }
+
+  function makeGroupQuery(
+    name: string,
+    clauses: WhereClause[],
+    lim: number | null,
+    orders: OrderClause[] = []
+  ): MockQuery {
+    const q: MockQuery = {
+      count: () => ({ get: async () => { const snapshot = await q.get(); return { data: () => ({ count: snapshot.size }) }; } }),
+      where: (...a: unknown[]) =>
+        makeGroupQuery(
+          name,
+          [...clauses, { field: a[0] as string, op: a[1] as string, value: a[2] }],
+          lim,
+          orders
+        ),
+      orderBy: (...a: unknown[]) =>
+        makeGroupQuery(name, clauses, lim, [
+          ...orders,
+          { field: a[0] as string, dir: (a[1] as string) === 'desc' ? 'desc' : 'asc' },
+        ]),
+      limit: (...a: unknown[]) => makeGroupQuery(name, clauses, a[0] as number, orders),
+      startAfter: () => makeGroupQuery(name, clauses, lim, orders),
+      select: () => makeGroupQuery(name, clauses, lim, orders),
+      get: async () => {
+        let docs = candidateGroupDocs(name).filter((d) => matchesWhere(d.data, clauses));
+        const ordered = applyOrders(
+          docs.map((d) => ({ id: d.id, data: d.data })),
+          orders
+        );
+        const byId = new Map(docs.map((d) => [d.id, d]));
+        docs = ordered.map((d) => byId.get(d.id)!).filter(Boolean);
+        if (lim != null) docs = docs.slice(0, lim);
+        const mapped = docs.map((d) => ({
+          id: d.id,
+          exists: true,
+          ref: makeDocRef(d.path),
+          data: () => ({ ...d.data }),
+        }));
+        return { docs: mapped, empty: mapped.length === 0, size: mapped.length };
+      },
+    };
+    return q;
+  }
+
   /** Coerce Dates/Timestamps to a millisecond number for ordered comparisons. */
   function ord(v: unknown): number {
     if (v instanceof Date) return v.getTime();
@@ -318,40 +443,132 @@ export function createFirestoreMock(options: { enforceReadBeforeWrite?: boolean 
     return v as number;
   }
 
+  /**
+   * Lit un champ en suivant la notation pointée, comme le fait le moteur de
+   * requêtes Firestore : `where('offer.status','==',…)` interroge le champ
+   * imbriqué `status` de la map `offer`, PAS une clé de premier niveau nommée
+   * « offer.status ».
+   *
+   * On retombe sur la clé littérale si le chemin ne résout pas, pour ne pas
+   * casser un document semé à plat.
+   */
+  function readField(data: DocData, field: string): unknown {
+    if (!field.includes('.')) return data[field];
+    let cur: unknown = data;
+    for (const part of field.split('.')) {
+      if (typeof cur !== 'object' || cur === null) return data[field];
+      cur = (cur as DocData)[part];
+    }
+    return cur !== undefined ? cur : data[field];
+  }
+
   function matchesWhere(data: DocData, clauses: WhereClause[]): boolean {
     return clauses.every((c) => {
-      const value = Object.prototype.hasOwnProperty.call(data, c.field) ? data[c.field] :
-        c.field.split('.').reduce<unknown>((current, key) => (current as DocData | undefined)?.[key], data);
-      if (c.op === '==') return value === c.value;
-      if (c.op === 'array-contains') return Array.isArray(value) && value.includes(c.value);
-      if (c.op === '<') return ord(value) < ord(c.value);
-      if (c.op === '<=') return ord(value) <= ord(c.value);
-      if (c.op === '>') return ord(value) > ord(c.value);
-      if (c.op === '>=') return ord(value) >= ord(c.value);
+      const v = readField(data, c.field);
+      if (c.op === '==') return v === c.value;
+      if (c.op === '<') return ord(v) < ord(c.value);
+      if (c.op === '<=') return ord(v) <= ord(c.value);
+      if (c.op === '>') return ord(v) > ord(c.value);
+      if (c.op === '>=') return ord(v) >= ord(c.value);
+      // `in` / `not-in` / `array-contains*` étaient absents : l'opérateur
+      // inconnu retombait sur `return true`, donc un `where(x,'in',[…])` ne
+      // filtrait RIEN et rendait tous les documents de la collection. Des tests
+      // passaient à vide sur ce terrain.
+      if (c.op === 'in') return Array.isArray(c.value) && c.value.includes(v as never);
+      if (c.op === 'not-in') return Array.isArray(c.value) && !c.value.includes(v as never);
+      if (c.op === 'array-contains') return Array.isArray(v) && v.includes(c.value as never);
+      if (c.op === 'array-contains-any') {
+        return (
+          Array.isArray(v) &&
+          Array.isArray(c.value) &&
+          c.value.some((needle) => (v as unknown[]).includes(needle))
+        );
+      }
+      if (c.op === '!=') return v !== c.value;
       // Unknown op: don't filter it out.
       return true;
     });
   }
 
-  function makeQuery(collPath: string, clauses: WhereClause[], lim: number | null): MockQuery {
+  // `select` projette comme Firestore : seuls les champs nommés reviennent,
+  // un champ absent du document reste absent. Sans projection, le document
+  // entier.
+  function project(data: DocData, fields: string[] | null): DocData {
+    if (!fields) return { ...data };
+    const out: DocData = {};
+    for (const f of fields) if (f in data) out[f] = data[f];
+    return out;
+  }
+
+  /**
+   * `orderBy` était un no-op : le bouchon rendait les documents dans l'ordre
+   * d'insertion, si bien qu'un tri manquant dans le code de production passait
+   * inaperçu (SS01 : les cinquante PLUS ANCIENNES notifications au lieu des
+   * plus récentes). Il trie désormais, avant d'appliquer la limite.
+   */
+  function sortValue(value: unknown): number | string {
+    if (value == null) return '';
+    if (typeof value === 'number' || typeof value === 'string') return value;
+    if (value instanceof Date) return value.getTime();
+    const ts = value as { toMillis?: () => number };
+    if (typeof ts.toMillis === 'function') return ts.toMillis();
+    return String(value);
+  }
+
+  function applyOrders(
+    docs: Array<{ id: string; data: DocData }>,
+    orders: OrderClause[]
+  ): Array<{ id: string; data: DocData }> {
+    if (orders.length === 0) return docs;
+    return [...docs].sort((a, b) => {
+      for (const { field, dir } of orders) {
+        const va = sortValue(field === '__name__' ? a.id : a.data[field]);
+        const vb = sortValue(field === '__name__' ? b.id : b.data[field]);
+        if (va < vb) return dir === 'desc' ? 1 : -1;
+        if (va > vb) return dir === 'desc' ? -1 : 1;
+      }
+      return 0;
+    });
+  }
+
+  function makeQuery(
+    collPath: string,
+    clauses: WhereClause[],
+    lim: number | null,
+    fields: string[] | null = null,
+    orders: OrderClause[] = [],
+    afterId: string | null = null
+  ): MockQuery {
     const q: MockQuery = {
+      count: () => ({ get: async () => { const snapshot = await q.get(); return { data: () => ({ count: snapshot.size }) }; } }),
       where: (...a: unknown[]) =>
         makeQuery(
           collPath,
           [...clauses, { field: a[0] as string, op: a[1] as string, value: a[2] }],
-          lim
+          lim,
+          fields,
+          orders,
+          afterId
         ),
-      orderBy: () => makeQuery(collPath, clauses, lim),
-      limit: (...a: unknown[]) => makeQuery(collPath, clauses, a[0] as number),
-      startAfter: () => makeQuery(collPath, clauses, lim),
-      count: () => ({ get: async () => ({ data: () => ({ count: candidateDocs(collPath).filter((d) => matchesWhere(d.data, clauses)).length }) }) }),
+      orderBy: (...a: unknown[]) =>
+        makeQuery(collPath, clauses, lim, fields, [
+          ...orders,
+          { field: a[0] as string, dir: (a[1] as string) === 'desc' ? 'desc' : 'asc' },
+        ], afterId),
+      limit: (...a: unknown[]) => makeQuery(collPath, clauses, a[0] as number, fields, orders, afterId),
+      startAfter: (...a: unknown[]) => makeQuery(collPath, clauses, lim, fields, orders,
+        orders[0]?.field === '__name__' ? (typeof a[0] === 'string' ? a[0] : (a[0] as { id: string }).id) : afterId),
+      select: (...f: string[]) => makeQuery(collPath, clauses, lim, f, orders, afterId),
       get: async () => {
         let docs = candidateDocs(collPath).filter((d) => matchesWhere(d.data, clauses));
+        docs = applyOrders(docs, orders);
+        if (afterId != null) docs = docs.filter(d => orders[0]?.dir === 'desc' ? d.id < afterId : d.id > afterId);
         if (lim != null) docs = docs.slice(0, lim);
         const mapped = docs.map((d) => ({
           id: d.id,
+          exists: true,
           ref: makeDocRef(`${collPath}/${d.id}`),
-          data: () => ({ ...d.data }),
+          data: () => project(d.data, fields),
         }));
         return { docs: mapped, empty: mapped.length === 0, size: mapped.length };
       },
@@ -370,8 +587,12 @@ export function createFirestoreMock(options: { enforceReadBeforeWrite?: boolean 
       },
       where: (...a: unknown[]) =>
         makeQuery(path, [{ field: a[0] as string, op: a[1] as string, value: a[2] }], null),
-      orderBy: () => makeQuery(path, [], null),
+      orderBy: (...a: unknown[]) =>
+        makeQuery(path, [], null, null, [
+          { field: a[0] as string, dir: (a[1] as string) === 'desc' ? 'desc' : 'asc' },
+        ]),
       limit: (...a: unknown[]) => makeQuery(path, [], a[0] as number),
+      select: (...f: string[]) => makeQuery(path, [], null, f),
       get: async () => makeQuery(path, [], null).get(),
     };
   }
@@ -381,12 +602,15 @@ export function createFirestoreMock(options: { enforceReadBeforeWrite?: boolean 
     // the same tx see pre-tx state (Firestore semantics).
     const staged: WriteOp[] = [];
     const tx: MockTransaction = {
-      get: (async (ref: MockDocRef | MockQuery | MockAggregateQuery) => {
-        if (options.enforceReadBeforeWrite && staged.length > 0) {
-          throw new Error('READ_AFTER_WRITE_ERROR: Firestore requires all reads before writes');
+      get: (async (target: MockDocRef | MockQuery) => {
+        if (options.enforceReadBeforeWrite && staged.length > 0) throw new Error('Firestore transactions require all reads before writes');
+        // Une requête n'a pas de `path` : on la distingue à sa méthode `where`.
+        if (!('path' in target) && typeof (target as MockQuery).get === 'function') {
+          return (target as MockQuery).get();
         }
-        return 'path' in ref ? snapFor(ref.path) : ref.get();
+        return snapFor((target as MockDocRef).path);
       }) as MockTransaction['get'],
+      getAll: (...refs) => Promise.all(refs.map(ref => tx.get(ref))),
       set: (ref, data, opts) =>
         void staged.push({ method: 'set', path: ref.path, data, merge: opts?.merge }),
       update: (ref, data) => void staged.push({ method: 'update', path: ref.path, data }),
@@ -397,17 +621,17 @@ export function createFirestoreMock(options: { enforceReadBeforeWrite?: boolean 
   }
 
   const db: MockDb = {
+    doc: (path) => makeDocRef(path),
     collection: (name) => makeCollectionRef(name),
-    runTransaction: (fn) => {
-      // Firestore serializes competing document writes (with retries). This
-      // harness uses serialization, not a production contention simulator.
+    collectionGroup: (name: string) => makeGroupQuery(name, [], null),
+    runTransaction: async (fn) => {
       const run = transactionQueue.then(async () => {
         const { tx, flush } = makeTransaction();
         const result = await fn(tx);
         flush();
         return result;
       });
-      transactionQueue = run.catch(() => {});
+      transactionQueue = run.catch(() => undefined);
       return run;
     },
     batch: () => {
@@ -442,6 +666,7 @@ export function createFirestoreMock(options: { enforceReadBeforeWrite?: boolean 
     serverTimestamp: () => ({ __sentinel: 'serverTimestamp' }),
     increment: (n) => ({ __sentinel: 'increment', value: n }),
     arrayUnion: (...args) => ({ __sentinel: 'arrayUnion', values: args }),
+    arrayRemove: (...args) => ({ __sentinel: 'arrayRemove', values: args }),
     delete: () => ({ __sentinel: 'delete' }),
   };
 
@@ -501,6 +726,8 @@ export function createFirestoreMock(options: { enforceReadBeforeWrite?: boolean 
 export interface StripeMockImpl {
   constructEvent: (...a: unknown[]) => unknown;
   refundsCreate: (...a: unknown[]) => unknown;
+  refundsRetrieve: (...a: unknown[]) => unknown;
+  refundsList: (...a: unknown[]) => unknown;
   paymentIntentsCreate: (...a: unknown[]) => unknown;
   paymentIntentsRetrieve: (...a: unknown[]) => unknown;
   paymentIntentsCancel: (...a: unknown[]) => unknown;
@@ -525,6 +752,8 @@ export interface StripeMock {
   /** Calls captured per method (args arrays), for assertions. */
   calls: {
     refundsCreate: unknown[][];
+    refundsRetrieve: unknown[][];
+    refundsList: unknown[][];
     transfersCreate: unknown[][];
     transfersCreateReversal: unknown[][];
     payoutsCreate: unknown[][];
@@ -547,6 +776,8 @@ export interface StripeMock {
 export function createStripeMock(): StripeMock {
   const calls: StripeMock['calls'] = {
     refundsCreate: [],
+    refundsRetrieve: [],
+    refundsList: [],
     transfersCreate: [],
     transfersCreateReversal: [],
     payoutsCreate: [],
@@ -564,11 +795,22 @@ export function createStripeMock(): StripeMock {
     filesCreate: [],
   };
 
+  const refundStore = new Map<string, any>();
+  const defaultCreate = async (params: any) => ({ id: 'rf_default', status: 'succeeded', currency: 'cad',
+    payment_intent: params.payment_intent, amount: params.amount ?? 0, metadata: params.metadata ?? {} });
+  const defaultRetrieve = async (id: any) => {
+    const found = refundStore.get(id);
+    if (!found) throw new Error('Refund not found in simulated provider');
+    return { ...found };
+  };
+  const defaultList = async (params: any) => ({ data: [...refundStore.values()].filter(r => r.payment_intent === params.payment_intent), has_more: false });
   const impl: StripeMockImpl = {
     constructEvent: () => {
       throw new Error('constructEvent not stubbed for this test');
     },
-    refundsCreate: async () => ({ id: 'rf_default' }),
+    refundsCreate: defaultCreate,
+    refundsRetrieve: defaultRetrieve,
+    refundsList: defaultList,
     paymentIntentsCreate: async () => ({ id: 'pi_default', client_secret: 'pi_default_secret' }),
     paymentIntentsRetrieve: async () => ({ status: 'requires_payment_method' }),
     paymentIntentsCancel: async () => ({ id: 'pi_cancelled' }),
@@ -591,10 +833,14 @@ export function createStripeMock(): StripeMock {
       constructEvent: (...a: unknown[]) => impl.constructEvent(...a),
     },
     refunds: {
-      create: (...a: unknown[]) => {
+      create: async (...a: unknown[]) => {
         calls.refundsCreate.push(a);
-        return impl.refundsCreate(...a);
+        const result: any = await impl.refundsCreate(...a);
+        if (result?.id) refundStore.set(result.id, { ...result });
+        return result;
       },
+      retrieve: (...a: unknown[]) => { calls.refundsRetrieve.push(a); return impl.refundsRetrieve(...a); },
+      list: (...a: unknown[]) => { calls.refundsList.push(a); return impl.refundsList(...a); },
     },
     paymentIntents: {
       create: (...a: unknown[]) => {
@@ -678,7 +924,10 @@ export function createStripeMock(): StripeMock {
       impl.constructEvent = () => {
         throw new Error('constructEvent not stubbed for this test');
       };
-      impl.refundsCreate = async () => ({ id: 'rf_default' });
+      refundStore.clear();
+      impl.refundsCreate = defaultCreate;
+      impl.refundsRetrieve = defaultRetrieve;
+      impl.refundsList = defaultList;
       impl.paymentIntentsCreate = async () => ({ id: 'pi_default', client_secret: 'pi_default_secret' });
       impl.paymentIntentsRetrieve = async () => ({ status: 'requires_payment_method' });
       impl.paymentIntentsCancel = async () => ({ id: 'pi_cancelled' });
@@ -695,6 +944,8 @@ export function createStripeMock(): StripeMock {
       impl.accountsDeleteExternalAccount = async () => ({ id: 'ba_default', deleted: true });
       impl.filesCreate = async () => ({ id: 'file_default' });
       calls.refundsCreate.length = 0;
+      calls.refundsRetrieve.length = 0;
+      calls.refundsList.length = 0;
       calls.transfersCreate.length = 0;
       calls.transfersCreateReversal.length = 0;
       calls.payoutsCreate.length = 0;

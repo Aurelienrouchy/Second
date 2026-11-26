@@ -1,3 +1,5 @@
+import { establishIdentityFixture } from '@/tests/jest/helpers/identityFixture';
+beforeEach(() => establishIdentityFixture('owner_1'));
 /**
  * ShopService — domaine boutiques-admin (création + modération).
  *
@@ -50,7 +52,10 @@ const mockPurchaseTierFn = jest.fn((..._args: unknown[]) =>
     },
   }),
 );
+const mockProjection = jest.fn();
 const mockHttpsCallable = jest.fn((_fns: unknown, name: string) => {
+  if (name === 'getMyEligibility') return jest.fn(async () => ({data: {version: 'a'.repeat(64), policyVersion: 'fixture-session-v1'}}));
+  if (name === 'getFeaturedSellers') return mockProjection;
   if (name === 'approveShop') return mockApproveFn;
   if (name === 'rejectShop') return mockRejectFn;
   if (name === 'suspendShop') return mockSuspendFn;
@@ -69,6 +74,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
+import {auth} from '@/config/firebaseConfig';
 import { ShopService } from '@/services/shopService';
 import type { Shop } from '@/types';
 
@@ -158,7 +164,7 @@ describe('ShopService — modération via Cloud Functions', () => {
     await ShopService.approveShop('shop_1');
 
     expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'approveShop');
-    expect(mockApproveFn).toHaveBeenCalledWith({ shopId: 'shop_1' });
+    expect(mockApproveFn).toHaveBeenCalledWith({ shopId: 'shop_1', expectedUid: 'owner_1' });
     const payload = mockApproveFn.mock.calls[0][0] as Record<string, unknown>;
     expect(payload).not.toHaveProperty('adminId');
   });
@@ -168,7 +174,7 @@ describe('ShopService — modération via Cloud Functions', () => {
 
     expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'rejectShop');
     expect(mockRejectFn).toHaveBeenCalledWith({
-      shopId: 'shop_1',
+      expectedUid: 'owner_1', shopId: 'shop_1',
       reason: 'Photos insuffisantes',
     });
   });
@@ -178,7 +184,7 @@ describe('ShopService — modération via Cloud Functions', () => {
 
     expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'suspendShop');
     expect(mockSuspendFn).toHaveBeenCalledWith({
-      shopId: 'shop_1',
+      expectedUid: 'owner_1', shopId: 'shop_1',
       reason: 'Suspicion de fraude',
     });
   });
@@ -187,7 +193,7 @@ describe('ShopService — modération via Cloud Functions', () => {
     mockApproveFn.mockRejectedValueOnce(new Error('unauthenticated'));
 
     await expect(ShopService.approveShop('shop_1')).rejects.toThrow(
-      "Erreur lors de l'approbation de la boutique",
+      'unauthenticated',
     );
   });
 });
@@ -218,106 +224,41 @@ describe('ShopService.updateShop — verrouillage des champs sensibles', () => {
   });
 });
 
-describe('ShopService.getShopById', () => {
-  it('convertit les Timestamps Firestore en Date et expose l\'id du doc', async () => {
-    const createdAt = new Date('2026-01-01T00:00:00Z');
-    const updatedAt = new Date('2026-02-01T00:00:00Z');
-    mockGetDoc.mockResolvedValueOnce({
-      exists: () => true,
-      id: 'shop_1',
-      data: () => ({
-        name: 'Friperie',
-        status: 'approved',
-        createdAt: { toDate: () => createdAt },
-        updatedAt: { toDate: () => updatedAt },
-      }),
-    });
-
-    const shop = await ShopService.getShopById('shop_1');
-
-    expect(shop?.id).toBe('shop_1');
-    expect(shop?.createdAt).toEqual(createdAt);
-    expect(shop?.updatedAt).toEqual(updatedAt);
-  });
-
-  it('convertit tierPaidUntil (Timestamp CF) en Date (F134)', async () => {
-    const paidUntil = new Date('2026-09-01T00:00:00Z');
-    mockGetDoc.mockResolvedValueOnce({
-      exists: () => true,
-      id: 'shop_1',
-      data: () => ({
-        name: 'Friperie',
-        status: 'approved',
-        tier: 'pro',
-        tierPaidUntil: { toDate: () => paidUntil },
-        createdAt: { toDate: () => new Date('2026-01-01') },
-        updatedAt: { toDate: () => new Date('2026-01-01') },
-      }),
-    });
-
-    const shop = await ShopService.getShopById('shop_1');
-    expect(shop?.tier).toBe('pro');
-    expect(shop?.tierPaidUntil).toEqual(paidUntil);
-  });
-
-  it('laisse tierPaidUntil undefined si absent (forfait jamais souscrit)', async () => {
-    mockGetDoc.mockResolvedValueOnce({
-      exists: () => true,
-      id: 'shop_1',
-      data: () => ({
-        name: 'Friperie',
-        status: 'approved',
-        createdAt: { toDate: () => new Date('2026-01-01') },
-        updatedAt: { toDate: () => new Date('2026-01-01') },
-      }),
-    });
-
-    const shop = await ShopService.getShopById('shop_1');
-    expect(shop?.tierPaidUntil).toBeUndefined();
-  });
-
-  it('retourne null si la boutique n\'existe pas', async () => {
-    mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => null });
-
-    await expect(ShopService.getShopById('ghost')).resolves.toBeNull();
-  });
-
-  it('retourne null (sans crasher) si la lecture Firestore échoue', async () => {
-    mockGetDoc.mockRejectedValueOnce(new Error('offline'));
-
-    await expect(ShopService.getShopById('shop_1')).resolves.toBeNull();
-  });
+const projectedShop = (over: Record<string, unknown> = {}) => ({
+ id: 'shop_1', ownerId: 'owner_1', name: 'Friperie', description: 'Sélection synthétique', type: 'friperie',
+ address: {street: 'Adresse synthétique', city: 'Montréal', postalCode: 'H2X 1L2', country: 'CA'}, location: {latitude: 45.51, longitude: -73.57},
+ phoneNumber: '', email: '', website: '', socialMedia: {instagram: '', facebook: ''}, logo: '', images: [],
+ openingHours: {monday: null, tuesday: null, wednesday: null, thursday: null, friday: null, saturday: null, sunday: null},
+ status: 'approved', tier: 'basic', tierPaidUntil: null, rating: null, reviewCount: 0, articlesCount: 0,
+ createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-06-01T00:00:00.000Z', ...over,
 });
-
-describe('ShopService.getPendingShops', () => {
-  it('mappe le snapshot en boutiques avec id + dates converties', async () => {
-    const created = new Date('2026-03-01T00:00:00Z');
-    mockGetDocs.mockResolvedValueOnce({
-      forEach: (cb: (d: unknown) => void) => {
-        cb({
-          id: 'shop_a',
-          data: () => ({
-            name: 'A',
-            status: 'pending',
-            createdAt: { toDate: () => created },
-            updatedAt: { toDate: () => created },
-          }),
-        });
-      },
-    });
-
-    const shops = await ShopService.getPendingShops();
-
-    expect(shops).toHaveLength(1);
-    expect(shops[0].id).toBe('shop_a');
-    expect(shops[0].createdAt).toEqual(created);
-  });
-
-  it('retourne un tableau vide en cas d\'erreur (jamais throw côté liste admin)', async () => {
-    mockGetDocs.mockRejectedValueOnce(new Error('index-missing'));
-
-    await expect(ShopService.getPendingShops()).resolves.toEqual([]);
-  });
+const publicProjection = (shop: ReturnType<typeof projectedShop> | null) => ({data: {protocol: 'shop_public_projection_v1', mode: 'detail', shop}});
+describe('ShopService.getShopById — native public projection', () => {
+ it('converts native ISO dates and retains the exact projected shop without reading private Firestore', async () => {
+   mockProjection.mockResolvedValue(publicProjection(projectedShop())); mockGetDoc.mockClear();
+   const shop = await ShopService.getShopById('shop_1');
+   expect(shop?.id).toBe('shop_1'); expect(shop?.createdAt).toEqual(new Date('2026-01-01T00:00:00.000Z')); expect(shop?.updatedAt).toEqual(new Date('2026-06-01T00:00:00.000Z'));
+   expect(mockProjection).toHaveBeenCalledWith({capability: 'shop_public_projection_v1', mode: 'detail', shopId: 'shop_1', scope: 'public'}); expect(mockGetDoc).not.toHaveBeenCalled();
+ });
+ it('converts a native historical tier expiration without activating a purchase', async () => {
+   mockProjection.mockResolvedValue(publicProjection(projectedShop({tier: 'pro', tierPaidUntil: '2026-09-01T00:00:00.000Z'})));
+   const shop = await ShopService.getShopById('shop_1'); expect(shop?.tier).toBe('pro'); expect(shop?.tierPaidUntil).toEqual(new Date('2026-09-01T00:00:00.000Z'));
+ });
+ it('keeps absent tier expiration absent', async () => {mockProjection.mockResolvedValue(publicProjection(projectedShop())); expect((await ShopService.getShopById('shop_1'))?.tierPaidUntil).toBeUndefined();});
+ it('returns null only from an explicit empty native public/private projection', async () => {mockProjection.mockResolvedValue(publicProjection(null)); await expect(ShopService.getShopById('ghost')).resolves.toBeNull();});
+ it('surfaces a projection read failure instead of inventing a missing shop', async () => {mockProjection.mockRejectedValueOnce(new Error('offline')); await expect(ShopService.getShopById('shop_1')).rejects.toThrow('offline');});
+});
+describe('ShopService.getPendingShops — current admin and native source', () => {
+ beforeEach(() => {
+   Object.defineProperty(auth.currentUser, 'getIdTokenResult', {value: async () => ({claims: {admin: true, auth_time: Math.floor(Date.now()/1000), firebase: {sign_in_provider: 'password'}}}), configurable: true});
+   mockGetDoc.mockReset().mockResolvedValue({exists: () => true, data: () => ({isAdmin: true, isActive: true})});
+ });
+ it('maps the native pending documents after current admin checks', async () => {
+   const created = new Date('2026-03-01T00:00:00Z');
+   mockGetDocs.mockResolvedValueOnce({size: 1, docs: [{id: 'shop_a', data: () => ({ownerId: 'owner_1', name: 'A', status: 'pending', createdAt: {toDate: () => created}, updatedAt: {toDate: () => created}})}]});
+   const shops = await ShopService.getPendingShops(); expect(shops).toHaveLength(1); expect(shops[0].id).toBe('shop_a'); expect(shops[0].createdAt).toEqual(created);
+ });
+ it('does not report an empty admin list when its current native read fails', async () => {mockGetDocs.mockRejectedValueOnce(new Error('index-missing')); await expect(ShopService.getPendingShops()).rejects.toThrow('index-missing');});
 });
 
 describe('ShopService.purchaseShopTier (F134)', () => {

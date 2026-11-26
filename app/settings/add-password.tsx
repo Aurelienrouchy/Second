@@ -22,12 +22,13 @@ import { useAuthStore } from '@/store/authStore';
 import { track } from '@/lib/analytics';
 import { AuthService } from '@/services/authService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
-import { Button } from '@/components/ui';
+import { Text, Label, Caption, ScreenHeader, Button } from '@/components/ui';
+import { useTradeOperation } from '@/hooks/useTradeOperation';
 
 export default function AddPasswordScreen() {
   const router = useRouter();
   const user = useUser();
+  const context = useTradeOperation('settings-add-password', user?.id ?? null);
 
   const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
@@ -36,21 +37,28 @@ export default function AddPasswordScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [formFrame, setFormFrame] = useState(context.frame);
+  if (formFrame !== context.frame) {
+    setFormFrame(context.frame); setEmail(user?.email ?? ''); setPassword(''); setConfirmPassword(''); setIsSaving(false);
+  }
 
   const linkAuthProvider: 'google' | 'apple' =
     AuthService.getAuthProvider() === 'apple.com' ? 'apple' : 'google';
 
   // Réexécute la liaison du mot de passe après une ré-authentification réussie.
-  const performLink = async () => {
+  const performLink = async (assertCurrent: () => void) => {
+    assertCurrent();
     await AuthService.linkPasswordCredential(email.trim(), password);
+    assertCurrent();
     // Resynchroniser l'observable user (hasPassword/email mis à jour en Firestore)
     // avant de revenir pour que l'écran précédent reflète l'état à jour.
     await useAuthStore.getState().refreshUser();
+    assertCurrent();
 
     Alert.alert(
       'Mot de passe ajouté',
       'Votre mot de passe a été associé avec succès. Vous pouvez désormais vous connecter avec votre email et mot de passe.',
-      [{ text: 'OK', onPress: () => router.back() }]
+      [{ text: 'OK', onPress: () => {try {assertCurrent(); router.back();} catch { /* A later account owns navigation. */ }} }]
     );
   };
 
@@ -58,6 +66,10 @@ export default function AddPasswordScreen() {
   // Débloque l'ajout de mot de passe sur les vieilles sessions (notamment Apple
   // sur Android où reauthenticateWithApple lèvera proprement).
   const handleReauthAndRetry = async () => {
+    let operation;
+    try {operation = context.start('credential');} catch {return;}
+    if (!operation) return;
+    const assertCurrent = () => context.assertCurrent(operation);
     setIsSaving(true);
     const provider = AuthService.getAuthProvider();
     const reauthProviderName: 'google' | 'apple' | 'password' =
@@ -65,17 +77,19 @@ export default function AddPasswordScreen() {
     let reauthSucceeded = false;
     try {
       if (provider === 'google.com') {
-        await AuthService.reauthenticateWithGoogle();
+        await AuthService.reauthenticateWithGoogle(assertCurrent);
       } else if (provider === 'apple.com') {
-        await AuthService.reauthenticateWithApple();
+        await AuthService.reauthenticateWithApple(assertCurrent);
       } else {
-        await AuthService.reauthenticate(password);
+        await AuthService.reauthenticate(password, assertCurrent);
       }
+      assertCurrent();
       reauthSucceeded = true;
       track('reauth_performed', { context: 'add_password', provider: reauthProviderName, result: 'success' });
-      await performLink();
+      await performLink(assertCurrent);
       track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'success', after_reauth: true });
     } catch (error: unknown) {
+      if (!context.isCurrent(operation)) return;
       const code = (error as { code?: string }).code;
       const cancelled = code === 'ERR_REQUEST_CANCELED' || code === 'SIGN_IN_CANCELLED';
       if (!reauthSucceeded) {
@@ -103,11 +117,13 @@ export default function AddPasswordScreen() {
         : 'La reconnexion a échoué. Veuillez réessayer.';
       Alert.alert('Erreur', message);
     } finally {
-      setIsSaving(false);
+      context.finish(operation);
+      if (context.isCurrent(operation)) setIsSaving(false);
     }
   };
 
   const handleLink = async () => {
+    if (!user) return;
     if (!email.trim()) {
       track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'validation_error', validation_error: 'empty_email', after_reauth: false });
       Alert.alert('Erreur', 'Veuillez saisir une adresse email.');
@@ -132,11 +148,16 @@ export default function AddPasswordScreen() {
       return;
     }
 
+    let operation;
+    try {operation = context.start('credential');} catch {return;}
+    if (!operation) return;
+    const assertCurrent = () => context.assertCurrent(operation);
     setIsSaving(true);
     try {
-      await performLink();
+      await performLink(assertCurrent);
       track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'success', after_reauth: false });
     } catch (error: unknown) {
+      if (!context.isCurrent(operation)) return;
       if (__DEV__) console.error('Error linking password credential:', error);
       const code = (error as { code?: string }).code;
       const message = error instanceof Error
@@ -162,7 +183,8 @@ export default function AddPasswordScreen() {
       track('password_link_submitted', { auth_provider: linkAuthProvider, result: 'error', after_reauth: false, error_code: code });
       Alert.alert('Erreur', message);
     } finally {
-      setIsSaving(false);
+      context.finish(operation);
+      if (context.isCurrent(operation)) setIsSaving(false);
     }
   };
 

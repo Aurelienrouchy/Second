@@ -17,3 +17,6 @@ export { useSwapZoneItems } from './swap-zone/useSwapZoneItems';
 export { TrendingBrandsSection } from './trending-brands/TrendingBrandsSection';
 export { homeKeys } from './query-keys';
 export { prefetchHome } from './prefetchHome';
+
+// — modules rattachés lors du regroupement par feature —
+export { SellerFollowSource, UseSellerLikesReturn, useSellerLikes } from './featured-sellers/useSellerLikes';

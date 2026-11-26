@@ -55,6 +55,20 @@ describe('searchCanadianAddresses', () => {
       expect.stringContaining('photon.komoot.io'),
       expect.objectContaining({ signal: undefined }),
     );
+    const requestUrl = new URL(jest.mocked(fetch).mock.calls[0][0] as string);
+    expect(requestUrl.searchParams.get('countrycode')).toBe('CA');
+    expect(requestUrl.searchParams.get('lat')).toBe('45.5019');
+    expect(requestUrl.searchParams.get('lon')).toBe('-73.5674');
+  });
+
+  it('ne remplace pas une ville manquante par un arrondissement ou une MRC', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({ok: true, json: async () => ({features: [{properties: {
+      street: 'Rue Test', housenumber: '123', district: 'Le Plateau-Mont-Royal', county: 'Agglomération de Montréal',
+      state: 'Québec', countrycode: 'CA', postcode: 'H2V 4E7',
+    }}]})} as Response);
+    const results = await searchCanadianAddresses('123 rue test');
+    expect(results[0].city).toBe('');
+    expect(results[0].street).toBe('123 Rue Test');
   });
 
   it('remonte une erreur HTTP au composant afin qu’il conserve la saisie manuelle', async () => {

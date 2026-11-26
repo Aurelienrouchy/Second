@@ -26,7 +26,7 @@ jest.mock('@gorhom/bottom-sheet', () => {
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { SignUpForm, type SignUpFormProps } from '@/components/auth-bottom-sheet/SignUpForm';
+import { SignUpForm, type SignUpFormProps } from '@/features/auth/components/SignUpForm';
 import { COPY_USERNAME } from '@/constants/authMessages';
 
 function baseProps(overrides: Partial<SignUpFormProps> = {}): SignUpFormProps {

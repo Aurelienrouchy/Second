@@ -80,3 +80,20 @@ export function calculatePopularityScore(
   // Final score with time decay
   return engagementScore * ageFactor;
 }
+
+/**
+ * Whether an article belongs in `search_index`: online, not sold, not blocked
+ * by moderation (an absent `moderationStatus` is a legacy approved article).
+ * Shared by the backfill script, whose own copy forgot `isSold` — running the
+ * pending migration would have put every sold article back into search.
+ */
+export function isIndexableArticle(article: {
+  isActive?: unknown;
+  isSold?: unknown;
+  moderationStatus?: unknown;
+  privacyWithdrawal?: unknown;
+}): boolean {
+  const blocked = article.moderationStatus === 'pending' || article.moderationStatus === 'rejected';
+  return article.isActive === true && article.isSold !== true && !blocked
+    && !Object.prototype.hasOwnProperty.call(article, 'privacyWithdrawal');
+}

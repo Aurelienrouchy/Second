@@ -12,7 +12,7 @@ import {
   translateBankStatus,
   translateDisabledReason,
   translateRequirement,
-} from '@/utils/stripeRequirements';
+} from '@/features/wallet/utils/stripeRequirements';
 
 describe('translateRequirement', () => {
   it('traduit les clés courantes en FR lisible', () => {
@@ -51,14 +51,14 @@ describe('needsIdentityDocument', () => {
     ).toBe(true);
   });
 
-  it('vrai quand le disabledReason suggère une vérification en retard', () => {
+  it('ne demande pas de nouveau document pour un retard sans exigence documentaire', () => {
     expect(
       needsIdentityDocument({
         requirementsCurrentlyDue: [],
         requirementsPastDue: [],
         disabledReason: 'requirements.past_due',
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('faux quand seul un compte bancaire est requis (pas un document)', () => {
@@ -92,9 +92,9 @@ describe('translateDisabledReason', () => {
 
 describe('translateBankStatus', () => {
   it('traduit les statuts bancaires connus', () => {
-    expect(translateBankStatus('validated')).toBe('Vérifié');
+    expect(translateBankStatus('validated')).toBe('Coordonnées acceptées par le prestataire');
     expect(translateBankStatus('verification_failed')).toBe(
-      'Vérification échouée',
+      'Coordonnées à corriger',
     );
   });
 

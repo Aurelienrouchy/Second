@@ -24,7 +24,7 @@ import type { MockFirestore, StripeMock } from '../utils/testHelpers/firestoreMo
 const holder = vi.hoisted(() => ({
   fs: null as MockFirestore | null,
   stripeMock: null as StripeMock | null,
-  shipEngine: null as { createLabel: (...a: unknown[]) => unknown } | null,
+  shipEngine: null as any,
 }));
 
 const fs: MockFirestore = createFirestoreMock({ enforceReadBeforeWrite: true });
@@ -32,7 +32,7 @@ const stripeMock: StripeMock = createStripeMock();
 holder.fs = fs;
 holder.stripeMock = stripeMock;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -80,6 +80,13 @@ vi.mock('firebase-functions/v2/https', () => {
 });
 
 import { payWithWallet } from './wallet';
+import { quotePurchase, reservePurchase } from '../utils/shippingPurchase';
+import { creditSellerForSale } from '../utils/labelFulfillment';
+import { seedPurchase, purchaseAccount, purchaseAddress, purchaseRawRates } from '../utils/testHelpers/shippingPurchaseFixture';
+import { parsePurchaseRates } from '../utils/shippingPurchaseRate';
+const rates = () => { const raw = purchaseRawRates(); raw.rate_response.rates[0].shipping_amount.amount = 11.25;
+  for (const k of ['insurance_amount', 'confirmation_amount', 'other_amount'] as const) raw.rate_response.rates[0][k].amount = 0; return parsePurchaseRates(raw); };
+const engine = (createLabel: any) => ({ createLabel, getPurchaseRates: async () => rates(), getPurchaseRatesForShipment: async () => rates() });
 
 type CallableHandler = (request: {
   auth?: { uid: string } | null;
@@ -98,28 +105,22 @@ const okLabel = {
 };
 
 /** Seed a 100%-wallet SHIPPING transaction in pending_payment + buyer wallet. */
-function seedShippingPayable(opts?: { rateId?: string | null }) {
-  const { rateId = 'rate_1' } = opts ?? {};
-  fs.setDoc('transactions/tx1', {
-    buyerId: 'buyer1',
-    sellerId: 'seller1',
-    status: 'pending_payment',
-    deliveryType: 'shipping',
-    totalAmount: 60, // dollars -> 6000 cents
-    sellerPayout: 45, // dollars -> 4500 cents credited to seller
-    amount: 45,
-    shippingCost: 10,
-    articleId: 'article1',
-    chatId: 'chat1',
-    shipEngineRateId: rateId,
-  });
-  fs.setDoc('wallets/buyer1', {
-    balance: 10000,
-    pendingBalance: 0,
-    status: 'active',
-    currency: 'cad',
-  });
-  fs.setDoc('articles/article1', { isSold: false });
+async function seedShippingPayable(opts?: { rateId?: string | null }) {
+  const seeded: Record<string, any> = {};
+  seedPurchase({ setDoc: (path, data) => { seeded[path] = data; } });
+  for (const [path, data] of Object.entries(seeded)) {
+    const target = path.replace('/seller', '/seller1').replace('/buyer','/buyer1').replace('/article','/article1');
+    fs.setDoc(target, { ...data, ...(data.sellerId ? { sellerId: 'seller1', price: 45 } : {}), ...(data.articleId ? { articleId: 'article1', ownerId: 'seller1' } : {}) });
+  }
+  fs.setDoc('wallets/buyer1', { balance: 10000, pendingBalance: 0, status: 'active', currency: 'cad' });
+  const q = await quotePurchase('buyer1', { articleId: 'article1', shippingAddress: purchaseAddress });
+  const r = await reservePurchase('buyer1', { deliveryType: 'shipping', quoteId: q.quoteId, rateId: q.rates[0].rateId, expectedTotal: q.rates[0].totalAmount });
+  const order = fs.getDoc(`transactions/${r.transactionId}`)!;
+  fs.setDoc('transactions/tx1', { ...order, chatId: 'chat1', ...(opts?.rateId ? { shipEngineRateId: opts.rateId } : {}) });
+  fs.setDoc(`transactions/${r.transactionId}`, null);
+  fs.setDoc(`shipping_quotes/${q.quoteId}`, { ...fs.getDoc(`shipping_quotes/${q.quoteId}`), transactionId: 'tx1' });
+  fs.setDoc('articles/article1', { ...fs.getDoc('articles/article1'), activeTransactionId: 'tx1' });
+  fs.writeOps.length = 0;
 }
 
 beforeEach(() => {
@@ -127,14 +128,15 @@ beforeEach(() => {
   vi.stubEnv('SHIPPING_ENABLED', 'true');
   fs.reset();
   stripeMock.reset();
-  holder.shipEngine = { createLabel: async () => okLabel };
+  stripeMock.impl.accountsRetrieve = async () => purchaseAccount('seller1');
+  holder.shipEngine = engine(async () => okLabel);
 });
 
 describe('payWithWallet — shipping label (B1, createLabelIdempotent)', () => {
   it('on success: credits seller once, advances to label_created, clears reservation', async () => {
-    seedShippingPayable();
+    await seedShippingPayable();
 
-    const result = await callPay({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
+    const result = await callPay({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } });
     expect(result.success).toBe(true);
 
     const tx = fs.getDoc('transactions/tx1')!;
@@ -155,14 +157,14 @@ describe('payWithWallet — shipping label (B1, createLabelIdempotent)', () => {
   });
 
   it('on createLabel failure: NOT credited, labelCreationPending=true (sweep-visible), stays paid', async () => {
-    seedShippingPayable();
-    holder.shipEngine = {
+    await seedShippingPayable();
+    holder.shipEngine = { ...holder.shipEngine,
       createLabel: async () => {
         throw new Error('ShipEngine 500');
       },
     };
 
-    const result = await callPay({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
+    const result = await callPay({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } });
     expect(result.success).toBe(true);
 
     const tx = fs.getDoc('transactions/tx1')!;
@@ -182,34 +184,34 @@ describe('payWithWallet — shipping label (B1, createLabelIdempotent)', () => {
     expect(fs.getDoc('wallets/buyer1')!.balance).toBe(4000);
   });
 
-  it('fallback rateId: deferred to sweep without calling createLabel', async () => {
-    seedShippingPayable({ rateId: 'fallback_xyz' });
+  it('fallback rateId cannot authorize a new debit or label', async () => {
+    await seedShippingPayable({ rateId: 'fallback_xyz' });
     let createLabelCalls = 0;
-    holder.shipEngine = {
+    holder.shipEngine = { ...holder.shipEngine,
       createLabel: async () => {
         createLabelCalls++;
         return okLabel;
       },
     };
 
-    await callPay({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
-
+    await expect(callPay({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'buyer1' }, data: { expectedUid: 'buyer1', transactionId: 'tx1' } })).rejects.toMatchObject({ code: 'aborted' });
     expect(createLabelCalls).toBe(0);
-    const tx = fs.getDoc('transactions/tx1')!;
-    expect(tx.status).toBe('paid');
-    expect(tx.labelCreationPending).toBe(true);
+    expect(fs.getDoc('transactions/tx1')!.status).toBe('pending_payment');
+    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(10000);
     expect(fs.getDoc('wallets/seller1')).toBeUndefined();
+    expect(fs.writeOps).toHaveLength(0);
   });
 });
 
 
-describe('legacy non-shipping wallet credit preserves Firestore read ordering', () => {
+describe('existing legacy non-shipping seller credit helper preserves Firestore read ordering', () => {
   it.each([true, false])('reads before writes with seller wallet existing=%s', async existing => {
-    seedShippingPayable();
+    await seedShippingPayable();
     await fs.db.collection('transactions').doc('tx1').update({ deliveryType: 'legacy_local' });
     if (existing) fs.setDoc('wallets/seller1', { balance: 100, pendingBalance: 200, sellerDebt: 1000, status: 'active' });
-    const result = await callPay({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
-    expect(result.success).toBe(true);
+    await fs.db.collection('transactions').doc('tx1').update({ status: 'paid', paidVia: 'wallet', walletAmountUsed: 6000 });
+    fs.setDoc('wallets/buyer1', { balance: 4000, status: 'active', currency: 'cad' });
+    await fs.db.runTransaction(async tx => { const ref = fs.db.collection('transactions').doc('tx1'); const order = (await tx.get(ref)).data()!; await creditSellerForSale(tx, ref, order, 'tx1'); });
     expect(fs.getDoc('wallets/buyer1')!.balance).toBe(4000);
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(existing ? 3700 : 4500);
     expect(fs.getDoc('transactions/tx1')!.sellerCreditedCents).toBe(4500);

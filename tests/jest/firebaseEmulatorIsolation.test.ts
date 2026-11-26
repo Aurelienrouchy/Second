@@ -1,5 +1,9 @@
-const mockApps: { options: { projectId?: string } }[] = [];
-const mockInitializeApp = jest.fn((options: { projectId?: string }) => ({ options }));
+const mockApps: { name: string; options: Record<string, string> }[] = [];
+const mockInitializeApp = jest.fn((options: Record<string, string>, name: string) => {
+  const app = { options, name };
+  mockApps.push(app);
+  return app;
+});
 const mockAuthEmulator = jest.fn();
 const mockFirestoreEmulator = jest.fn();
 const mockStorageEmulator = jest.fn();
@@ -8,7 +12,7 @@ const mockFunctionsEmulator = jest.fn();
 jest.unmock('@/config/firebaseConfig');
 jest.mock('firebase/app', () => ({
   getApps: () => mockApps,
-  initializeApp: (options: { projectId?: string }) => mockInitializeApp(options),
+  initializeApp: (options: Record<string, string>, name: string) => mockInitializeApp(options, name),
 }));
 jest.mock('@firebase/auth', () => ({ getReactNativePersistence: jest.fn() }));
 jest.mock('firebase/auth', () => ({
@@ -36,6 +40,7 @@ const originalProject = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
 beforeEach(() => {
   jest.resetModules();
   mockApps.length = 0;
+  delete (globalThis as typeof globalThis & { __SECONDE_FIREBASE_RUNTIME__?: string }).__SECONDE_FIREBASE_RUNTIME__;
   delete process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST;
 });
 
@@ -49,7 +54,7 @@ afterAll(() => {
 it('isolates every SDK service from production during tests, including a production env override', () => {
   process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID = 'production-project';
   jest.isolateModules(() => require('@/config/firebaseConfig'));
-  expect(mockInitializeApp).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'demo-second' }));
+  expect(mockInitializeApp).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'demo-second' }), 'seconde-emulator');
   expect(mockAuthEmulator).toHaveBeenCalledWith({ kind: 'auth' }, 'http://127.0.0.1:9099', { disableWarnings: true });
   expect(mockFirestoreEmulator).toHaveBeenCalledWith({ kind: 'firestore' }, '127.0.0.1', 8080);
   expect(mockStorageEmulator).toHaveBeenCalledWith({ kind: 'storage' }, '127.0.0.1', 9199);
@@ -66,9 +71,27 @@ it('uses the configured device host consistently for all emulators', () => {
 });
 
 it('refuses to reuse a preinitialised production app in an emulator run', () => {
-  mockApps.push({ options: { projectId: 'production-project' } });
+  mockApps.push({ name: '[DEFAULT]', options: { projectId: 'production-project' } });
   expect(() => jest.isolateModules(() => require('@/config/firebaseConfig')))
     .toThrow('Emulator builds require the demo-second Firebase project.');
   expect(mockInitializeApp).not.toHaveBeenCalled();
   expect(mockAuthEmulator).not.toHaveBeenCalled();
+});
+
+it('refuses a changed emulator host on Fast Refresh before connecting any new endpoint', () => {
+  jest.isolateModules(() => require('@/config/firebaseConfig'));
+  const previousConnections = mockAuthEmulator.mock.calls.length;
+  process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST = '10.0.2.2';
+  expect(() => jest.isolateModules(() => require('@/config/firebaseConfig')))
+    .toThrow('Redémarrez entièrement l’application.');
+  expect(mockAuthEmulator).toHaveBeenCalledTimes(previousConnections);
+  expect(mockInitializeApp).toHaveBeenCalledTimes(1);
+});
+
+it('reuses an identical runtime without reconnecting emulator clients', () => {
+  jest.isolateModules(() => require('@/config/firebaseConfig'));
+  jest.isolateModules(() => require('@/config/firebaseConfig'));
+  expect(mockInitializeApp).toHaveBeenCalledTimes(1);
+  expect(mockAuthEmulator).toHaveBeenCalledTimes(1);
+  expect(mockFirestoreEmulator).toHaveBeenCalledTimes(1);
 });

@@ -41,7 +41,8 @@ const { FakeTimestamp } = vi.hoisted(() => {
   }
   return { FakeTimestamp };
 });
-vi.mock('firebase-admin/firestore', () => ({ Timestamp: FakeTimestamp }));
+vi.mock('firebase-admin/firestore', async importOriginal => ({
+  ...await importOriginal<typeof import('firebase-admin/firestore')>(), Timestamp: FakeTimestamp }));
 
 vi.mock('../config/stripe', () => ({
   getStripe: () => null,

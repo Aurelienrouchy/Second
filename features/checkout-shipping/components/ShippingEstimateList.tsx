@@ -1,194 +1,27 @@
-/**
- * ShippingEstimateList
- * Displays carrier/rate options with radio selection.
- */
+import React from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors, radius, spacing, typography } from '@/constants/theme';
+import { formatPriceWithCurrency } from '@/utils/formatPrice';
+import type { ShippingPurchaseRate } from '../types';
 
-import React, { useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native';
-
-import { colors, fonts, radius } from '@/constants/theme';
-import { formatPrice } from '@/utils/formatPrice';
-import type { ShippingEstimate } from '../types';
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-interface ShippingEstimateListProps {
-  estimates: ShippingEstimate[];
-  selectedEstimate: ShippingEstimate | null;
-  onSelect: (estimate: ShippingEstimate) => void;
-  loading: boolean;
-  postalCodeLength: number;
+interface Props { rates: ShippingPurchaseRate[]; selectedRateId: string | null; onSelect: (rate: ShippingPurchaseRate) => void; loading: boolean; disabled?: boolean }
+export function ShippingEstimateList({ rates, selectedRateId, onSelect, loading, disabled = false }: Props) {
+  return <View style={styles.section}>
+    <Text style={styles.title}>Tarifs de livraison</Text>
+    {loading ? <ActivityIndicator color={colors.charcoal} /> : rates.map(rate => <Pressable key={rate.rateId}
+      accessibilityRole="radio" accessibilityState={{ checked: selectedRateId === rate.rateId, disabled }}
+      accessibilityLabel={`${rate.carrierFriendlyName}, ${rate.serviceType}, ${formatPriceWithCurrency(rate.shippingCost)}`}
+      disabled={disabled} onPress={() => onSelect(rate)} style={[styles.card, selectedRateId === rate.rateId && styles.selected]}>
+      <Text style={styles.body}>{rate.carrierFriendlyName} · {rate.serviceType}</Text>
+      <Text style={styles.caption}>{rate.estimatedDeliveryDays === null ? 'Délai à confirmer' : `Environ ${rate.estimatedDeliveryDays} jours`}</Text>
+      <Text style={styles.body}>{formatPriceWithCurrency(rate.shippingCost)}</Text>
+    </Pressable>)}
+    {!loading && rates.length === 0 ? <Text style={styles.caption}>Aucun service disponible pour cette adresse pour le moment.</Text> : null}
+  </View>;
 }
-
-// =============================================================================
-// SUB-COMPONENT
-// =============================================================================
-
-const EstimateCard = React.memo(function EstimateCard({
-  estimate,
-  isSelected,
-  onPress,
-}: {
-  estimate: ShippingEstimate;
-  isSelected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      style={[styles.estimateCard, isSelected && styles.estimateCardSelected]}
-      onPress={onPress}
-    >
-      <View style={[styles.radio, isSelected && styles.radioSelected]}>
-        {isSelected && <View style={styles.radioInner} />}
-      </View>
-      <View style={styles.estimateInfo}>
-        <Text style={styles.estimateName}>
-          {estimate.carrier} {estimate.serviceName}
-        </Text>
-        <Text style={styles.estimateDelay}>{estimate.deliveryDays}</Text>
-      </View>
-      <Text style={styles.estimatePrice}>{formatPrice(estimate.amount)}</Text>
-    </Pressable>
-  );
-});
-
-// =============================================================================
-// COMPONENT
-// =============================================================================
-
-export const ShippingEstimateList = React.memo(function ShippingEstimateList({
-  estimates,
-  selectedEstimate,
-  onSelect,
-  loading,
-  postalCodeLength,
-}: ShippingEstimateListProps) {
-  const handlePress = useCallback(
-    (est: ShippingEstimate) => {
-      onSelect(est);
-    },
-    [onSelect],
-  );
-
-  return (
-    <>
-      <Text style={styles.sectionTitle}>LIVRAISON</Text>
-
-      {loading && (
-        <View style={styles.estimateLoading}>
-          <ActivityIndicator size="small" color={colors.charcoal} />
-          <Text style={styles.estimateLoadingText}>Calcul des frais...</Text>
-        </View>
-      )}
-
-      {!loading &&
-        estimates.map((est) => (
-          <EstimateCard
-            key={est.rateId}
-            estimate={est}
-            isSelected={selectedEstimate?.rateId === est.rateId}
-            onPress={() => handlePress(est)}
-          />
-        ))}
-
-      {!loading && estimates.length === 0 && postalCodeLength >= 6 && (
-        <Text style={styles.noEstimates}>
-          Entrez votre code postal pour voir les options de livraison
-        </Text>
-      )}
-    </>
-  );
-});
-
-// =============================================================================
-// STYLES
-// =============================================================================
-
 const styles = StyleSheet.create({
-  sectionTitle: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    letterSpacing: 1.8,
-    color: colors.muted,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-  },
-  estimateLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    justifyContent: 'center',
-  },
-  estimateLoadingText: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    color: colors.muted,
-  },
-  estimateCard: {
-    flexDirection: 'row',
-    gap: 12,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.sm,
-    padding: 14,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  estimateCardSelected: {
-    borderColor: colors.charcoal,
-    borderWidth: 2,
-    padding: 13,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.borderStrong,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioSelected: {
-    borderColor: colors.charcoal,
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.charcoal,
-  },
-  estimateInfo: { flex: 1 },
-  estimateName: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    color: colors.charcoal,
-    marginBottom: 2,
-  },
-  estimateDelay: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    color: colors.muted,
-  },
-  estimatePrice: {
-    fontFamily: fonts.displaySemiBold,
-    fontSize: 16,
-    color: colors.charcoal,
-  },
-  noEstimates: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    color: colors.muted,
-    textAlign: 'center',
-    paddingVertical: 16,
-  },
+  section: { gap: spacing.sm, marginVertical: spacing.md }, title: { ...typography.h3, color: colors.charcoal },
+  body: { ...typography.body, color: colors.charcoal }, caption: { ...typography.caption, color: colors.muted },
+  card: { padding: spacing.md, gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.white },
+  selected: { borderColor: colors.charcoal, backgroundColor: colors.surfaceWarm },
 });

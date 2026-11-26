@@ -8,7 +8,9 @@
  *  - A 'pending_payment' tx whose PaymentIntent is 'succeeded' is NOT expired
  *    (expiry must never race a captured payment).
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
+import { Timestamp } from 'firebase-admin/firestore';
+import { createCashAgreement, qualifiedCashAgreement } from '../utils/cashMeetup';
 import { createFirestoreMock, createStripeMock } from '../utils/testHelpers/firestoreMock';
 import type { MockFirestore, StripeMock } from '../utils/testHelpers/firestoreMock';
 
@@ -57,10 +59,11 @@ vi.mock('firebase-functions/v2/scheduler', () => ({
   onSchedule: (_opts: unknown, handler: unknown) => handler,
 }));
 
-import { expireOrphanedTransactions } from './transactionExpiration';
-
 type ScheduledHandler = () => Promise<void>;
-const runScheduler = expireOrphanedTransactions as unknown as ScheduledHandler;
+let runScheduler: ScheduledHandler;
+beforeAll(async () => {
+  runScheduler = (await import('./transactionExpiration')).expireOrphanedTransactions as unknown as ScheduledHandler;
+});
 
 const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -113,7 +116,7 @@ describe('expireOrphanedTransactions — paid-not-shipped refund idempotency', (
     let refundCount = 0;
     stripeMock.impl.refundsCreate = (...a: unknown[]) => {
       refundCount++;
-      return { id: 'rf_paid' };
+      return { id: 'rf_paid', status: 'succeeded', currency: 'cad', payment_intent: (a[0] as any).payment_intent, amount: (a[0] as any).amount, metadata: (a[0] as any).metadata };
     };
 
     await runScheduler();
@@ -138,9 +141,9 @@ describe('expireOrphanedTransactions — paid-not-shipped refund idempotency', (
     seedPaidNotShipped();
 
     let refundCount = 0;
-    stripeMock.impl.refundsCreate = () => {
+    stripeMock.impl.refundsCreate = (...a: unknown[]) => {
       refundCount++;
-      return { id: 'rf_paid' };
+      return { id: 'rf_paid', status: 'succeeded', currency: 'cad', payment_intent: (a[0] as any).payment_intent, amount: (a[0] as any).amount, metadata: (a[0] as any).metadata };
     };
 
     await runScheduler();
@@ -170,10 +173,15 @@ describe('expireOrphanedTransactions — paid-not-shipped refund idempotency', (
       status: 'refund_in_progress',
       sellerPayout: 45,
       sellerCreditedCents: 4500,
+      totalAmount: 50,
       paidVia: 'card',
       deliveryType: 'shipping',
       articleId: 'a',
       stripePaymentIntentId: 'pi_resume',
+      refund: { intentId: 'intent_resume', attemptId: 'intent_resume', idempotencyKey: 'rf_txr', state: 'pending',
+        stripeRefundId: 'rf_already', paymentIntentId: 'pi_resume', cardAmountCents: 5000, walletAmountCents: 0,
+        sellerDebitCents: 4500, originalStatus: 'paid', source: 'adminRefundTransaction', relistArticle: true, reason: 'admin_partial',
+        freezeCents: 0, leaseUntilMs: 0, previousRefundIds: [], fundsAppliedAt: null },
       stripeRefundId: 'rf_already', // persisted on the prior crashed run
       createdAt: new Date(Date.now() - EIGHT_DAYS_MS),
     });
@@ -181,18 +189,21 @@ describe('expireOrphanedTransactions — paid-not-shipped refund idempotency', (
     fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 4500, status: 'active' });
 
     let refundCount = 0;
-    stripeMock.impl.refundsCreate = () => {
+    stripeMock.impl.refundsCreate = (...a: unknown[]) => {
       refundCount++;
-      return { id: 'rf_new' };
+      return { id: 'rf_new', status: 'succeeded', currency: 'cad', payment_intent: (a[0] as any).payment_intent, amount: (a[0] as any).amount, metadata: (a[0] as any).metadata };
     };
 
+    stripeMock.impl.refundsRetrieve = async () => ({ id: 'rf_already', status: 'succeeded', currency: 'cad',
+      amount: 5000, payment_intent: 'pi_resume', metadata: { refundIntentId: 'intent_resume' } });
     await runScheduler();
 
     // The core re-issues the Stripe refund under the SAME deterministic key
     // (a real Stripe returns the original refund — no double money movement).
-    expect(refundCount).toBe(1);
-    const refundOpts = stripeMock.calls.refundsCreate[0][1] as Record<string, unknown>;
-    expect(refundOpts.idempotencyKey).toBe('rf_txr');
+    expect(refundCount).toBe(0);
+    expect(stripeMock.calls.refundsRetrieve).toHaveLength(1);
+    expect(fs.getDoc('transactions/txr')!.refund.reason).toBe('admin_partial');
+    expect(fs.getDoc('transactions/txr')!.cancelReason).toBeUndefined();
     expect(fs.getDoc('transactions/txr')!.status).toBe('refunded');
     // Seller debited EXACTLY once across the run — no double-debit.
     expect(fs.getDoc('wallets/seller1')!.pendingBalance).toBe(0);
@@ -205,6 +216,7 @@ describe('expireOrphanedTransactions — paid-not-shipped refund idempotency', (
       sellerId: 'seller1',
       status: 'paid',
       sellerPayout: 45,
+      totalAmount: 50,
       paidVia: 'wallet_and_card',
       walletAmountUsed: 2000, // cents
       deliveryType: 'shipping',
@@ -216,7 +228,7 @@ describe('expireOrphanedTransactions — paid-not-shipped refund idempotency', (
     fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 4500, status: 'active' });
     fs.setDoc('wallets/buyer1', { balance: 500, status: 'active' });
 
-    stripeMock.impl.refundsCreate = () => ({ id: 'rf_mixed' });
+    stripeMock.impl.refundsCreate = (...a: unknown[]) => ({ id: 'rf_mixed', status: 'succeeded', currency: 'cad', payment_intent: (a[0] as any).payment_intent, amount: (a[0] as any).amount, metadata: (a[0] as any).metadata });
 
     await runScheduler();
 
@@ -297,9 +309,9 @@ describe('expireOrphanedTransactions — does not expire in-flight payments', ()
     fs.setDoc('wallets/seller1', { balance: 0, pendingBalance: 0, status: 'active' });
 
     let refundCount = 0;
-    stripeMock.impl.refundsCreate = () => {
+    stripeMock.impl.refundsCreate = (...a: unknown[]) => {
       refundCount++;
-      return { id: 'rf' };
+      return { id: 'rf', status: 'succeeded', currency: 'cad', payment_intent: (a[0] as any).payment_intent, amount: (a[0] as any).amount, metadata: (a[0] as any).metadata };
     };
 
     await runScheduler();
@@ -393,6 +405,180 @@ describe('expireOrphanedTransactions — F22 mixed wallet portion restitution', 
     expect(fs.sumIncrements('wallets/buyer1', 'balance')).toBe(0);
     expect(fs.getDoc('transactions/txmix')!.status).toBe('pending_payment');
     expect(stripeMock.calls.paymentIntentsCancel.length).toBe(0);
+  });
+});
+
+// ===========================================================================
+// V1 ne contient aucune clause d'expiration acceptée. Les anciens tests
+// demandaient une annulation sur le seul âge : ce comportement est précisément
+// le défaut corrigé. Accord, stock et message doivent rester cohérents/intacts.
+// ===========================================================================
+describe('expireOrphanedTransactions — rencontre sans expiration contractuelle qualifiée', () => {
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
+  it('préserve un accord V1 tout récent adopté sur une réservation vieille de trois jours', async () => {
+    const order = {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'meetup_pending',
+      deliveryType: 'meetup',
+      articleId: 'article1',
+      chatId: 'chat1',
+      offerMessageId: 'msg1',
+      amount: 80, totalAmount: 80, sellerPayout: 80, shippingCost: 0, serviceFee: 0, currency: 'CAD', paidVia: 'cash',
+      meetupSpot: { name: 'Café X' }, articleSnapshot: { id: 'article1', title: 'Robe' },
+      createdAt: Timestamp.fromMillis(Date.now() - THREE_DAYS_MS),
+    };
+    const acceptedAt = Timestamp.now();
+    const agreement = { ...createCashAgreement('txmp', order, 'buyer1', 'seller1'), acceptedAt };
+    const transaction = { ...order, cashAgreement: agreement };
+    expect(qualifiedCashAgreement('txmp', transaction)).toBe(true);
+    fs.setDoc('transactions/txmp', transaction);
+    fs.setDoc('articles/article1', { isSold: true });
+    fs.setDoc('messages/msg1', {
+      type: 'offer',
+      chatId: 'chat1',
+      senderId: 'buyer1',
+      offer: { status: 'accepted', amount: 80, meetup: { location: { name: 'Café X' } } },
+    });
+
+    await runScheduler();
+
+    expect(fs.getDoc('transactions/txmp')!.status).toBe('meetup_pending');
+    expect(fs.getDoc('transactions/txmp')!.cashAgreement.acceptedAt).toEqual(acceptedAt);
+    expect(fs.getDoc('transactions/txmp')!.createdAt).toEqual(order.createdAt);
+    expect(fs.getDoc('articles/article1')!.isSold).toBe(true);
+    expect(fs.getDoc('messages/msg1')!.offer.status).toBe('accepted');
+  });
+
+  it('préserve une ancienne rencontre confirmée et son offre acceptée', async () => {
+    fs.setDoc('transactions/txmc', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'meetup_confirmed',
+      deliveryType: 'meetup',
+      articleId: 'article2',
+      chatId: 'chat2',
+      offerMessageId: 'msg2',
+      createdAt: new Date(Date.now() - EIGHT_DAYS_MS),
+    });
+    fs.setDoc('articles/article2', { isSold: true });
+    fs.setDoc('messages/msg2', {
+      type: 'offer',
+      chatId: 'chat2',
+      senderId: 'buyer1',
+      offer: {
+        status: 'accepted',
+        amount: 80,
+        meetup: { location: { name: 'Café X' }, confirmedAt: new Date() },
+      },
+    });
+
+    await runScheduler();
+
+    expect(fs.getDoc('transactions/txmc')!.status).toBe('meetup_confirmed');
+    expect(fs.getDoc('articles/article2')!.isSold).toBe(true);
+    expect(fs.getDoc('messages/msg2')!.offer.status).toBe('accepted');
+  });
+
+  it("ne touche pas a une rencontre confirmee hier, meme creee il y a un mois", async () => {
+    fs.setDoc('transactions/txfresh', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'meetup_confirmed',
+      deliveryType: 'meetup',
+      articleId: 'articleF',
+      chatId: 'chatF',
+      offerMessageId: 'msgF',
+      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      meetupConfirmedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    });
+    fs.setDoc('articles/articleF', { isSold: true });
+    fs.setDoc('messages/msgF', {
+      type: 'offer',
+      chatId: 'chatF',
+      senderId: 'buyer1',
+      offer: { status: 'accepted', amount: 80, meetup: { location: { name: 'Café X' } } },
+    });
+
+    await runScheduler();
+
+    expect(fs.getDoc('transactions/txfresh')!.status).toBe('meetup_confirmed');
+    expect(fs.getDoc('articles/articleF')!.isSold).toBe(true);
+    expect(fs.getDoc('messages/msgF')!.offer.status).toBe('accepted');
+  });
+
+  it("préserve aussi une rencontre confirmée il y a dix jours sans clause de délai", async () => {
+    fs.setDoc('transactions/txold10', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'meetup_confirmed',
+      deliveryType: 'meetup',
+      articleId: 'articleG',
+      chatId: 'chatG',
+      offerMessageId: 'msgG',
+      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      meetupConfirmedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+    });
+    fs.setDoc('articles/articleG', { isSold: true });
+    fs.setDoc('messages/msgG', {
+      type: 'offer',
+      chatId: 'chatG',
+      senderId: 'buyer1',
+      offer: { status: 'accepted', amount: 80, meetup: { location: { name: 'Café X' } } },
+    });
+
+    await runScheduler();
+
+    expect(fs.getDoc('transactions/txold10')!.status).toBe('meetup_confirmed');
+    expect(fs.getDoc('articles/articleG')!.isSold).toBe(true);
+    expect(fs.getDoc('messages/msgG')!.offer.status).toBe('accepted');
+  });
+
+  it("laisse vivre une rencontre qu un administrateur vient de restaurer", async () => {
+    fs.setDoc('transactions/txrestored', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'meetup_confirmed',
+      deliveryType: 'meetup',
+      articleId: 'articleH',
+      chatId: 'chatH',
+      offerMessageId: 'msgH',
+      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      meetupConfirmedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+      disputeResolvedAt: new Date(Date.now() - 60 * 60 * 1000),
+    });
+    fs.setDoc('articles/articleH', { isSold: true });
+    fs.setDoc('messages/msgH', {
+      type: 'offer',
+      chatId: 'chatH',
+      senderId: 'buyer1',
+      offer: { status: 'accepted', amount: 80, meetup: { location: { name: 'Café X' } } },
+    });
+
+    await runScheduler();
+
+    // Sinon l administrateur tranche en faveur du vendeur et le balayage
+    // reannule la rencontre dans l heure qui suit, sans que personne comprenne.
+    expect(fs.getDoc('transactions/txrestored')!.status).toBe('meetup_confirmed');
+  });
+
+  it('préserve une ancienne réservation sans preuve de son horloge ni offerMessageId', async () => {
+    fs.setDoc('transactions/txold', {
+      buyerId: 'buyer1',
+      sellerId: 'seller1',
+      status: 'meetup_pending',
+      deliveryType: 'meetup',
+      articleId: 'article3',
+      chatId: 'chat3',
+      createdAt: new Date(Date.now() - THREE_DAYS_MS),
+    });
+    fs.setDoc('articles/article3', { isSold: true });
+
+    await runScheduler();
+
+    expect(fs.getDoc('transactions/txold')!.status).toBe('meetup_pending');
+    expect(fs.getDoc('articles/article3')!.isSold).toBe(true);
   });
 });
 

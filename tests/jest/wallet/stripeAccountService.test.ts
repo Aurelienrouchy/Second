@@ -1,3 +1,5 @@
+import { establishIdentityFixture } from '@/tests/jest/helpers/identityFixture';
+beforeEach(() => establishIdentityFixture('u1'));
 /**
  * StripeAccountService — cycle de vie du compte vendeur Stripe Connect Custom.
  *
@@ -22,8 +24,15 @@
 
 import { httpsCallable } from 'firebase/functions';
 
-import { StripeAccountService } from '@/services/stripeAccountService';
-import type { StripeAccountStatus } from '@/utils/stripeRequirements';
+import { StripeAccountService } from '@/features/wallet/services/stripeAccountService';
+import type { StripeAccountStatus } from '@/features/wallet/utils/stripeRequirements';
+
+// La taille d'image passe par Image.getSize, que le bouchon de jest-expo ne
+// sait pas servir : on la fournit (grande, pour que le redimensionnement
+// s'applique comme avant).
+jest.mock('@/utils/imageSize', () => ({
+  getImageSize: () => Promise.resolve({ width: 4032, height: 3024 }),
+}));
 
 jest.mock('expo-file-system/legacy', () => ({
   EncodingType: { Base64: 'base64' },
@@ -52,7 +61,7 @@ const RESTRICTED_STATUS: StripeAccountStatus = {
   detailsSubmitted: true,
   status: 'restricted',
   requirementsCurrentlyDue: ['individual.verification.document'],
-  requirementsPastDue: [],
+  requirementsPastDue: [], requirementsPendingVerification: [], verificationErrors: [],
   disabledReason: 'requirements.past_due',
   currentDeadline: null,
   bankAccountLast4: '6789',
@@ -96,6 +105,7 @@ describe('StripeAccountService.uploadIdentityDocument', () => {
     // prepareImageForUpload (mock manipulator) → processed-file://front.jpg,
     // readAsStringAsync → b64(processed-...). Verso absent ⇒ clé omise.
     expect(callable).toHaveBeenCalledWith({
+      expectedUid: 'u1',
       frontImageBase64: 'b64(processed-file://front.jpg)',
     });
     const payload = callable.mock.calls[0][0];
@@ -119,11 +129,14 @@ describe('StripeAccountService.uploadIdentityDocument', () => {
     );
 
     expect(callable).toHaveBeenCalledWith({
+      expectedUid: 'u1',
       frontImageBase64: 'b64(processed-file://front.jpg)',
       backImageBase64: 'b64(processed-file://back.jpg)',
     });
   });
 });
+
+const bankInput: import('@/features/wallet/services/stripeAccountService').ReplaceBankAccountInput = {mode: 'replace', requestId: 'bank-replace-fixture', accountHolderName: 'Compte synthétique', bankOwnershipAccepted: true, bankOwnershipStatementVersion: 'second-bank-holder-v1', transitNumber: '12345', institutionNumber: '001', accountNumber: '9876543'};
 
 describe('StripeAccountService.replaceBankAccount', () => {
   it('cible addBankAccount avec transit/institution/compte et renvoie le last4', async () => {
@@ -133,17 +146,11 @@ describe('StripeAccountService.replaceBankAccount', () => {
       bankAccountStatus: 'new',
     });
 
-    const res = await StripeAccountService.replaceBankAccount({
-      transitNumber: '12345',
-      institutionNumber: '001',
-      accountNumber: '9876543',
-    });
+    const res = await StripeAccountService.replaceBankAccount(bankInput);
 
     expect(lastCallableName()).toBe('addBankAccount');
     expect(callable).toHaveBeenCalledWith({
-      transitNumber: '12345',
-      institutionNumber: '001',
-      accountNumber: '9876543',
+      ...bankInput, expectedUid: 'u1',
     });
     expect(res).toEqual({
       success: true,
@@ -161,11 +168,7 @@ describe('StripeAccountService.replaceBankAccount', () => {
     mockHttpsCallable.mockReturnValue(callable);
 
     await expect(
-      StripeAccountService.replaceBankAccount({
-        transitNumber: '12345',
-        institutionNumber: '001',
-        accountNumber: '9876543',
-      }),
+      StripeAccountService.replaceBankAccount(bankInput),
     ).rejects.toMatchObject({ code: 'functions/failed-precondition' });
   });
 });

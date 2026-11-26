@@ -2,11 +2,14 @@
  * Notifications Settings
  */
 
-import { useUser } from '@/hooks/useAuth';
+import { useAuthenticatedSession } from '@/hooks/useAuth';
+import { useShippingPurchaseContext } from '@/hooks/useShippingPurchaseContext';
+import { getAuthSessionGeneration } from '@/store/authStore';
+import { MarketingConsentService, isMarketingPreference } from '@/services/marketingConsentService';
 import { track } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import { Text, Caption, ScreenHeader } from '@/components/ui';
+import { Text, Caption, ScreenHeader, Button } from '@/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
@@ -49,7 +52,7 @@ const NOTIFICATION_SETTINGS: NotificationSetting[] = [
   {
     id: 'push',
     title: 'Notifications push',
-    description: 'Recevoir les notifications sur votre téléphone',
+    description: 'Recevoir les alertes sur votre téléphone. Les avis essentiels restent dans l’application.',
     icon: 'phone-portrait-outline',
     iconColor: colors.primary,
   },
@@ -70,7 +73,7 @@ const NOTIFICATION_SETTINGS: NotificationSetting[] = [
   {
     id: 'newOrders',
     title: 'Nouvelles ventes',
-    description: 'Quand vous vendez un article',
+    description: 'Alertes sur votre téléphone quand vous vendez. L’avis de vente reste dans l’application.',
     icon: 'bag-check-outline',
     iconColor: colors.success,
   },
@@ -125,121 +128,94 @@ const DEFAULT_SETTINGS: Record<NotificationType, boolean> = {
 
 export default function NotificationsSettingsScreen() {
   const router = useRouter();
-  const user = useUser();
+  const { uid } = useAuthenticatedSession();
+  const generation = getAuthSessionGeneration();
+  const preferenceContext = useShippingPurchaseContext('notification-preferences', uid);
   const queryClient = useQueryClient();
+  const preferenceKey = ['userNotificationPreferences', uid, generation, preferenceContext.focusRevision];
+  const marketingQuery = useQuery({ queryKey: ['marketingConsent', uid, generation, preferenceContext.focusRevision],
+    enabled: !!uid && preferenceContext.focused, staleTime: 0, gcTime: 0, retry: false,
+    queryFn: () => {
+      const operation = preferenceContext.capture();
+      return MarketingConsentService.observe(operation.session.uid, () => preferenceContext.assertCurrent(operation));
+    },
+  });
+  const marketingGranted = marketingQuery.isSuccess && !marketingQuery.isFetching && marketingQuery.data?.ownerId === uid &&
+    marketingQuery.data.consentRecorded && marketingQuery.data.consentState === 'granted' && marketingQuery.data.enabled === true;
 
   const { data: settings = DEFAULT_SETTINGS, isLoading } = useQuery({
-    queryKey: ['userNotificationPreferences', user?.id],
-    queryFn: () => UserService.getNotificationPreferences(user!.id),
-    enabled: !!user?.id,
-    staleTime: 10 * 60 * 1000,
+    queryKey: preferenceKey,
+    queryFn: async () => {
+      const operation = preferenceContext.capture();
+      const result = await UserService.getNotificationPreferences(operation.session.uid);
+      preferenceContext.assertCurrent(operation);
+      return { ...DEFAULT_SETTINGS, ...result };
+    },
+    enabled: !!uid && preferenceContext.focused,
+    staleTime: 0,
+    retry: false,
   });
 
-  const { mutate: toggleSetting } = useMutation({
-    mutationFn: ({ key }: { key: NotificationType; newValue: boolean; osPermissionMissing: boolean }) => {
-      const newSettings = { ...settings, [key]: !settings[key] };
-      return UserService.updateNotificationPreferences(user!.id, newSettings);
+  const { mutateAsync: toggleSetting, isPending: isSaving } = useMutation({
+    retry: false,
+    mutationFn: async (input: { key: NotificationType; newValue: boolean; operation: ReturnType<typeof preferenceContext.capture> }) =>
+      MarketingConsentService.setNotificationPreference(input.operation.session.uid, input.key, input.newValue,
+        () => preferenceContext.assertCurrent(input.operation)),
+    onSuccess: (_data, input) => {
+      if (!preferenceContext.isCurrent(input.operation)) return;
+      track('notification_pref_toggled', { pref_key: input.key as NotificationPrefKey, new_value: input.newValue,
+        os_permission_missing: false, success: true });
     },
-    onMutate: async ({ key }) => {
-      await queryClient.cancelQueries({ queryKey: ['userNotificationPreferences', user?.id] });
-      const previousSettings = queryClient.getQueryData<Record<NotificationType, boolean>>(
-        ['userNotificationPreferences', user?.id]
-      );
-      queryClient.setQueryData(
-        ['userNotificationPreferences', user?.id],
-        (old: Record<NotificationType, boolean> | undefined) => {
-          const current = old ?? DEFAULT_SETTINGS;
-          return { ...current, [key]: !current[key] };
+    onError: (_error, input) => {
+      if (!preferenceContext.isCurrent(input.operation)) return;
+      track('notification_pref_toggled', { pref_key: input.key as NotificationPrefKey, new_value: input.newValue,
+        os_permission_missing: false, success: false });
+      Alert.alert('Choix à vérifier', 'La préférence doit être relue. Un réglage de notification ne constitue pas un nouvel accord marketing.');
+    },
+    onSettled: (_data, _error, input) => {
+      if (!preferenceContext.isCurrent(input.operation)) return;
+      void queryClient.invalidateQueries({ queryKey: ['userNotificationPreferences', input.operation.session.uid] });
+      void queryClient.invalidateQueries({ queryKey: ['userPrivacyPreferences', input.operation.session.uid] });
+      void queryClient.invalidateQueries({ queryKey: ['marketingConsent', input.operation.session.uid] });
+    },
+  });
+
+  const handleToggle = useCallback(async (key: NotificationType) => {
+    if (!uid || isSaving || isMarketingPreference(key) && !marketingGranted) return;
+    let operation;
+    try { operation = preferenceContext.start(); } catch { return; }
+    if (!operation) return;
+    const assertCurrent = () => preferenceContext.assertCurrent(operation!);
+    try {
+      assertCurrent();
+      const newValue = settings[key] !== true;
+      if (key === 'push' && newValue) {
+        const current = await Notifications.getPermissionsAsync(); assertCurrent();
+        let granted = current.granted;
+        let canAskAgain = current.canAskAgain;
+        if (!granted && canAskAgain) {
+          const requested = await Notifications.requestPermissionsAsync(); assertCurrent();
+          granted = requested.granted; canAskAgain = requested.canAskAgain;
         }
-      );
-      return { previousSettings };
-    },
-    onError: (_error, { key, newValue, osPermissionMissing }, context) => {
-      if (context?.previousSettings) {
-        queryClient.setQueryData(
-          ['userNotificationPreferences', user?.id],
-          context.previousSettings
-        );
+        if (!granted) {
+          Alert.alert('Notifications désactivées', 'Activez les notifications dans les réglages de votre appareil.', [
+            { text: 'Annuler', style: 'cancel' },
+            { text: 'Ouvrir les réglages', onPress: () => {
+              if (!preferenceContext.isCurrent(operation!)) return;
+              track('push_permission_requested', { granted: false, can_ask_again: canAskAgain, chose_open_settings: true });
+              void Linking.openSettings();
+            } },
+          ]);
+          return;
+        }
+        track('push_permission_requested', { granted: true, can_ask_again: canAskAgain, chose_open_settings: false });
       }
-      track('notification_pref_toggled', {
-        pref_key: key as NotificationPrefKey,
-        new_value: newValue,
-        os_permission_missing: osPermissionMissing,
-        success: false,
-      });
-      Alert.alert('Erreur', 'Impossible d\'enregistrer la modification');
-    },
-    onSuccess: (_data, { key, newValue, osPermissionMissing }) => {
-      track('notification_pref_toggled', {
-        pref_key: key as NotificationPrefKey,
-        new_value: newValue,
-        os_permission_missing: osPermissionMissing,
-        success: true,
-      });
-    },
-  });
-
-  // Réconcilie le toggle « push » avec la permission OS : activer la préférence
-  // sans permission système laisserait le toggle « on » sans aucune notif reçue.
-  // L'enregistrement effectif du token FCM est géré par useNotificationSetup
-  // (qui ré-appelle registerPushToken quand la permission devient accordée).
-  const handleToggle = useCallback(
-    async (key: NotificationType) => {
-      if (key !== 'push' || settings.push) {
-        // Désactivation ou autre préférence : pas de gate permission.
-        toggleSetting({ key, newValue: !settings[key], osPermissionMissing: false });
-        return;
-      }
-
-      const current = await Notifications.getPermissionsAsync();
-      let granted = current.granted;
-      let canAskAgain = current.canAskAgain;
-      if (!granted && current.canAskAgain) {
-        const requested = await Notifications.requestPermissionsAsync();
-        granted = requested.granted;
-        canAskAgain = requested.canAskAgain;
-      }
-
-      if (!granted) {
-        Alert.alert(
-          'Notifications désactivées',
-          'Les notifications sont désactivées au niveau du système. Activez-les dans les réglages de votre appareil pour recevoir les notifications push.',
-          [
-            {
-              text: 'Annuler',
-              style: 'cancel',
-              onPress: () =>
-                track('push_permission_requested', {
-                  granted: false,
-                  can_ask_again: canAskAgain,
-                  chose_open_settings: false,
-                }),
-            },
-            {
-              text: 'Ouvrir les réglages',
-              onPress: () => {
-                track('push_permission_requested', {
-                  granted: false,
-                  can_ask_again: canAskAgain,
-                  chose_open_settings: true,
-                });
-                Linking.openSettings();
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      track('push_permission_requested', {
-        granted: true,
-        can_ask_again: canAskAgain,
-        chose_open_settings: false,
-      });
-      toggleSetting({ key: 'push', newValue: true, osPermissionMissing: false });
-    },
-    [settings, toggleSetting]
-  );
+      assertCurrent();
+      await toggleSetting({ key, newValue, operation });
+      assertCurrent();
+    } catch { /* The mutation displays only current errors; stale OS results are discarded. */ }
+    finally { preferenceContext.finish(operation); }
+  }, [uid, isSaving, settings, marketingGranted, preferenceContext, toggleSetting]);
 
   if (isLoading) {
     return (
@@ -267,6 +243,7 @@ export default function NotificationsSettingsScreen() {
             ))}
           </View>
         </View>
+
       </View>
     );
   }
@@ -283,8 +260,20 @@ export default function NotificationsSettingsScreen() {
         <View style={styles.infoBox}>
           <Ionicons name="notifications-outline" size={20} color={colors.primary} />
           <Text variant="bodySmall" style={styles.infoText}>
-            Gérez vos préférences de notifications pour ne recevoir que ce qui vous intéresse.
+            Ces réglages choisissent les alertes facultatives. Les avis de paiement, vente, commande, litige et confidentialité restent disponibles dans l’application, même si les alertes sur votre téléphone sont désactivées. Leur présence ne confirme pas leur lecture.
           </Text>
+        </View>
+
+        <View style={styles.infoBox}>
+          <View style={styles.settingInfo}>
+            <Text variant="body" style={styles.settingTitle}>Communications marketing</Text>
+            <Caption>{marketingQuery.isPending || marketingQuery.isFetching ? 'Lecture du consentement enregistré…'
+              : marketingQuery.isError ? 'Impossible de confirmer le consentement. Les catégories marketing restent désactivées.'
+                : marketingGranted ? 'Accord enregistré. Vous pouvez choisir les catégories ci-dessous.'
+                  : 'Aucun accord marketing qualifié. Une préférence seule ne peut pas l’accorder.'}</Caption>
+            <Button variant="ghost" onPress={() => router.push('/settings/privacy')}>Consulter ou modifier mon consentement</Button>
+            <Button variant="ghost" disabled={!uid || isSaving} onPress={() => { void marketingQuery.refetch(); }}>Relire le consentement</Button>
+          </View>
         </View>
 
         {/* Settings List */}
@@ -307,7 +296,8 @@ export default function NotificationsSettingsScreen() {
                 </View>
               </View>
               <Switch
-                value={settings[item.id]}
+                value={isMarketingPreference(item.id) ? marketingGranted && settings[item.id] === true : settings[item.id] === true}
+                disabled={!uid || isSaving || isMarketingPreference(item.id) && !marketingGranted}
                 onValueChange={() => handleToggle(item.id)}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={colors.white}

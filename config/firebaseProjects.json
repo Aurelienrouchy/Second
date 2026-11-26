@@ -1,0 +1,18 @@
+{
+  "development": {
+    "apiKey": "AIzaSyBWZU1POlAEY339QhmX6xA8pnkBEfpgq1s",
+    "authDomain": "seconde-dev.firebaseapp.com",
+    "projectId": "seconde-dev",
+    "storageBucket": "seconde-dev.firebasestorage.app",
+    "messagingSenderId": "1082214256649",
+    "appId": "1:1082214256649:web:28fb9789ec82f662bbe8d8"
+  },
+  "production": {
+    "apiKey": "AIzaSyABP_QVBln4VORUy5w_vCgmYYqbZZbVMSA",
+    "authDomain": "seconde-b47a6.firebaseapp.com",
+    "projectId": "seconde-b47a6",
+    "storageBucket": "seconde-b47a6.firebasestorage.app",
+    "messagingSenderId": "628214013296",
+    "appId": "1:628214013296:ios:f8cb32e7616df1b0dd83b5"
+  }
+}

@@ -19,6 +19,7 @@
 import * as logger from 'firebase-functions/logger';
 import { PostHog } from 'posthog-node';
 import { db } from '../config/firebase';
+import { isProductionRuntime } from '../config/runtimeEnvironment';
 
 /**
  * Server event catalogue (§12). Exhaustive — captureServerEvent only accepts
@@ -51,6 +52,8 @@ let client: PostHog | null = null;
 let initialised = false;
 
 function getClient(): PostHog | null {
+  if (process.env.SECONDE_ANALYTICS_DISABLED === 'true') return null;
+  if (!isProductionRuntime()) return null;
   if (initialised) return client;
   initialised = true;
 
@@ -94,7 +97,9 @@ export async function captureServerEvent(
     // Read each time: a warm function must not cache a withdrawn preference.
     // Missing/deleted users and failed reads are fail-closed. Absent preference
     // on an existing account preserves the product's opt-out default.
-    const user = await db.collection('users').doc(distinctId).get();
+    const [user,profile] = await Promise.all([db.collection('users').doc(distinctId).get(),
+      db.collection('eligibility_profiles').doc(distinctId).get()]);
+    if (profile.exists && Object.prototype.hasOwnProperty.call(profile.data() ?? {},'accountErasureRequest')) return;
     if (!user.exists || user.data()?.preferences?.analyticsConsent === false) return;
     await ph.captureImmediate({
       distinctId,

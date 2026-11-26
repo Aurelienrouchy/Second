@@ -4,7 +4,7 @@
 
 import BrandSelectionSheet, {
   BrandSelectionSheetRef,
-} from '@/components/search/BrandSelectionSheet';
+} from '@/components/BrandSelectionSheet';
 import { useUser } from '@/hooks/useAuth';
 import { track } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
@@ -22,23 +22,38 @@ import {
   View,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getPreferenceSizeLabel, getSizes, SizeSystem } from '@/data/sizes';
+import { useShippingPurchaseContext } from '@/hooks/useShippingPurchaseContext';
+import { getAuthSessionGeneration } from '@/store/authStore';
 
 export default function PreferencesScreen() {
   const router = useRouter();
   const user = useUser();
+  const context = useShippingPurchaseContext('settings-preferences', user?.id ?? null);
+  const queryClient = useQueryClient();
   const brandSelectionRef = useRef<BrandSelectionSheetRef>(null);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedShoeSizes, setSelectedShoeSizes] = useState<string[]>([]);
   const [sizeSystem, setSizeSystem] = useState<SizeSystem>('EU');
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [isFormInitialized, setIsFormInitialized] = useState(false);
+  const [formFrame, setFormFrame] = useState(context.frame);
+  if (formFrame !== context.frame) {
+    setFormFrame(context.frame); setSelectedSizes([]); setSelectedShoeSizes([]); setSelectedBrands([]);
+    setSizeSystem('EU'); setIsFormInitialized(false);
+  }
 
-  const { data: preferences, isLoading } = useQuery({
-    queryKey: ['userPreferences', user?.id],
-    queryFn: () => UserService.getUserPreferences(user!.id),
-    enabled: !!user?.id,
+  const preferenceKey = ['userPreferences', user?.id, getAuthSessionGeneration(), context.focusRevision];
+  const { data: preferences, isLoading, isError, isSuccess, refetch } = useQuery({
+    queryKey: preferenceKey,
+    queryFn: async () => {
+      const operation = context.capture();
+      const value = await UserService.getUserPreferences(operation.session.uid);
+      context.assertCurrent(operation);
+      return value;
+    },
+    enabled: !!user?.id && context.focused,
     staleTime: 10 * 60 * 1000,
   });
 
@@ -47,25 +62,30 @@ export default function PreferencesScreen() {
   // preferences.shoesSizes (written by the onboarding callable) and were
   // previously never read back here.
   // (state adjustment during render — https://react.dev/learn/you-might-not-need-an-effect)
-  if (preferences && !isFormInitialized) {
+  if (isSuccess && !isFormInitialized) {
     setIsFormInitialized(true);
-    setSelectedSizes(preferences.sizes || []);
-    setSelectedShoeSizes(preferences.shoesSizes || []);
-    setSizeSystem(preferences.sizeSystem || 'EU');
-    setSelectedBrands(preferences.favoriteBrands || []);
+    setSelectedSizes(preferences?.sizes || []);
+    setSelectedShoeSizes(preferences?.shoesSizes || []);
+    setSizeSystem(preferences?.sizeSystem || 'EU');
+    setSelectedBrands(preferences?.favoriteBrands || []);
   }
 
-  const { mutate: handleSave, isPending: isSaving } = useMutation({
-    mutationFn: () =>
-      UserService.updateUserPreferences(user!.id, {
-        sizes: selectedSizes,
+  const { mutate: savePreferences, isPending: isSaving } = useMutation({
+    mutationFn: async (input: {operation: ReturnType<typeof context.capture>; sizes: string[]; shoesSizes: string[]; sizeSystem: SizeSystem; favoriteBrands: string[]}) => {
+      context.assertCurrent(input.operation);
+      await UserService.updateUserPreferences(input.operation.session.uid, {
+        sizes: input.sizes,
         // shoesSizes is persisted alongside sizes (same shape as the onboarding
         // callable), now typed on UserPreferences.
-        shoesSizes: selectedShoeSizes,
-        sizeSystem,
-        favoriteBrands: selectedBrands,
-      }),
-    onSuccess: () => {
+        shoesSizes: input.shoesSizes,
+        sizeSystem: input.sizeSystem,
+        favoriteBrands: input.favoriteBrands,
+      });
+      context.assertCurrent(input.operation);
+    },
+    onSuccess: (_result, input) => {
+      if (!context.isCurrent(input.operation)) return;
+      void queryClient.invalidateQueries({queryKey: ['userPreferences', input.operation.session.uid]});
       track('preferences_saved', {
         sizes_count: selectedSizes.length,
         shoe_sizes_count: selectedShoeSizes.length,
@@ -73,10 +93,11 @@ export default function PreferencesScreen() {
         success: true,
       });
       Alert.alert('Succès', 'Vos préférences ont été enregistrées', [
-        { text: 'OK', onPress: () => router.back() },
+        { text: 'OK', onPress: () => {if (context.isCurrent(input.operation)) router.back();} },
       ]);
     },
-    onError: () => {
+    onError: (_error, input) => {
+      if (!context.isCurrent(input.operation)) return;
       track('preferences_saved', {
         sizes_count: selectedSizes.length,
         shoe_sizes_count: selectedShoeSizes.length,
@@ -85,7 +106,15 @@ export default function PreferencesScreen() {
       });
       Alert.alert('Erreur', "Une erreur est survenue lors de l'enregistrement");
     },
+    onSettled: (_data, _error, input) => context.finish(input.operation),
   });
+  const handleSave = () => {
+    if (!user || !isFormInitialized || isError) return;
+    let operation;
+    try {operation = context.start();} catch {return;}
+    if (!operation) return;
+    savePreferences({operation, sizes: [...selectedSizes], shoesSizes: [...selectedShoeSizes], sizeSystem, favoriteBrands: [...selectedBrands]});
+  };
 
   const toggleSize = useCallback((size: string) => {
     setSelectedSizes((prev) =>
@@ -281,10 +310,12 @@ export default function PreferencesScreen() {
 
         {/* Footer */}
         <View style={styles.footer}>
+          {isError ? <Button variant="secondary" onPress={() => {void refetch();}}>Réessayer le chargement</Button> : null}
           <Button
             variant="primary"
             fullWidth
             loading={isSaving}
+            disabled={!user || !isFormInitialized || isError || !context.focused}
             onPress={() => handleSave()}
           >
             Enregistrer

@@ -9,14 +9,96 @@
  * deactivating embeddings when isActive changes. This trigger
  * focuses on the search_index collection.
  */
-import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { createHash } from 'node:crypto';
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import { ARTICLE_BLOCKING_TX_STATUSES } from '../shared/article';
+import { articlePrivacyWithdrawn } from '../utils/publicProfile';
+import {isDeepStrictEqual} from 'node:util';
 
+const FAVORITES_BATCH = 20;
+
+function inventoryState(article:FirebaseFirestore.DocumentData|undefined):'engaged'|'consumed'|'available'|null{
+  const value=article?.inventoryAvailability;
+  return value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')==='protocol,state'&&
+    value.protocol==='inventory_article_availability_v1'&&['engaged','consumed','available'].includes(value.state)?value.state:null;
+}
+function sameStockSource(left:FirebaseFirestore.DocumentData,right:FirebaseFirestore.DocumentData){
+  return ['sellerId','isSold','inventoryUnit','inventoryAvailability','activeTransactionId'].every(key=>isDeepStrictEqual(left[key],right[key]));
+}
+/** A public projection is display data, never enough to destroy a preference.
+ * Join its actual unit and native agreement under the same transaction lock. */
+async function nativeStockState(tx:FirebaseFirestore.Transaction,articleId:string,article:FirebaseFirestore.DocumentData):Promise<'engaged'|'consumed'|null>{
+  const state=inventoryState(article);if(article.isSold!==true||!['engaged','consumed'].includes(state??''))return null;
+  const {inventoryUnitView}=await import('../utils/inventoryUnit');
+  const view=await inventoryUnitView(tx,articleId,article);
+  if(view.qualification!=='native_current'||view.availability!==state||!view.inventoryUnitId)return null;
+  const unit=(await tx.get(db.collection('inventory_units').doc(view.inventoryUnitId))).data(),e=unit?.engagement;
+  if(!e||!view.memberArticleIds.includes(e.sourceArticleId))return null;
+  if(e.kind==='manual_sale')return state==='consumed'?'consumed':null;
+  const parent=(await tx.get(db.collection(e.kind==='purchase'?'transactions':'swaps').doc(e.id))).data();
+  if(!parent)return null;
+  if(e.kind==='purchase'){
+    if(parent.sellerId!==article.sellerId||parent.articleId!==e.sourceArticleId||article.activeTransactionId!==e.id)return null;
+    return state==='consumed'?['meetup_completed','completed'].includes(parent.status)?'consumed':null:
+      ARTICLE_BLOCKING_TX_STATUSES.includes(parent.status)?'engaged':null;
+  }
+  if(e.kind!=='swap'||![parent.initiatorId,parent.receiverId].includes(article.sellerId)||!parent.articleIds?.includes(e.sourceArticleId))return null;
+  return state==='consumed'?parent.status==='completed'?'consumed':null:
+    ['accepted','photos_pending','shipping','disputed'].includes(parent.status)?'engaged':null;
+}
+
+/**
+ * Retire l'article des favoris de tous, par lots : un article très aimé
+ * lançait autant d'écritures simultanées que de favoris. Chaque document est
+ * traité à part ; un échec n'interrompt pas les autres.
+ */
+async function removeFromAllFavorites(articleId: string, source: string,expectedStock?:FirebaseFirestore.DocumentData): Promise<void> {
+  try {
+    const favSnap = await db.collection('favorites')
+      .where('articleIds', 'array-contains', articleId)
+      .get();
+
+    for (let i = 0; i < favSnap.docs.length; i += FAVORITES_BATCH) {
+      await Promise.all(
+        favSnap.docs.slice(i, i + FAVORITES_BATCH).map(async (favDoc) => {
+          try {
+            await db.runTransaction(async tx => {
+              const article = (await tx.get(db.collection('articles').doc(articleId))).data();
+              const favorite = (await tx.get(favDoc.ref)).data();
+              if (!article || !Array.isArray(favorite?.articleIds)||!favorite.articleIds.includes(articleId)) return;
+              if (source === 'onArticleSoftDeleted' && article.isActive !== false) return;
+              if (source === 'onArticleSold') {
+                if(!expectedStock||!sameStockSource(expectedStock,article)||await nativeStockState(tx,articleId,article)!=='consumed')return;
+                const reservations = await tx.get(db.collection('transactions').where('articleId', '==', articleId));
+                if (reservations.docs.some(d => !['cancelled', 'refunded', 'completed', 'meetup_completed'].includes(d.data().status))) return;
+              }
+              tx.update(favDoc.ref, { articleIds: favorite.articleIds.filter((id: unknown) => id !== articleId), updatedAt: FieldValue.serverTimestamp() });
+            });
+          } catch (error) {
+            logger.error(`[${source}] Failed to remove article from favorites`, {
+              articleId,
+              userId: favDoc.id,
+              error: error instanceof Error ? error.message : error,
+            });
+          }
+        })
+      );
+    }
+    if (!favSnap.empty) {
+      logger.info(`[${source}] Removed article from ${favSnap.size} favorites docs`, { articleId });
+    }
+  } catch (error) {
+    logger.error(`[${source}] Failed to query favorites`, {
+      articleId,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+}
 
 /** A delayed trigger must not undo acceptance or a later reactivation. */
-async function expirePendingArticleProposals(articleId: string, reason: 'sold' | 'inactive', eventId: string) {
+async function expirePendingArticleProposals(articleId: string, reason: 'sold' | 'inactive', eventId: string, systemMessage?: string) {
   const articleRef = db.collection('articles').doc(articleId);
   const chats = await db.collection('chats').where('articleId', '==', articleId).get();
   let total = 0;
@@ -36,7 +118,7 @@ async function expirePendingArticleProposals(articleId: string, reason: 'sold' |
         tx.update(candidate.ref, { 'offer.status': 'expired', 'offer.expiredReason': `article_${reason}`, 'offer.expiredAt': FieldValue.serverTimestamp() });
         if (!notice.exists && Array.isArray(liveChat?.participants)) {
           tx.set(noticeRef, { chatId: chat.id, senderId: 'system', receiverId: 'system', type: 'system',
-            content: reason === 'sold' ? 'Cet article a été vendu. Les propositions en attente ont expiré.' : 'Cet article a été retiré de la vente. Les propositions en attente ont expiré.',
+            content: systemMessage ?? (reason === 'sold' ? 'Cet article a été vendu. Les propositions en attente ont expiré.' : 'Cet article a été retiré de la vente. Les propositions en attente ont expiré.'),
             participants: liveChat.participants, timestamp: FieldValue.serverTimestamp(), status: 'sent', isRead: true });
         }
         return true;
@@ -71,10 +153,10 @@ export const onArticleSoftDeleted = onDocumentUpdated(
       // 1. Remove search_index entry
       try {
         const siRef = db.collection('search_index').doc(articleId);
-        await db.runTransaction(async (tx) => {
-          const liveArticle = (await tx.get(db.collection('articles').doc(articleId))).data();
-          const siSnap = await tx.get(siRef);
-          if (liveArticle?.isActive === false && siSnap.exists) tx.delete(siRef);
+        await db.runTransaction(async tx => {
+          const article = (await tx.get(db.collection('articles').doc(articleId))).data();
+          const index = await tx.get(siRef);
+          if (article?.isActive === false && index.exists) tx.delete(siRef);
         });
       } catch (error) {
         logger.error('[onArticleSoftDeleted] Failed to remove search_index', {
@@ -83,10 +165,13 @@ export const onArticleSoftDeleted = onDocumentUpdated(
         });
       }
 
-      // 2. Expire pending offers in related chats (same logic as onArticleSold)
+      // 2. Un article retiré ne revient pas en vente : il quitte les favoris,
+      //    comme à la vente conclue, au lieu d'occuper un emplacement de chacun.
+      await removeFromAllFavorites(articleId, 'onArticleSoftDeleted');
+
+      // 3. Expire pending offers in related chats (same logic as onArticleSold)
       try {
-        const expired = await expirePendingArticleProposals(articleId, 'inactive', event.id ?? `inactive_${articleId}`);
-        logger.info('[onArticleSoftDeleted] Expired pending proposals', { articleId, expired });
+        await expirePendingArticleProposals(articleId, 'inactive', event.id ?? `inactive_${articleId}`);
       } catch (error) {
         logger.error('[onArticleSoftDeleted] Failed to expire pending offers', {
           articleId,
@@ -112,55 +197,47 @@ export const onArticleSold = onDocumentUpdated(
     const after = event.data?.after?.data();
     if (!before || !after) return;
 
-    // Only fire when isSold changes from false to true
-    if (before.isSold === true || after.isSold !== true) return;
+    const becameSold=before.isSold!==true&&after.isSold===true,
+      becameConsumed=inventoryState(before)!=='consumed'&&inventoryState(after)==='consumed';
+    if(!becameSold&&!becameConsumed)return;
 
     const articleId = event.params.articleId;
 
-    // Remove the sold article from every favoriter's list so it stops counting
-    // against their cap and disappears from the Favoris screen immediately.
-    // Each favorites doc is touched independently; one failure never aborts the
-    // others. The onArticleFavorited trigger then decrements the (clamped)
-    // counters for each removal.
+    // `isSold` is also the LOCK of a reservation: accepting a meetup offer sets
+    // it together with a `meetup_pending` transaction, for a meetup that may
+    // still fail. While a transaction is in progress nothing irreversible
+    // happens: favorites are kept, and conversations read « réservé », not
+    // « vendu ». When in doubt (query failure), nothing is destroyed either.
+    let state:'engaged'|'consumed'|null=null;
     try {
-      const favSnap = await db.collection('favorites')
-        .where('articleIds', 'array-contains', articleId)
-        .get();
-
-      if (!favSnap.empty) {
-        await Promise.all(
-          favSnap.docs.map(async (favDoc) => {
-            try {
-              await db.runTransaction(async (tx) => {
-                const liveArticle = (await tx.get(db.collection('articles').doc(articleId))).data();
-                const liveFavorite = (await tx.get(favDoc.ref)).data();
-                if (liveArticle?.isSold !== true || !Array.isArray(liveFavorite?.articleIds)) return;
-                tx.update(favDoc.ref, {
-                  articleIds: liveFavorite.articleIds.filter((id: unknown) => id !== articleId),
-                  updatedAt: FieldValue.serverTimestamp(),
-                });
-              });
-            } catch (error) {
-              logger.error('[onArticleSold] Failed to remove sold article from favorites', {
-                articleId,
-                userId: favDoc.id,
-                error: error instanceof Error ? error.message : error,
-              });
-            }
-          })
-        );
-        logger.info(`[onArticleSold] Removed sold article from ${favSnap.size} favorites docs`, { articleId });
-      }
+      state=await db.runTransaction(async tx=>{
+        const article=(await tx.get(db.collection('articles').doc(articleId))).data();
+        return article&&sameStockSource(after,article)?nativeStockState(tx,articleId,article):null;
+      });
     } catch (error) {
-      logger.error('[onArticleSold] Failed to query favorites for sold article', {
+      logger.error('[onArticleSold] Native stock unavailable; preserving preferences', {
         articleId,
         error: error instanceof Error ? error.message : error,
       });
     }
 
-    const expired = await expirePendingArticleProposals(articleId, 'sold', event.id ?? `sold_${articleId}`);
-    logger.info('[onArticleSold] Expired pending proposals', { articleId, expired });
+    // Missing/incoherent projections remain unknown. A historical isSold
+    // boolean or link cannot authorize destructive preference cleanup.
+    if(!state)return;
+    if (state==='consumed') {
+      // Remove the sold article from every favoriter's list so it stops counting
+      // against their cap and disappears from the Favoris screen immediately.
+      // The onArticleFavorited trigger then decrements the (clamped) counters
+      // for each removal.
+      await removeFromAllFavorites(articleId, 'onArticleSold',after);
+    }
 
+    if(becameSold)await expirePendingArticleProposals(
+      articleId, 'sold', event.id ?? `sold_${articleId}`,
+      state==='engaged'
+        ? 'Cet article est réservé. Les offres en attente ont été annulées.'
+        : 'Cet article a été vendu. Les offres en attente ont été annulées.'
+    );
   }
 );
 
@@ -183,6 +260,9 @@ export const onArticleInfoUpdated = onDocumentUpdated(
     const after = event.data?.after.data();
 
     if (!before || !after) return;
+    // Historical private conversations retain their original text. Their old
+    // media URL is replaced in presentation by the authenticated evidence API.
+    if (articlePrivacyWithdrawn(after)) return;
 
     // Detect changes in the three denormalized fields
     const titleChanged = before.title !== after.title;
@@ -200,10 +280,16 @@ export const onArticleInfoUpdated = onDocumentUpdated(
 
     if (!titleChanged && !priceChanged && !imageChanged) return;
 
-    // Build the update payload (only changed fields)
-    const chatUpdate: Record<string, unknown> = {
-      updatedAt: FieldValue.serverTimestamp(),
-    };
+    // Build the update payload (only changed fields).
+    //
+    // PAS de `updatedAt` : la liste des conversations est triée dessus
+    // (`listenToUserChats`). Le pousser ici remontait en tête TOUTES les
+    // conversations liées à l'article dès que le vendeur en changeait le prix,
+    // le titre ou la photo — chez les deux parties, sans qu'aucun message n'ait
+    // été envoyé. L'acheteur voyait une conversation « remonter », l'ouvrait, et
+    // n'y trouvait rien de neuf. `updatedAt` doit dater l'activité du fil, pas la
+    // propagation d'un instantané.
+    const chatUpdate: Record<string, unknown> = {};
     if (titleChanged) chatUpdate.articleTitle = after.title || null;
     if (imageChanged) chatUpdate.articleImage = afterImage;
     if (priceChanged) chatUpdate.articlePrice = after.price ?? null;
@@ -225,23 +311,21 @@ export const onArticleInfoUpdated = onDocumentUpdated(
       return;
     }
 
-    let batch = db.batch();
-    let batchCount = 0;
     let chatsUpdated = 0;
 
     for (const chatDoc of chatsSnap.docs) {
-      batch.update(chatDoc.ref, chatUpdate);
-      batchCount++;
-      chatsUpdated++;
-
-      if (batchCount >= 499) {
-        await batch.commit();
-        batch = db.batch();
-        batchCount = 0;
-      }
+      await db.runTransaction(async tx => {
+        const current = (await tx.get(db.collection('articles').doc(articleId))).data();
+        const chat = (await tx.get(chatDoc.ref)).data();
+        if (!current || articlePrivacyWithdrawn(current) || !chat || chat.articleId !== articleId) return;
+        const currentUpdate: Record<string, unknown> = {};
+        if ('articleTitle' in chatUpdate) currentUpdate.articleTitle = current.title || null;
+        if ('articleImage' in chatUpdate) currentUpdate.articleImage = current.images?.[0]?.url ?? null;
+        if ('articlePrice' in chatUpdate) currentUpdate.articlePrice = current.price ?? null;
+        tx.update(chatDoc.ref, currentUpdate);
+        chatsUpdated++;
+      });
     }
-
-    if (batchCount > 0) await batch.commit();
 
     logger.info('[onArticleInfoUpdated] Propagation complete', {
       articleId,

@@ -1,116 +1,16 @@
-/**
- * PayButton
- * Sticky footer CTA for checkout payment.
- */
-
 import React from 'react';
-import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-
-import { colors, fonts, radius } from '@/constants/theme';
+import { StyleSheet, Text, View } from 'react-native';
+import { Button } from '@/components/ui';
+import { colors, spacing, typography } from '@/constants/theme';
 import { formatPriceWithCurrency } from '@/utils/formatPrice';
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
-interface PayButtonProps {
-  totalAmount: number;
-  canPay: boolean;
-  submitting: boolean;
-  onPress: () => void;
-  bottomInset: number;
-  /** True when the wallet covers the full amount (no Stripe needed). */
-  walletCoversAll?: boolean;
-  /** True when wallet balance is being applied (partial or full). */
-  useWallet?: boolean;
-  /**
-   * Extra disable condition (e.g. the Stripe sheet is already presented).
-   * Combined with the internal `!canPay || submitting` guard.
-   */
-  disabled?: boolean;
+interface Props { totalAmount: number; accepted: boolean; submitting: boolean; disabled?: boolean; onPress: () => void }
+/** Reservation only. Card/wallet payment is a subsequent, separately authorized operation. */
+export function PayButton({ totalAmount, accepted, submitting, disabled = false, onPress }: Props) {
+  return <View style={styles.footer}><View style={styles.total}><Text style={styles.body}>Total</Text><Text style={styles.amount}>{formatPriceWithCurrency(totalAmount)}</Text></View><Button fullWidth loading={submitting}
+    disabled={disabled || !accepted || submitting} onPress={onPress}>
+    Continuer vers le paiement
+  </Button></View>;
 }
-
-// =============================================================================
-// COMPONENT
-// =============================================================================
-
-export const PayButton = React.memo(function PayButton({
-  totalAmount,
-  canPay,
-  submitting,
-  onPress,
-  bottomInset,
-  walletCoversAll = false,
-  useWallet = false,
-  disabled = false,
-}: PayButtonProps) {
-  const isDisabled = !canPay || submitting || disabled;
-  let label: string;
-  let iconName: keyof typeof Ionicons.glyphMap = 'lock-closed-outline';
-
-  if (walletCoversAll) {
-    label = 'PAYER AVEC LE PORTE-MONNAIE';
-    iconName = 'wallet-outline';
-  } else if (useWallet) {
-    label = `PAYER ${formatPriceWithCurrency(totalAmount)} PAR CARTE`;
-  } else {
-    label = `PAYER ${formatPriceWithCurrency(totalAmount)}`;
-  }
-
-  return (
-    <View style={[styles.footer, { paddingBottom: bottomInset + 16 }]}>
-      <Pressable
-        testID="checkout-pay-button"
-        style={[
-          styles.ctaButton,
-          isDisabled && styles.ctaButtonDisabled,
-        ]}
-        onPress={onPress}
-        disabled={isDisabled}
-      >
-        {submitting ? (
-          <ActivityIndicator size="small" color={colors.cream} />
-        ) : (
-          <>
-            <Ionicons name={iconName} size={16} color={colors.cream} />
-            <Text style={styles.ctaButtonText}>{label}</Text>
-          </>
-        )}
-      </Pressable>
-    </View>
-  );
-});
-
-// =============================================================================
-// STYLES
-// =============================================================================
-
-const styles = StyleSheet.create({
-  footer: {
-    backgroundColor: colors.cream,
-    paddingTop: 16,
-    paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  ctaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.rust,
-    paddingVertical: 14,
-    borderRadius: radius.md,
-    gap: 8,
-  },
-  ctaButtonDisabled: {
-    opacity: 0.6,
-  },
-  ctaButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    letterSpacing: 2.16,
-    color: colors.cream,
-    textTransform: 'uppercase',
-  },
-});
+const styles = StyleSheet.create({ footer: {padding: spacing.md, gap: spacing.sm, backgroundColor: colors.cream, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border},
+  total: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md}, body: {...typography.bodySmall, color: colors.foregroundSecondary}, amount: {...typography.h3, color: colors.foreground}});

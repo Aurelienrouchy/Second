@@ -1,6 +1,9 @@
 import React, { RefObject } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, radius, sizing, spacing, typography } from '@/constants/theme';
+
+/** Barre d'accessoire iOS du champ prix : le pavé décimal n'a pas de touche retour. */
+export const PRICE_INPUT_ACCESSORY_ID = 'sell-price-accessory';
 
 interface PriceCardProps {
   price: string;
@@ -15,13 +18,13 @@ export const PriceCard = React.memo(function PriceCard({
 }: PriceCardProps) {
   return (
     <Pressable
+      accessible={false}
       style={styles.priceCard}
       onPress={() => inputRef.current?.focus()}
       testID="sell-price-card"
     >
       <Text style={styles.priceLabel}>Prix de vente</Text>
       <View style={styles.priceRow}>
-        <Text style={styles.priceCurrency}>$</Text>
         <TextInput
           ref={inputRef}
           testID="sell-price-input"
@@ -30,11 +33,13 @@ export const PriceCard = React.memo(function PriceCard({
           onChangeText={onPriceChange}
           placeholder="0"
           placeholderTextColor={colors.border}
+          accessibilityLabel="Prix de vente en dollars canadiens"
           keyboardType="decimal-pad"
           cursorColor={colors.rust}
           selectionColor={colors.rust}
-          inputAccessoryViewID="pricing-empty"
+          inputAccessoryViewID={PRICE_INPUT_ACCESSORY_ID}
         />
+        <Text style={styles.priceCurrency}>$</Text>
       </View>
     </Pressable>
   );
@@ -45,39 +50,39 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.borderStrong,
-    borderRadius: 4,
-    marginBottom: 14,
+    borderRadius: radius.sm,
+    marginBottom: spacing.md,
     overflow: 'hidden',
   },
   priceLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 11,
-    letterSpacing: 0.88,
+    ...typography.labelUppercase,
     color: colors.muted,
     textTransform: 'uppercase',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm + spacing.xs,
+    paddingBottom: spacing.xs,
   },
   priceRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
   priceInput: {
-    fontFamily: fonts.sans,
-    fontSize: 38,
-    fontWeight: '600',
+    ...typography.hero,
+    fontFamily: fonts.sansMedium,
     color: colors.rust,
-    minWidth: 60,
+    minWidth: sizing.inputHeight + spacing.md,
+    minHeight: sizing.inputHeight,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
     padding: 0,
   },
   priceCurrency: {
-    fontFamily: fonts.sans,
-    fontSize: 24,
-    fontWeight: '600',
+    ...typography.h2,
+    fontFamily: fonts.sansMedium,
+    includeFontPadding: false,
     color: colors.muted,
-    marginRight: 4,
+    marginLeft: spacing.xs,
   },
 });

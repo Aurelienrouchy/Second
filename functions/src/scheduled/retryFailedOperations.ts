@@ -1,3 +1,8 @@
+import { FinancialRecoveryBlocked } from "../utils/financialRecoveryInterlock";
+import { financialRecoveryCommitCheckpoint } from "../utils/financialRecoverySources";
+import { withFinancialRecoveryScope } from "../utils/financialRecoveryInterlock";
+import { inspectPaymentCaptureAnomalyProof } from '../utils/paymentCaptureAnomaly';
+import { resumeTransactionRefund, observePurchaseRefund } from '../utils/refund';
 /**
  * Scheduled dead-letter replay — `failed_operations` (P1 ops resilience)
  * Firebase Functions v2 - onSchedule, region northamerica-northeast1
@@ -8,12 +13,12 @@
  * 'exhausted' (after MAX_ATTEMPTS) so it stops being retried and surfaces for a
  * human via a log-based alert on the CRITICAL line.
  *
- * IDEMPOTENCE
- * -----------
- * Every replay reuses the SAME deterministic Stripe idempotency key that the
- * original call site used (e.g. `rf_label_${txId}`, `rf_admin_${txId}`,
- * `tr_${ledgerId}`). Stripe dedups on the key, so re-driving an operation that
- * in fact already succeeded is a safe no-op that returns the original result.
+ * AUTHORITY AND RECOVERY
+ * ----------------------
+ * Queue rows locate native purchase, swap or withdrawal work. The native
+ * engine owns its original frozen authorization and recovery protocol;
+ * a queue PaymentIntent/transfer/key/autoRefund flag never authorizes money.
+ * Unqualified legacy rows wait for reconciliation without exhausting retries.
  *
  * BACKWARDS COMPATIBILITY
  * -----------------------
@@ -26,9 +31,11 @@ import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
 import { getStripe } from '../config/stripe';
 import { type FailedOperationType, writeAdminAlert } from '../utils/failedOperations';
-import { revertFailedPayout } from '../utils/payoutRecovery';
-import { resolveWithdrawalPayout } from '../utils/payoutOutcome';
+import { observeWithdrawalPayout, revertFailedPayout } from '../utils/payoutRecovery';
 import { redrivePaymentIntentSucceeded } from '../http/webhooks';
+import { hasActiveBankDispute } from '../utils/bankDispute';
+import {resumeSwapTopUpRefund} from '../utils/swapTopUpRefund';
+import {retryAccountSecurityMedia} from '../utils/accountSecurityMedia';
 
 /** Max replay attempts before a dead-letter is marked 'exhausted' (manual). */
 const MAX_ATTEMPTS = 6;
@@ -98,6 +105,82 @@ function backoffElapsed(op: NormalizedOp, now: number): boolean {
 }
 
 type StripeClient = ReturnType<typeof getStripe>;
+type ReplayOutcome = 'resolved' | 'retry' | 'waiting_bank' | 'waiting_bank_reconciliation' | 'waiting_refund' | 'waiting_refund_action' | 'waiting_payment_reconciliation';
+
+/** This queue also replays swaps/non-purchase operations. Qualify the purchase
+ * by its PaymentIntent rather than trusting the legacy dead-letter refId alone.
+ * Bank waiting does not consume an infrastructure-failure attempt.
+ */
+async function refundBankGuard(op: NormalizedOp): Promise<ReplayOutcome | null> {
+  const pi = op.payload.paymentIntentId;
+  if (typeof pi !== 'string' || !pi) return null;
+  const purchases = await db.collection('transactions').where('stripePaymentIntentId', '==', pi).limit(1).get();
+  if (purchases.empty) return null;
+  const data = purchases.docs[0].data();
+  if (hasActiveBankDispute(data)) return 'waiting_bank';
+  const lostBank = data.bankDispute?.outcome === 'lost' || data.disputeOutcome === 'lost' || data.refundedVia === 'chargeback';
+  if (!lostBank) return null;
+  // Only the atomic bank reconciliation marker proves the ledger was repaired.
+  // Unqualified legacy loss remains a human review, never a second card refund.
+  if (data.status === 'refunded' && data.refundedVia === 'chargeback' && data.bankDispute?.ledgerReconciledAt) return 'resolved';
+  const alertRef = db.collection('admin_alerts').doc(`bank_retry_${op.id}`);
+  await db.runTransaction(async tx => {
+    const recoveryCommit = financialRecoveryCommitCheckpoint();
+    const snap = await tx.get(alertRef);
+    if (!snap.exists) { await recoveryCommit({refs: [(alertRef).path]}); tx.set(alertRef, { kind: 'bank_dispute_reconciliation_required', severity: 'critical', refId: purchases.docs[0].id,
+      message: 'Rapprocher le débit vendeur et le crédit acheteur du chargeback avant de clôturer la réparation ; ne pas émettre de remboursement carte.',
+      context: { failedOperationId: op.id, paymentIntentId: pi }, status: 'open', createdAt: FieldValue.serverTimestamp() }); }
+  });
+  return 'waiting_bank_reconciliation';
+}
+
+async function replayPurchaseRefund(op: NormalizedOp): Promise<ReplayOutcome | null> {
+  const direct = op.refId ? await db.collection('transactions').doc(op.refId).get() : null;
+  const pi = op.payload.paymentIntentId;
+  const matches = typeof pi === 'string' && pi ? await db.collection('transactions').where('stripePaymentIntentId', '==', pi).limit(1).get() : null;
+  const doc = matches?.docs[0] ?? (direct?.exists ? direct : null);
+  if (!doc) return null;
+  const data = doc.data()!;
+  if (typeof pi === 'string' && data.stripePaymentIntentId && pi !== data.stripePaymentIntentId) return 'waiting_refund_action';
+  if (data.refund) {
+    const result = (hasActiveBankDispute(data) || data.refundedVia === 'chargeback') && data.refund.stripeRefundId
+      ? await observePurchaseRefund(doc.id, data.refund.stripeRefundId) : await resumeTransactionRefund(doc.id);
+    if (result.success) return 'resolved';
+    const current = (await doc.ref.get()).data() ?? data;
+    if (hasActiveBankDispute(current)) return 'waiting_bank';
+    return result.status === 'pending' ? 'waiting_refund' : 'waiting_refund_action';
+  }
+  const bank = await refundBankGuard(op);
+  if (bank) return bank;
+  // Legacy retries have no durable amounts/options nor proof of absence of an
+  // external refund. Retain them for an operator instead of issuing a full refund.
+  const alertRef = db.collection('admin_alerts').doc('refund_legacy_retry_' + op.id);
+  await db.runTransaction(async tx => {
+    const recoveryCommit = financialRecoveryCommitCheckpoint();
+    const alert = await tx.get(alertRef);
+    const current = (await tx.get(doc.ref)).data();
+    if (!current) return;
+    if (!current.refund) { await recoveryCommit({refs: [(doc.ref).path]}); tx.update(doc.ref, { refundBlocked: true, refundLegacyReconciliationRequired: true, refundLegacyOperationId: op.id }); }
+    if (!alert.exists) { await recoveryCommit({refs: [(alertRef).path]}); tx.set(alertRef, { kind: 'purchase_refund_action_required', severity: 'critical', refId: doc.id,
+      message: 'Réparation legacy : rapprocher les refunds Stripe, les montants et le ledger avant toute nouvelle demande.',
+      context: { failedOperationId: op.id, paymentIntentId: pi ?? null }, status: 'open', createdAt: FieldValue.serverTimestamp() }); }
+  });
+  return 'waiting_refund_action';
+}
+
+async function replaySwapRefund(op: NormalizedOp, stripe: StripeClient): Promise<ReplayOutcome | null> {
+  const pi = op.payload.paymentIntentId;
+  const swaps = typeof pi === 'string' && pi
+    ? await db.collection('swaps').where('topUpPaymentIntentId', '==', pi).limit(2).get() : null;
+  const hint = typeof op.payload.kind === 'string' && op.payload.kind.startsWith('swap_topup_') ||
+    typeof op.payload.idempotencyKey === 'string' && op.payload.idempotencyKey.startsWith('rf_swap_');
+  if (swaps && !swaps.empty) {
+    if (swaps.size !== 1 || op.refId !== swaps.docs[0].id) return 'waiting_refund_action';
+    const result = await resumeSwapTopUpRefund(swaps.docs[0].id, pi, stripe ?? undefined);
+    return result === 'resolved' ? 'resolved' : result === 'pending' ? 'waiting_refund' : 'waiting_refund_action';
+  }
+  return hint ? 'waiting_refund_action' : null;
+}
 
 /**
  * Replay a single dead-letter. Returns:
@@ -109,90 +192,45 @@ type StripeClient = ReturnType<typeof getStripe>;
 async function replayOp(
   op: NormalizedOp,
   stripe: StripeClient
-): Promise<'resolved' | 'retry'> {
+): Promise<ReplayOutcome> {
   switch (op.type) {
-    // --- Stripe refunds (card / destination charge) -------------------------
-    // label_refund_failed / admin_refund_failed are legacy aliases written by
-    // sweepPendingLabels and adminRefundTransaction. The original call sites use
-    // deterministic keys (rf_label_${txId} / rf_admin_${txId}); reuse them so a
-    // retry of an already-succeeded refund is a no-op.
+    case 'payment_capture_reconciliation':
+      await inspectPaymentCaptureAnomalyProof(op.id, 'retryFailedOperations');
+      return 'waiting_payment_reconciliation';
+    case 'payment_checkout_reconciliation':
+      // Explicit operator inspection owns fresh proof. This is not a replayable
+      // capture/refund instruction and must never exhaust infrastructure retries.
+      return 'waiting_payment_reconciliation';
+    // --- Native purchase / Troc refund recovery ----------------------------
+    // Legacy aliases locate the same native intention; an idempotency key in
+    // the queue cannot prove original amounts, ownership or authorization.
     case 'stripe_refund_failed':
     case 'label_refund_failed':
     case 'admin_refund_failed': {
-      if (!stripe) return 'retry';
-      const paymentIntentId = op.payload.paymentIntentId;
-      if (typeof paymentIntentId !== 'string' || !paymentIntentId) {
-        logger.error('CRITICAL [retryFailedOperations] refund op missing paymentIntentId', {
-          failedOperationId: op.id,
-          type: op.type,
-          refId: op.refId,
-        });
-        return 'retry';
-      }
-      const idempotencyKey =
-        typeof op.payload.idempotencyKey === 'string' && op.payload.idempotencyKey
-          ? op.payload.idempotencyKey
-          : op.type === 'admin_refund_failed'
-            ? `rf_admin_${op.refId}`
-            : op.type === 'label_refund_failed'
-              ? `rf_label_${op.refId}`
-              : `rf_${op.refId}`;
-      try {
-        await stripe.refunds.create(
-          {
-            payment_intent: paymentIntentId,
-            // Single-rail model: platform charge, so no transfer to reverse.
-          },
-          { idempotencyKey }
-        );
-        logger.info('[retryFailedOperations] refund replayed', {
-          failedOperationId: op.id,
-          type: op.type,
-          refId: op.refId,
-        });
-        return 'resolved';
-      } catch (err) {
-        logger.warn('[retryFailedOperations] refund replay failed — will retry', {
-          failedOperationId: op.id,
-          refId: op.refId,
-          error: err instanceof Error ? err.message : err,
-        });
-        return 'retry';
-      }
+      // A queue payload is only a locator, never a refund instruction. Swaps
+      // use native never-authorized work for their first authorization; after a
+      // dispatch is authorized, recovery is exclusively GET-only observation.
+      const swapOutcome = await replaySwapRefund(op, stripe);
+      if (swapOutcome) return swapOutcome;
+      const purchaseOutcome = await replayPurchaseRefund(op);
+      if (purchaseOutcome) return purchaseOutcome;
+      const bankGuard = await refundBankGuard(op);
+      if (bankGuard) return bankGuard;
+      // No native source accepted this locator. A provider GET (even empty)
+      // could not create the missing original refund authorization either.
+      return 'waiting_refund_action';
     }
 
     // --- Transfer reversal (payout failed after transfer succeeded) ---------
     case 'transfer_reversal_failed': {
-      if (!stripe) return 'retry';
-      const transferId = op.payload.transferId;
-      if (typeof transferId !== 'string' || !transferId) {
-        logger.error('CRITICAL [retryFailedOperations] transfer_reversal missing transferId', {
-          failedOperationId: op.id,
-          refId: op.refId,
-        });
-        return 'retry';
+      if (typeof op.payload.withdrawalRequestId === 'string' && op.payload.withdrawalRequestId) {
+        if (!stripe) return 'retry';
+        const outcome = await revertFailedPayout({ withdrawalRequestId: op.payload.withdrawalRequestId }, stripe);
+        return outcome.recoveryState === 'recovered' ? 'resolved' : 'retry';
       }
-      try {
-        await stripe.transfers.createReversal(
-          transferId,
-          {},
-          // Deterministic key tied to the transfer so re-driving never reverses
-          // more than the original transfer amount.
-          { idempotencyKey: `rev_${transferId}` }
-        );
-        logger.info('[retryFailedOperations] transfer reversal replayed', {
-          failedOperationId: op.id,
-          transferId,
-        });
-        return 'resolved';
-      } catch (err) {
-        logger.warn('[retryFailedOperations] transfer reversal replay failed — will retry', {
-          failedOperationId: op.id,
-          transferId,
-          error: err instanceof Error ? err.message : err,
-        });
-        return 'retry';
-      }
+      // A transfer ID/key in a queue row has no native withdrawal authority.
+      // Keep the unresolved liability visible; never reverse/re-credit it here.
+      return 'waiting_payment_reconciliation';
     }
 
     // --- Lost payout.failed recovery ---------------------------------------
@@ -203,6 +241,7 @@ async function replayOp(
     // (no payoutId, nothing to reverse) still surface here and exhaust to manual.
     case 'payout_reversal_failed': {
       if (!stripe) return 'retry';
+      if (op.payload.kind === 'payout_identity_reconciliation') return 'retry';
       const withdrawalRequestId =
         op.refId ||
         (typeof op.payload.withdrawalRequestId === 'string'
@@ -216,39 +255,13 @@ async function replayOp(
         return 'retry';
       }
       try {
-        const requestRef = db.collection('withdrawal_requests').doc(withdrawalRequestId);
-        const requestSnap = await requestRef.get();
-        const request = requestSnap.data();
-        if (!request || request.status !== 'processing') return 'resolved';
-        const payout = await resolveWithdrawalPayout(withdrawalRequestId, request, stripe);
-        if (!payout) return 'retry';
-        await requestRef.update({ stripePayoutId: payout.id, payoutOutcome: payout.status,
-          updatedAt: FieldValue.serverTimestamp() });
-        if (payout.status === 'paid') {
-          await db.runTransaction(async (tx) => {
-            const current = (await tx.get(requestRef)).data();
-            if (current?.status !== 'processing') return;
-            tx.update(requestRef, { status: 'completed', completedAt: FieldValue.serverTimestamp(),
-              updatedAt: FieldValue.serverTimestamp() });
-          });
-          return 'resolved';
-        }
-        if (payout.status !== 'failed' && payout.status !== 'canceled') return 'retry';
-        await revertFailedPayout(
-          {
-            withdrawalRequestId,
-            payoutId: payout.id,
-            failureReason: 'payout failed (replayed from dead-letter)',
-            ownerIdFallback: typeof op.payload.userId === 'string' ? op.payload.userId : null,
-          },
-          stripe
-        );
-        logger.info('[retryFailedOperations] payout failure recovery replayed', {
-          failedOperationId: op.id,
-          withdrawalRequestId,
+        const outcome = await observeWithdrawalPayout(withdrawalRequestId, stripe);
+        logger.info('[retryFailedOperations] withdrawal current recovery observed', {
+          failedOperationId: op.id, withdrawalRequestId, state: outcome.state,
         });
-        return 'resolved';
+        return outcome.state === 'recovered' || outcome.state === 'paid' ? 'resolved' : 'retry';
       } catch (err) {
+      if (err instanceof FinancialRecoveryBlocked) throw err;
         logger.warn('[retryFailedOperations] payout failure recovery replay failed — will retry', {
           failedOperationId: op.id,
           withdrawalRequestId,
@@ -259,11 +272,11 @@ async function replayOp(
     }
 
     // --- Webhook amount mismatch (deterministic) ----------------------------
-    // The mismatch itself is not auto-fixable by code (it needs a human to
-    // reconcile the expected vs received amount). If the payload requested an
-    // auto-refund to make the buyer whole, replay that refund idempotently;
-    // otherwise leave the op pending until it exhausts and surfaces for review.
+    // Explicitly authorized native work may resume below. An autoRefund flag
+    // alone remains a request for reconciliation, never a new full refund.
     case 'amount_mismatch': {
+      const swapOutcome = await replaySwapRefund(op, stripe);
+      if (swapOutcome) return swapOutcome;
       // F77: a LOST payment_intent.succeeded was dead-lettered under this bucket
       // with kind 'lost_pi_succeeded_webhook'. Re-drive the canonical PI.succeeded
       // handler (idempotent) so the buyer's paid order is recovered automatically
@@ -289,6 +302,7 @@ async function replayOp(
           }
           return 'retry';
         } catch (err) {
+      if (err instanceof FinancialRecoveryBlocked) throw err;
           logger.warn('[retryFailedOperations] lost PI.succeeded re-drive failed — will retry', {
             failedOperationId: op.id,
             refId: op.refId,
@@ -298,31 +312,12 @@ async function replayOp(
         }
       }
 
-      if (op.payload.autoRefund === true && stripe) {
-        const paymentIntentId = op.payload.paymentIntentId;
-        if (typeof paymentIntentId === 'string' && paymentIntentId) {
-          try {
-            await stripe.refunds.create(
-              {
-                payment_intent: paymentIntentId,
-                // Single-rail model: platform charge, so no transfer to reverse.
-              },
-              { idempotencyKey: `rf_mismatch_${op.refId}` }
-            );
-            logger.info('[retryFailedOperations] amount_mismatch auto-refund replayed', {
-              failedOperationId: op.id,
-              refId: op.refId,
-            });
-            return 'resolved';
-          } catch (err) {
-            logger.warn('[retryFailedOperations] amount_mismatch refund replay failed', {
-              failedOperationId: op.id,
-              refId: op.refId,
-              error: err instanceof Error ? err.message : err,
-            });
-            return 'retry';
-          }
-        }
+      if (op.payload.autoRefund === true) {
+        const purchaseOutcome = await replayPurchaseRefund(op);
+        if (purchaseOutcome) return purchaseOutcome;
+        const bankGuard = await refundBankGuard(op);
+        if (bankGuard) return bankGuard;
+        return 'waiting_refund_action';
       }
       // No auto-fix available — keep retrying (will exhaust) so it stays visible.
       logger.warn('CRITICAL [retryFailedOperations] amount_mismatch needs manual reconciliation', {
@@ -354,18 +349,29 @@ export const retryFailedOperations = onSchedule(
     secrets: ['STRIPE_SECRET_KEY'],
   },
   async () => {
+    // Non-financial containment work has its own native authority/budget. A
+    // failed media observation must never prevent the existing money engine.
+    try { await retryAccountSecurityMedia(); }
+    catch { logger.warn('[retryFailedOperations] containment media remains unknown'); }
+    return withFinancialRecoveryScope({operation: "scheduled/retryFailedOperations.retryFailedOperations"}, async () => {
     const now = Date.now();
     let resolved = 0;
     let retried = 0;
     let exhausted = 0;
     let skipped = 0;
 
-    // Single equality filter — no composite index required.
-    const snap = await db
+    // Rotate the bounded pending page by DOCUMENT ID (including legacy docs
+    // without createdAt). Bank-waiting docs cannot monopolize the first page.
+    // status's automatic single-field index already includes __name__ ASC.
+    const cursorRef = db.collection('job_locks').doc('retryFailedOperations_cursor');
+    const cursor = (await cursorRef.get()).data()?.lastPendingId;
+    const pendingQuery = db
       .collection('failed_operations')
       .where('status', '==', 'pending')
-      .limit(MAX_PER_RUN)
-      .get();
+      .orderBy('__name__', 'asc')
+      .limit(MAX_PER_RUN);
+    let snap = await (typeof cursor === 'string' ? pendingQuery.startAfter(cursor) : pendingQuery).get();
+    if (snap.empty && typeof cursor === 'string') snap = await pendingQuery.get();
 
     if (snap.empty) {
       logger.info('[retryFailedOperations] no pending operations');
@@ -390,12 +396,19 @@ export const retryFailedOperations = onSchedule(
           const outcome = await replayOp(op, stripe);
           const opRef = db.collection('failed_operations').doc(op.id);
 
+          if (outcome === 'waiting_bank' || outcome === 'waiting_bank_reconciliation' || outcome === 'waiting_refund' || outcome === 'waiting_refund_action' || outcome === 'waiting_payment_reconciliation') {
+            await opRef.update({ waitingReason: outcome, lastBankCheckedAt: FieldValue.serverTimestamp() });
+            return 'waiting_bank' as const;
+          }
+
           if (outcome === 'resolved') {
             await opRef.update({
               status: 'resolved',
               attempts: FieldValue.increment(1),
               lastTriedAt: FieldValue.serverTimestamp(),
               resolvedAt: FieldValue.serverTimestamp(),
+              waitingReason: FieldValue.delete(),
+              lastBankCheckedAt: FieldValue.delete(),
             });
             return 'resolved' as const;
           }
@@ -436,6 +449,8 @@ export const retryFailedOperations = onSchedule(
           await opRef.update({
             attempts: nextAttempts,
             lastTriedAt: FieldValue.serverTimestamp(),
+            waitingReason: FieldValue.delete(),
+            lastBankCheckedAt: FieldValue.delete(),
           });
           return 'retry' as const;
         })
@@ -445,8 +460,14 @@ export const retryFailedOperations = onSchedule(
         if (r.status === 'fulfilled') {
           if (r.value === 'resolved') resolved++;
           else if (r.value === 'exhausted') exhausted++;
+          else if (r.value === 'waiting_bank') skipped++;
           else retried++;
         } else {
+          if (r.reason instanceof FinancialRecoveryBlocked) {
+            skipped++;
+            logger.info('[retryFailedOperations] financial recovery suspended the native operation');
+            continue;
+          }
           retried++;
           logger.error('[retryFailedOperations] replay bookkeeping failed', {
             error: r.reason instanceof Error ? r.reason.message : r.reason,
@@ -455,6 +476,7 @@ export const retryFailedOperations = onSchedule(
       }
     }
 
+    await cursorRef.set({ lastPendingId: snap.docs[snap.docs.length - 1].id, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     logger.info('[retryFailedOperations] run complete', {
       scanned: snap.size,
       eligible: eligible.length,
@@ -462,6 +484,8 @@ export const retryFailedOperations = onSchedule(
       retried,
       exhausted,
       skipped,
+    });
+
     });
   }
 );

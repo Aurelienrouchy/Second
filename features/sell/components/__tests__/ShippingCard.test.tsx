@@ -1,104 +1,53 @@
-/**
- * <ShippingCard /> — option d'expédition postale (écran Prix & livraison).
- *
- * Comportement MÉTIER :
- *  - le corps (formats de colis) n'est révélé QUE lorsque l'option est active ;
- *  - taper la carte bascule l'option (onToggle) ;
- *  - sélectionner un format remonte la valeur métier exacte ('small'|'medium'
- *    |'large') via onPackageSizeSelect ;
- *  - une suggestion IA de format affiche le badge "IA".
- *
- * NB : l'écran masque cette carte quand SHIPPING_ENABLED est false ; ce test
- * vérifie la carte isolément (contrat du composant), indépendamment du flag.
- */
+/** Automatic product estimate, with no manual size choice or promised ceiling. */
 
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { ShippingCard } from '@/features/sell';
+import { ShippingCard } from '../pricing/ShippingCard';
+import { automaticShippingEstimate } from '@/functions/src/shared/automaticShippingEstimate';
+import { getCategoryPath } from '@/functions/src/shared/categories';
+
+const light = automaticShippingEstimate({categoryIds: getCategoryPath('women_clothing_tops_tshirts')});
+const unknown = automaticShippingEstimate({categoryIds: []});
 
 describe('<ShippingCard />', () => {
-  it('cache les formats de colis quand l’option est inactive', () => {
-    render(
-      <ShippingCard
-        isActive={false}
-        onToggle={jest.fn()}
-        packageSize={null}
-        onPackageSizeSelect={jest.fn()}
-      />,
-    );
-    expect(screen.getByText('Expédition postale')).toBeOnTheScreen();
-    // Le label des formats n'apparaît pas tant que l'option n'est pas activée.
-    expect(screen.queryByText('Format du colis')).toBeNull();
-    expect(screen.queryByText('Moyen')).toBeNull();
-  });
-
-  it('révèle les formats de colis quand l’option est active', () => {
-    render(
-      <ShippingCard
-        isActive
-        onToggle={jest.fn()}
-        packageSize={null}
-        onPackageSizeSelect={jest.fn()}
-      />,
-    );
-    expect(screen.getByText('Format du colis')).toBeOnTheScreen();
-    expect(screen.getByText('Petit')).toBeOnTheScreen();
-    expect(screen.getByText('Moyen')).toBeOnTheScreen();
-    expect(screen.getByText('Grand')).toBeOnTheScreen();
-  });
-
-  it('bascule l’option au tap sur la carte', () => {
+  it('keeps the estimate hidden when disabled and toggles shipping on an explicit tap', () => {
     const onToggle = jest.fn();
     render(
       <ShippingCard
         isActive={false}
         onToggle={onToggle}
-        packageSize={null}
-        onPackageSizeSelect={jest.fn()}
+        estimate={light}
       />,
     );
-    fireEvent.press(screen.getByText('Expédition postale'));
+    expect(screen.getByText('Expédition postale')).toBeOnTheScreen();
+    expect(screen.queryByTestId('sell-parcel-estimate')).toBeNull();
+    fireEvent.press(screen.getByRole('checkbox', {name: 'Expédition postale'}));
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
-  it('remonte la valeur métier du format sélectionné', () => {
-    const onPackageSizeSelect = jest.fn();
-    render(
+  it('shows the current product family and changes it with the actual category estimate', () => {
+    const view = render(
       <ShippingCard
         isActive
         onToggle={jest.fn()}
-        packageSize={null}
-        onPackageSizeSelect={onPackageSizeSelect}
+        estimate={light}
       />,
     );
-    fireEvent.press(screen.getByText('Grand'));
-    expect(onPackageSizeSelect).toHaveBeenCalledWith('large');
+    expect(screen.getByTestId('sell-parcel-estimate')).toHaveTextContent('Vêtement léger');
+    view.rerender(<ShippingCard isActive onToggle={jest.fn()} estimate={unknown} />);
+    expect(screen.getByTestId('sell-parcel-estimate')).toHaveTextContent('Objet à protéger');
   });
 
-  it('affiche le badge IA quand un format est suggéré par l’analyse', () => {
+  it('does not require a size choice or present fixed weights as guaranteed limits', () => {
     render(
       <ShippingCard
         isActive
         onToggle={jest.fn()}
-        packageSize="medium"
-        onPackageSizeSelect={jest.fn()}
-        aiSuggestedSize="medium"
+        estimate={light}
       />,
     );
-    expect(screen.getByText('IA')).toBeOnTheScreen();
-    expect(screen.getByText("Format suggéré selon l'article")).toBeOnTheScreen();
-  });
-
-  it('n’affiche pas le badge IA sans suggestion', () => {
-    render(
-      <ShippingCard
-        isActive
-        onToggle={jest.fn()}
-        packageSize="medium"
-        onPackageSizeSelect={jest.fn()}
-      />,
-    );
-    expect(screen.queryByText("Format suggéré selon l'article")).toBeNull();
+    expect(screen.queryByText(/Petit|Moyen|Grand|<500|<1kg|<2kg/)).toBeNull();
+    expect(screen.queryByText(/IA|intelligence artificielle/)).toBeNull();
   });
 });

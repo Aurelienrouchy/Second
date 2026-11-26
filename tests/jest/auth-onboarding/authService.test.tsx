@@ -24,8 +24,17 @@
  */
 
 import { Platform } from 'react-native';
+import * as Application from 'expo-application';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
+import firebaseProjects from '@/config/firebaseProjects.json';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { readSignupConsent, sellerActivityPolicy, signupConsentPolicy } from '@/services/signupConsentJournal';
 
 // ─── Mocks des dépendances natives non couvertes par jest.setup ───────────────
+
+jest.mock('expo-application', () => ({ __esModule: true, applicationId: 'com.seconde.app.dev' }));
+jest.mock('@/config/firebase/development/oauth.json', () => ({ googleWebClientId: '', googleIosClientId: '' }));
 
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {
@@ -126,6 +135,9 @@ const VALID_CONSENT = {
   acceptedTerms: true,
   acceptedPrivacy: true,
   marketingOptIn: false,
+  policyVersion: signupConsentPolicy.version,
+  sellerActivityDeclaration: {kind: 'personal' as const, statementVersion: sellerActivityPolicy.version,
+    personalDeclarationAccepted: true, expectedVersion: 'a'.repeat(64), requestId: 'signup-test-1', expectedUid: 'u'},
 };
 
 function makeUserDoc(data: Record<string, unknown>) {
@@ -136,8 +148,9 @@ function makeUserDoc(data: Record<string, unknown>) {
   };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
+  await AsyncStorage.clear();
   mockCallable.mockResolvedValue({ data: { ok: true } });
   (httpsCallable as jest.Mock).mockReturnValue(mockCallable);
   (auth as { currentUser: unknown }).currentUser = null;
@@ -242,11 +255,36 @@ describe('AuthService.signInWithEmail', () => {
 });
 
 describe('AuthService.signInWithGoogle — consentement & needsConsent', () => {
+  const previousWebClientId = process.env.EXPO_PUBLIC_DEV_GOOGLE_WEB_CLIENT_ID;
+  const previousIosClientId = process.env.EXPO_PUBLIC_DEV_GOOGLE_IOS_CLIENT_ID;
+  afterEach(() => {
+    if (previousWebClientId === undefined) delete process.env.EXPO_PUBLIC_DEV_GOOGLE_WEB_CLIENT_ID;
+    else process.env.EXPO_PUBLIC_DEV_GOOGLE_WEB_CLIENT_ID = previousWebClientId;
+    if (previousIosClientId === undefined) delete process.env.EXPO_PUBLIC_DEV_GOOGLE_IOS_CLIENT_ID;
+    else process.env.EXPO_PUBLIC_DEV_GOOGLE_IOS_CLIENT_ID = previousIosClientId;
+  });
   beforeEach(() => {
+    // Synthetic OAuth IDs belong to the isolated dev project; no SDK network is used.
+    process.env.EXPO_PUBLIC_DEV_GOOGLE_WEB_CLIENT_ID = `${firebaseProjects.development.messagingSenderId}-test-web.apps.googleusercontent.com`;
+    process.env.EXPO_PUBLIC_DEV_GOOGLE_IOS_CLIENT_ID = `${firebaseProjects.development.messagingSenderId}-test-ios.apps.googleusercontent.com`;
     (GoogleSignin.signIn as jest.Mock).mockResolvedValue({ data: { idToken: 'tok' } });
     (signInWithCredential as jest.Mock).mockResolvedValue({
       user: { uid: 'g-uid', email: 'g@x.com', displayName: 'Greta', photoURL: null },
     });
+  });
+
+  it('refuses production OAuth clients in dev before opening Google', async () => {
+    process.env.EXPO_PUBLIC_DEV_GOOGLE_WEB_CLIENT_ID = '628214013296-prod.apps.googleusercontent.com';
+    await expect(AuthService.signInWithGoogle()).rejects.toThrow('La connexion Google de Seconde Dev n’est pas encore configurée.');
+    expect(GoogleSignin.hasPlayServices).not.toHaveBeenCalled();
+    expect(GoogleSignin.signIn).not.toHaveBeenCalled();
+  });
+
+  it('keeps app initialization usable when dev OAuth is absent', async () => {
+    delete process.env.EXPO_PUBLIC_DEV_GOOGLE_WEB_CLIENT_ID;
+    delete process.env.EXPO_PUBLIC_DEV_GOOGLE_IOS_CLIENT_ID;
+    await expect(AuthService.initialize()).resolves.toBeUndefined();
+    expect(GoogleSignin.configure).not.toHaveBeenCalled();
   });
 
   it('nouveau compte → needsConsent + isNewUser, crée le doc users (authProvider google)', async () => {
@@ -285,6 +323,12 @@ describe('AuthService.signInWithGoogle — consentement & needsConsent', () => {
     expect(result.needsConsent).toBe(false);
   });
 
+  it('handles the resolved cancellation response returned by Google Sign-In v16', async () => {
+    (GoogleSignin.signIn as jest.Mock).mockResolvedValue({type: 'cancelled', data: null});
+    await expect(AuthService.signInWithGoogle()).rejects.toThrow('Connexion Google annulée');
+    expect(signInWithCredential).not.toHaveBeenCalled();
+  });
+
   it('traduit une annulation Google en message FR', async () => {
     (GoogleSignin.signIn as jest.Mock).mockRejectedValue({ code: 'SIGN_IN_CANCELLED' });
     await expect(AuthService.signInWithGoogle()).rejects.toThrow('Connexion Google annulée');
@@ -292,6 +336,32 @@ describe('AuthService.signInWithGoogle — consentement & needsConsent', () => {
 });
 
 describe('AuthService.signInWithApple — garde-fou plateforme', () => {
+  it('requires the dev native app before opening Apple in a production binary', async () => {
+    const native = Application as { applicationId: string };
+    const previous = native.applicationId;
+    native.applicationId = 'com.seconde.app';
+    try {
+      await expect(AuthService.signInWithApple()).rejects.toThrow('nécessitent l’application Seconde Dev');
+      expect(AppleAuthentication.signInAsync).not.toHaveBeenCalled();
+      const status = await AuthService.getAuthConfigStatus();
+      expect(status.apple).toBe('native_build_required');
+      expect(status.emailPassword).toBe('server_configuration_not_verified');
+    } finally { native.applicationId = previous; }
+  });
+
+  it('keeps the 32-byte hashed Apple challenge and original nonce bound to Firebase', async () => {
+    (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValue({ identityToken: 'apple-token', fullName: null });
+    (signInWithCredential as jest.Mock).mockResolvedValue({ user: {uid: 'a-uid', email: 'a@x.com', displayName: 'Anne'} });
+    (getAdditionalUserInfo as jest.Mock).mockReturnValue({ isNewUser: false });
+    (getDoc as jest.Mock).mockResolvedValue(makeUserDoc({ id: 'a-uid', displayName: 'Anne', dateOfBirth: isoForAge(30) }));
+    await AuthService.signInWithApple();
+    expect(Crypto.getRandomBytesAsync).toHaveBeenCalledWith(32);
+    expect(Crypto.digestStringAsync).toHaveBeenCalledWith('SHA256', '00'.repeat(32));
+    expect(AppleAuthentication.signInAsync).toHaveBeenCalledWith(expect.objectContaining({nonce: 'hashed-nonce'}));
+    const { OAuthProvider } = require('firebase/auth');
+    expect(OAuthProvider.mock.results.at(-1).value.credential).toHaveBeenCalledWith({idToken: 'apple-token', rawNonce: '00'.repeat(32)});
+  });
+
   it('refuse hors iOS', async () => {
     const original = Platform.OS;
     Object.defineProperty(Platform, 'OS', { get: () => 'android', configurable: true });
@@ -331,6 +401,88 @@ describe('AuthService.rollbackUnconsentedAccount — Loi 25', () => {
 });
 
 describe('AuthService.recordConsentForCurrentUser', () => {
+  it('refuses an unchecked personal declaration or wrong identity before any mutation', async () => {
+    (auth as {currentUser: unknown}).currentUser = {uid: 'u'};
+    await expect(AuthService.recordConsentForCurrentUser({...VALID_CONSENT, sellerActivityDeclaration: {
+      ...VALID_CONSENT.sellerActivityDeclaration, personalDeclarationAccepted: false,
+    }})).rejects.toMatchObject({code: 'client/signup-journal-invalid'});
+    await expect(AuthService.recordConsentForCurrentUser({...VALID_CONSENT, sellerActivityDeclaration: {
+      ...VALID_CONSENT.sellerActivityDeclaration, expectedUid: 'someone-else',
+    }})).rejects.toMatchObject({code: 'client/signup-journal-invalid'});
+    expect(mockCallable).not.toHaveBeenCalled();
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('persists before IO, preserves an uncertain original and rejects changed retry choices', async () => {
+    (auth as {currentUser: unknown}).currentUser = {uid: 'u'};
+    mockCallable.mockImplementationOnce(async () => {
+      expect(await readSignupConsent('u')).toEqual(VALID_CONSENT);
+      throw {code: 'functions/unavailable'};
+    });
+    await expect(AuthService.recordConsentForCurrentUser(VALID_CONSENT)).rejects.toMatchObject({code: 'functions/unavailable'});
+    expect(await AuthService.getPendingSignupConsent('u')).toEqual(VALID_CONSENT);
+    await expect(AuthService.recordConsentForCurrentUser({...VALID_CONSENT, marketingOptIn: true})).rejects.toMatchObject({code: 'client/signup-pending'});
+    expect(mockCallable).toHaveBeenCalledTimes(1);
+    (getDoc as jest.Mock).mockResolvedValue(makeUserDoc({id: 'u', dateOfBirth: VALID_CONSENT.dateOfBirth}));
+    await AuthService.recordConsentForCurrentUser(VALID_CONSENT);
+    expect(mockCallable.mock.calls[1][0]).toEqual(mockCallable.mock.calls[0][0]);
+    expect(await readSignupConsent('u')).toEqual(VALID_CONSENT);
+    await AuthService.acknowledgeSignupConsent(VALID_CONSENT, {assertCurrent: () => {}});
+    expect(await readSignupConsent('u')).toBeNull();
+  });
+
+  it('keeps replay available until adoption, then acknowledges a known receipt without a focus fence', async () => {
+    (auth as {currentUser: unknown}).currentUser = {uid: 'u'};
+    (getDoc as jest.Mock).mockResolvedValue(makeUserDoc({id: 'u', dateOfBirth: VALID_CONSENT.dateOfBirth}));
+    let focused = true;
+    const assertCurrent = () => {if (!focused) throw new Error('focus lost');};
+    await AuthService.recordConsentForCurrentUser(VALID_CONSENT, {assertCurrent});
+    expect(await readSignupConsent('u')).toEqual(VALID_CONSENT);
+    const remove = AsyncStorage.removeItem.getMockImplementation!();
+    jest.mocked(AsyncStorage.removeItem).mockImplementationOnce(async key => {
+      focused = false;
+      await remove?.(key);
+    });
+    const adoptedIdentity = jest.fn();
+    await expect(AuthService.acknowledgeSignupConsent(VALID_CONSENT, {assertCurrent: adoptedIdentity})).resolves.toBeUndefined();
+    expect(focused).toBe(false);
+    expect(adoptedIdentity).toHaveBeenCalled();
+    expect(await readSignupConsent('u')).toBeNull();
+  });
+
+  it('keeps the original after a request collision but permits a new command after an explicit CAS refusal', async () => {
+    (auth as {currentUser: unknown}).currentUser = {uid: 'u'};
+    mockCallable.mockRejectedValueOnce({code: 'functions/already-exists'});
+    await expect(AuthService.recordConsentForCurrentUser(VALID_CONSENT)).rejects.toMatchObject({code: 'functions/already-exists'});
+    expect(await readSignupConsent('u')).toEqual(VALID_CONSENT);
+    mockCallable.mockRejectedValueOnce({code: 'functions/aborted', details: {reason: 'eligibility_version_changed'}});
+    await expect(AuthService.recordConsentForCurrentUser(VALID_CONSENT)).rejects.toMatchObject({code: 'functions/aborted'});
+    expect(await readSignupConsent('u')).toBeNull();
+  });
+
+  it('blocks a second submit synchronously and never adopts a response for a replaced Firebase identity', async () => {
+    (auth as {currentUser: unknown}).currentUser = {uid: 'u'};
+    let finish!: (value: {data: {ok: true}}) => void;
+    const response = new Promise<{data: {ok: true}}>(resolve => {finish = resolve;});
+    const entered = new Promise<void>(resolve => {mockCallable.mockImplementationOnce(() => {resolve(); return response;});});
+    const first = AuthService.recordConsentForCurrentUser(VALID_CONSENT);
+    await entered;
+    await expect(AuthService.recordConsentForCurrentUser(VALID_CONSENT)).rejects.toMatchObject({code: 'client/signup-in-progress'});
+    (auth as {currentUser: unknown}).currentUser = {uid: 'other'};
+    finish({data: {ok: true}});
+    await expect(first).rejects.toMatchObject({code: 'client/stale-operation'});
+    expect(getDoc).not.toHaveBeenCalled();
+    expect(await readSignupConsent('u')).toEqual(VALID_CONSENT);
+  });
+
+  it('stops before the RPC if focus changed during durable persistence', async () => {
+    (auth as {currentUser: unknown}).currentUser = {uid: 'u'};
+    let assertions = 0;
+    const assertCurrent = () => {if (++assertions >= 3) throw Object.assign(new Error('stale'), {code: 'client/stale-operation'});};
+    await expect(AuthService.recordConsentForCurrentUser(VALID_CONSENT, {assertCurrent})).rejects.toMatchObject({code: 'client/stale-operation'});
+    expect(mockCallable).not.toHaveBeenCalled();
+    expect(await readSignupConsent('u')).toEqual(VALID_CONSENT);
+  });
   it('lève si aucun utilisateur connecté', async () => {
     (auth as { currentUser: unknown }).currentUser = null;
     await expect(AuthService.recordConsentForCurrentUser(VALID_CONSENT)).rejects.toThrow(

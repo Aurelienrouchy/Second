@@ -43,7 +43,7 @@ jest.mock('firebase/firestore', () => ({
 jest.mock('@/config/firebaseConfig', () => ({ firestore: {} }));
 jest.mock('../../config/firebaseConfig', () => ({ firestore: {} }));
 
-import { SearchHistoryService, SearchHistoryItem } from '@/services/searchHistoryService';
+import { SearchHistoryService, SearchHistoryItem } from '@/features/search/services/searchHistoryService';
 import type { ArticleSize } from '@/types';
 
 /** Build a fake Firestore snapshot whose forEach iterates the given docs. */
@@ -147,11 +147,9 @@ describe('SearchHistoryService.getRecentSearches', () => {
     expect(items[0].timestamp).toBeInstanceOf(Date);
   });
 
-  it('laisse la recherche disponible sans historique quand Firestore échoue', async () => {
+  it('dégrade en liste vide quand Firestore échoue (lecture non critique)', async () => {
     mockGetDocs.mockRejectedValueOnce(new Error('perm denied'));
-    await expect(
-      SearchHistoryService.getRecentSearches('user-1')
-    ).resolves.toEqual([]);
+    await expect(SearchHistoryService.getRecentSearches('user-1')).resolves.toEqual([]);
   });
 });
 

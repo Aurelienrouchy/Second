@@ -7,9 +7,15 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import {PHASE1_CONTRACT} from '../utils/phase1LegacyFence';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
-import { sendPushNotification } from '../utils/notifications';
+import { prepareOperationalNotices } from '../utils/notifications';
+import { publicProfileImage, articlePrivacyWithdrawn } from '../utils/publicProfile';
+import {publicReviewVisible, visibleReviewSummary, prepareVisibleRating} from '../utils/reviewVisibility';
+import { assertPrivateAccountSession, withPrivateAccountSession } from '../utils/privateAccountSession';
+import {withFinancialRecoveryScope,assertFinancialRecoveryEffect} from '../utils/financialRecoveryInterlock';
+import {assertLocalAgreementReadable} from '../utils/localAgreement';
 
 // =============================================================================
 // TYPES
@@ -45,7 +51,7 @@ interface ReviewResponse {
  */
 export const createReview = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
-  async (request) => {
+  async (request) => withFinancialRecoveryScope({operation:'callable/reviews.createReview'},()=>withPrivateAccountSession(request, async () => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -159,13 +165,19 @@ export const createReview = onCall(
         throw new HttpsError('invalid-argument', 'Cannot review yourself');
       }
 
-      // Get reviewer info and article title in parallel (read-only, outside transaction)
-      const [reviewerDoc, articleDoc] = await Promise.all([
-        db.collection('users').doc(reviewerId).get(),
-        articleId ? db.collection('articles').doc(articleId).get() : Promise.resolve(null),
-      ]);
-      const reviewerData = reviewerDoc.exists ? reviewerDoc.data()! : {};
-      const articleTitle = articleDoc?.exists ? articleDoc.data()!.title : null;
+      const reviewerRef = db.collection('users').doc(reviewerId);
+      const targetDoc = await db.collection('users').doc(targetUserId).get();
+
+      // Noter un compte supprimé créait un avis que personne ne verrait jamais
+      // — la note est agrégée sur un profil qui n'existe plus — tout en
+      // réinscrivant l'uid effacé dans une nouvelle collection, à rebours de la
+      // suppression demandée.
+      if (!targetDoc.exists) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Cette personne a supprimé son compte : aucun avis ne peut lui être laissé.',
+        );
+      }
 
       // Deterministic doc ID prevents duplicate reviews atomically:
       // two simultaneous calls will both try to set the same doc, and
@@ -175,7 +187,10 @@ export const createReview = onCall(
       const reviewRef = db.collection('avis').doc(reviewDocId);
 
       await db.runTransaction(async (tx) => {
-        const existingSnap = await tx.get(reviewRef);
+        await assertPrivateAccountSession(request, tx);
+        const [existingSnap, currentReviewer, currentArticle, currentTransaction, currentTarget] = await Promise.all([tx.get(reviewRef), tx.get(reviewerRef),
+          articleId ? tx.get(db.collection('articles').doc(articleId)) : Promise.resolve(null), tx.get(txDoc.ref), tx.get(targetDoc.ref)]);
+        const reviewerData = currentReviewer.data() ?? {};
         if (existingSnap.exists) {
           throw new HttpsError(
             'already-exists',
@@ -183,53 +198,53 @@ export const createReview = onCall(
           );
         }
 
+        const nativeTransaction = currentTransaction.data();
+        if (!nativeTransaction || !terminalStatuses.has(nativeTransaction.status) || !currentTarget.exists ||
+            ![nativeTransaction.buyerId, nativeTransaction.sellerId].includes(reviewerId) ||
+            ![nativeTransaction.buyerId, nativeTransaction.sellerId].includes(targetUserId)) {
+          throw new HttpsError('failed-precondition', 'La transaction ou le destinataire de cet avis a changé.');
+        }
+        const notices = await prepareOperationalNotices(tx, [{ eventKey: `review:${reviewDocId}:created`, userId: targetUserId,
+          type: 'review_received', title: 'Nouvel avis reçu', message: `Un participant vous a laissé un avis ${note}/5. Consultez vos évaluations.`,
+          data: { reviewId: reviewDocId, reviewerId } }]);
+
         const reviewData = {
+          phase1Contract: PHASE1_CONTRACT,
           id: reviewDocId,
           reviewerId,
           reviewerName: reviewerData.displayName || 'Utilisateur',
-          reviewerImage: reviewerData.profileImage || null,
+          reviewerImage: publicProfileImage(reviewerData),
           // TODO: rename vendeurId to targetUserId in next schema migration
           vendeurId: targetUserId, // kept as 'vendeurId' for backwards compat with UserStatsService
           transactionId,
           transactionType,
           articleId: articleId || null,
-          articleTitle: articleTitle || null,
+          articleTitle: articlePrivacyWithdrawn(currentArticle?.data()) ? 'Annonce retirée pour confidentialité' : currentArticle?.data()?.title || null,
           note,
           text: text.trim(),
           createdAt: FieldValue.serverTimestamp(),
         };
-
+        const rating = await prepareVisibleRating(tx, targetUserId, {id: reviewDocId, data: reviewData});
+        if(process.env.FINANCIAL_RECOVERY_ENVIRONMENT==='unconfigured') {
+          await assertFinancialRecoveryEffect('firestore_commit',{refs:[reviewRef.path]});
+          assertLocalAgreementReadable('purchase',txDoc.ref.path,nativeTransaction);
+        }
         tx.set(reviewRef, reviewData);
+        rating.commit();
+        notices.commit();
       });
-
-      // Update target user's aggregate rating (outside transaction, non-critical)
-      await updateUserRating(targetUserId);
-
-      // Correction #4: Send push notification to the review target
-      try {
-        const reviewerName = reviewerData.displayName || 'Un utilisateur';
-        await sendPushNotification(
-          targetUserId,
-          'Nouvel avis reçu',
-          `${reviewerName} vous a laissé un avis ${note}/5`,
-          { reviewId: reviewDocId, reviewerId },
-          'review_received',
-        );
-      } catch (notifError) {
-        // Non-critical — don't fail the review creation
-        logger.warn('[createReview] Failed to send notification', { error: notifError });
-      }
 
       return {
         success: true,
         reviewId: reviewDocId,
+        notificationCommitted: true, deviceDeliveryVerified: false, readingVerified: false,
       };
     } catch (error) {
       if (error instanceof HttpsError) throw error;
       logger.error('[createReview]', error);
       throw new HttpsError('internal', 'Failed to create review');
     }
-  },
+  })),
 );
 
 // =============================================================================
@@ -266,38 +281,35 @@ export const getUserReviews = onCall(
 
       const snapshot = await query.get();
 
-      const reviews: ReviewResponse[] = snapshot.docs.map((doc) => {
+      const reviews: ReviewResponse[] = await Promise.all(snapshot.docs.filter(d => publicReviewVisible(d.data())).map(async (doc) => {
         const data = doc.data();
+        const reviewer = typeof data.reviewerId === 'string' ? (await db.collection('users').doc(data.reviewerId).get()).data() : undefined;
         return {
           id: doc.id,
           reviewerId: data.reviewerId,
           reviewerName: data.reviewerName || 'Utilisateur',
-          reviewerImage: data.reviewerImage || undefined,
+          reviewerImage: publicProfileImage(reviewer) || undefined,
           note: data.note,
           text: data.text,
           transactionType: data.transactionType,
           articleTitle: data.articleTitle || undefined,
           createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         };
-      });
+      }));
 
       // Get aggregate stats
       const allReviewsSnapshot = await db
         .collection('avis')
         .where('vendeurId', '==', userId)
+        .limit(1001)
         .get();
-
-      const allNotes = allReviewsSnapshot.docs.map((d) => d.data().note || 0);
-      const totalReviews = allNotes.length;
-      const averageRating =
-        totalReviews > 0
-          ? allNotes.reduce((sum, n) => sum + n, 0) / totalReviews
-          : 0;
+      const summary = visibleReviewSummary(allReviewsSnapshot.docs.map(d => ({id: d.id, data: d.data()})), allReviewsSnapshot.size > 1000);
 
       return {
         reviews,
-        totalReviews,
-        averageRating: Math.round(averageRating * 10) / 10,
+        totalReviews: summary.totalReviews,
+        averageRating: summary.averageRating,
+        reviewStatsQualification: summary.qualification,
         hasMore: snapshot.docs.length === cappedLimit,
         lastDocId:
           snapshot.docs.length > 0
@@ -356,12 +368,11 @@ export const getUserPublicProfile = onCall(
 
       // Build public profile (exclude sensitive fields)
       // Respect privacy preference: if showProfilePhoto is explicitly false, hide the image
-      const showPhoto = userData.preferences?.privacy?.showProfilePhoto;
       const profile = {
         id: userId,
         displayName: userData.displayName || 'Utilisateur',
         username: userData.username || null,
-        profileImage: showPhoto === false ? null : (userData.profileImage || null),
+        profileImage: publicProfileImage(userData),
         bio: userData.bio || null,
         createdAt: userData.createdAt?.toDate?.()?.toISOString(),
         rating: userData.rating || null,
@@ -399,21 +410,22 @@ export const getUserPublicProfile = onCall(
 
       // Reviews summary — use pre-calculated values from updateUserRating()
       // instead of recalculating from the limited (10) snapshot
-      const totalReviews = userData.reviewCount || 0;
-      const averageRating = userData.rating || 0;
+      const totalReviews = userData.reviewCount ?? null;
+      const averageRating = userData.rating ?? null;
 
-      const reviews = reviewsSnapshot.docs.map((doc) => {
+      const reviews = await Promise.all(reviewsSnapshot.docs.filter(d => publicReviewVisible(d.data())).map(async (doc) => {
         const data = doc.data();
+        const reviewer = typeof data.reviewerId === 'string' ? (await db.collection('users').doc(data.reviewerId).get()).data() : undefined;
         return {
           id: doc.id,
           reviewerName: data.reviewerName || 'Utilisateur',
-          reviewerImage: data.reviewerImage || null,
+          reviewerImage: publicProfileImage(reviewer),
           note: data.note,
           text: data.text,
           transactionType: data.transactionType,
           createdAt: data.createdAt?.toDate?.()?.toISOString(),
         };
-      });
+      }));
 
       // Check if current user is following this user
       let isFollowing = false;
@@ -435,7 +447,8 @@ export const getUserPublicProfile = onCall(
           articlesEnVente,
           articlesVendus,
           totalReviews,
-          averageRating: Math.round(averageRating * 10) / 10,
+          averageRating,
+          reviewStatsQualification: userData.reviewStatsQualification ?? 'unknown',
           sellerLikesCount: userData.sellerLikesCount || 0,
         },
         reviews,
@@ -459,26 +472,7 @@ export const getUserPublicProfile = onCall(
  */
 export async function updateUserRating(userId: string): Promise<void> {
   try {
-    const reviewsSnapshot = await db
-      .collection('avis')
-      .where('vendeurId', '==', userId)
-      .get();
-
-    const notes = reviewsSnapshot.docs.map((d) => d.data().note || 0);
-    const totalReviews = notes.length;
-    const averageRating =
-      totalReviews > 0
-        ? notes.reduce((sum, n) => sum + n, 0) / totalReviews
-        : 0;
-
-    await db
-      .collection('users')
-      .doc(userId)
-      .update({
-        rating: Math.round(averageRating * 10) / 10,
-        reviewCount: totalReviews,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+    await db.runTransaction(async tx => {const rating = await prepareVisibleRating(tx, userId); rating.commit();});
   } catch (error) {
     logger.error('[updateUserRating]', error);
   }

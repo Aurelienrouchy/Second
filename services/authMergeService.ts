@@ -1,11 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@/utils/environmentStorage';
 import { httpsCallable } from 'firebase/functions';
 
 import { functions } from '@/config/firebaseConfig';
 import { ONBOARDING_PREFERENCES_KEY } from '@/constants/storageKeys';
 import { guestPreferencesService } from '@/services/guestPreferencesService';
 import { generateStyleProfile } from '@/services/styleProfileService';
-import { UserService } from '@/services/userService';
+import { getUserPreferences } from '@/services/userAuthData';
 
 const STYLE_PROFILE_MIN_INTERACTIONS = 5;
 
@@ -48,7 +48,7 @@ export async function mergeGuestDataIntoUser(userId: string): Promise<void> {
   try {
     // Opt-in gate: never generate a style profile or send behavioural data
     // to Gemini/Vertex unless the user explicitly consented. Absent => false.
-    const preferences = await UserService.getUserPreferences(userId);
+    const preferences = await getUserPreferences(userId);
     if (preferences?.aiProfilingConsent !== true) {
       if (__DEV__) {
         console.log('[authMerge] style profile skipped — aiProfilingConsent not granted');

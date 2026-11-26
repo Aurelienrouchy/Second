@@ -4,11 +4,9 @@ import Animated, {
   SharedValue,
   AnimatedStyle,
   useAnimatedStyle,
-  FadeIn,
-  FadeInDown,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { colors, components, radius, sizing, spacing, typography } from '@/constants/theme';
 
 type ScreenState = 'loading' | 'complete' | 'error';
 
@@ -38,13 +36,10 @@ export const AnalysisCard = React.memo(function AnalysisCard({
       {screenState === 'loading' && (
         <>
           <Animated.View style={[styles.spinnerContainer, spinnerStyle]}>
-            <Ionicons name="sync-outline" size={24} color={colors.sage} />
+            <Ionicons name="sync-outline" size={sizing.iconMD} color={colors.charcoal} />
           </Animated.View>
 
-          <Text style={styles.analysisTitle}>Analyse en cours</Text>
-          <Text style={styles.analysisSubtitle}>
-            Notre IA identifie les détails{'\n'}de ton article
-          </Text>
+          <Text style={styles.analysisTitle}>Préparation des détails</Text>
 
           <View style={styles.progressBarContainer}>
             <Animated.View style={[styles.progressBarFill, progressBarStyle]} />
@@ -54,16 +49,14 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
       {screenState === 'complete' && (
         <>
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            style={styles.completeIconContainer}
-          >
-            <Ionicons name="checkmark" size={20} color={colors.white} />
-          </Animated.View>
+          <View style={styles.completeIconContainer}>
+            <Ionicons name="checkmark" size={sizing.iconSM} color={colors.white} />
+          </View>
 
-          <Text style={styles.completeTitleInline}>Analyse terminée</Text>
+          <Text style={styles.completeTitleInline}>Détails préparés</Text>
           <Text style={styles.completeSubInline}>
-            {prefilledCount} champs pré-remplis
+            {prefilledCount} champ{prefilledCount > 1 ? 's' : ''} pré-rempli
+            {prefilledCount > 1 ? 's' : ''}
           </Text>
         </>
       )}
@@ -73,26 +66,22 @@ export const AnalysisCard = React.memo(function AnalysisCard({
           <View style={styles.errorIconContainer}>
             <Ionicons
               name="alert-circle-outline"
-              size={24}
+              size={sizing.iconMD}
               color={colors.danger}
             />
           </View>
 
-          <Text style={styles.analysisTitle}>Erreur d&apos;analyse</Text>
-          <Text style={styles.analysisSubtitle}>{errorMessage}</Text>
+          <Text style={styles.analysisTitle}>Préparation interrompue</Text>
+          <Text style={styles.analysisError}>{errorMessage}</Text>
         </>
       )}
 
       {detectedPills.length > 0 && (
         <View style={styles.pillsRow}>
-          {detectedPills.map((pill, index) => (
-            <Animated.View
-              key={pill}
-              entering={FadeInDown.delay(index * 80).duration(200)}
-              style={styles.detectionPill}
-            >
+          {detectedPills.map(pill => (
+            <View key={pill} style={styles.detectionPill}>
               <Text style={styles.detectionPillText}>{pill}</Text>
-            </Animated.View>
+            </View>
           ))}
         </View>
       )}
@@ -102,98 +91,88 @@ export const AnalysisCard = React.memo(function AnalysisCard({
 
 const styles = StyleSheet.create({
   analysisCard: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.white,
+    borderWidth: components.input.borderWidth,
+    borderColor: colors.borderStrong,
     borderRadius: radius.sm,
-    padding: spacing.lg,
-    alignItems: 'center',
-    marginBottom: spacing.md,
+    padding: spacing.md,
     overflow: 'hidden',
   },
   spinnerContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(122, 140, 110, 0.15)',
+    width: sizing.controlCircle,
+    height: sizing.controlCircle,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceWarm,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   completeIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: sizing.iconLG,
+    height: sizing.iconLG,
+    borderRadius: radius.full,
     backgroundColor: colors.sage,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   errorIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: sizing.controlCircle,
+    height: sizing.controlCircle,
+    borderRadius: radius.full,
     backgroundColor: colors.dangerLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   analysisTitle: {
-    fontFamily: fonts.displayMedium,
-    fontSize: 22,
-    color: colors.cream,
-    marginBottom: 6,
-    textAlign: 'center',
+    ...typography.label,
+    color: colors.charcoal,
+    marginBottom: spacing.xs,
   },
-  analysisSubtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    color: 'rgba(245, 240, 232, 0.4)',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: spacing.md,
+  analysisError: {
+    ...typography.bodySmall,
+    color: colors.danger,
+    marginTop: spacing.sm,
   },
   completeTitleInline: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    color: colors.cream,
-    marginBottom: 4,
+    ...typography.label,
+    color: colors.charcoal,
+    marginBottom: spacing.xs,
   },
   completeSubInline: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    color: 'rgba(245, 240, 232, 0.4)',
+    ...typography.caption,
+    color: colors.muted,
   },
   progressBarContainer: {
     width: '100%',
-    height: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 1,
+    height: spacing.xs / 2,
+    backgroundColor: colors.border,
+    borderRadius: radius.full,
     overflow: 'hidden',
-    marginTop: 14,
+    marginTop: spacing.sm,
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: colors.sage,
-    borderRadius: 1,
+    borderRadius: radius.full,
   },
   pillsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 5,
-    marginTop: 12,
+    gap: spacing.xs,
+    marginTop: spacing.md,
   },
   detectionPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    backgroundColor: 'rgba(122, 140, 110, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(122, 140, 110, 0.25)',
-    borderRadius: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.surfaceWarm,
+    borderWidth: components.input.borderWidth,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
   },
   detectionPillText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 10,
-    color: colors.sage,
-    letterSpacing: 0.6,
+    ...typography.caption,
+    color: colors.charcoal,
   },
 });

@@ -19,7 +19,7 @@ const stripeMock: StripeMock = createStripeMock();
 holder.fs = fs;
 holder.stripeMock = stripeMock;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -86,8 +86,8 @@ describe('purchaseShopTier (F134)', () => {
     });
 
     const res = await callPurchase({
-      auth: { uid: 'owner1' },
-      data: { shopId: 'shop1', tier: 'pro', periodMonths: 3 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'owner1' },
+      data: { expectedUid: 'owner1', shopId: 'shop1', tier: 'pro', periodMonths: 3 },
     });
 
     expect(res.success).toBe(true);
@@ -116,8 +116,8 @@ describe('purchaseShopTier (F134)', () => {
     fs.setDoc('shops/shop1', { ownerId: 'owner1', name: 'Friperie', status: 'approved' });
     await expect(
       callPurchase({
-        auth: { uid: 'stranger' },
-        data: { shopId: 'shop1', tier: 'pro', periodMonths: 1 },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'stranger' },
+        data: { expectedUid: 'stranger', shopId: 'shop1', tier: 'pro', periodMonths: 1 },
       })
     ).rejects.toMatchObject({ code: 'permission-denied' });
     expect(stripeMock.calls.paymentIntentsCreate.length).toBe(0);
@@ -127,8 +127,8 @@ describe('purchaseShopTier (F134)', () => {
     fs.setDoc('shops/shop1', { ownerId: 'owner1', status: 'approved' });
     await expect(
       callPurchase({
-        auth: { uid: 'owner1' },
-        data: { shopId: 'shop1', tier: 'basic', periodMonths: 1 },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'owner1' },
+        data: { expectedUid: 'owner1', shopId: 'shop1', tier: 'basic', periodMonths: 1 },
       })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
@@ -137,8 +137,8 @@ describe('purchaseShopTier (F134)', () => {
     fs.setDoc('shops/shop1', { ownerId: 'owner1', status: 'approved' });
     await expect(
       callPurchase({
-        auth: { uid: 'owner1' },
-        data: { shopId: 'shop1', tier: 'premium', periodMonths: 0 },
+        auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'owner1' },
+        data: { expectedUid: 'owner1', shopId: 'shop1', tier: 'premium', periodMonths: 0 },
       })
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
@@ -160,8 +160,8 @@ describe('purchaseShopTier (F134)', () => {
 
       await expect(
         callPurchase({
-          auth: { uid: 'owner1' },
-          data: { shopId: 'shop1', tier: 'pro', periodMonths: 12 },
+          auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'owner1' },
+          data: { expectedUid: 'owner1', shopId: 'shop1', tier: 'pro', periodMonths: 12 },
         })
       ).rejects.toMatchObject({ code: 'failed-precondition' });
       // No money movement for a shop that earns no reduction.
@@ -180,8 +180,8 @@ describe('purchaseShopTier (F134)', () => {
       client_secret: 'sec_a',
     });
     await callPurchase({
-      auth: { uid: 'owner1' },
-      data: { shopId: 'shop1', tier: 'pro', periodMonths: 3 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'owner1' },
+      data: { expectedUid: 'owner1', shopId: 'shop1', tier: 'pro', periodMonths: 3 },
     });
     const key1 = (stripeMock.calls.paymentIntentsCreate[0][1] as Record<string, unknown>)
       .idempotencyKey as string;
@@ -191,8 +191,8 @@ describe('purchaseShopTier (F134)', () => {
     const until = { toMillis: () => 1_900_000_000_000 };
     fs.setDoc('shops/shop1', { ownerId: 'owner1', status: 'approved', tierPaidUntil: until });
     await callPurchase({
-      auth: { uid: 'owner1' },
-      data: { shopId: 'shop1', tier: 'pro', periodMonths: 3 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'owner1' },
+      data: { expectedUid: 'owner1', shopId: 'shop1', tier: 'pro', periodMonths: 3 },
     });
     const key2 = (stripeMock.calls.paymentIntentsCreate[1][1] as Record<string, unknown>)
       .idempotencyKey as string;
@@ -209,12 +209,12 @@ describe('purchaseShopTier (F134)', () => {
     stripeMock.impl.paymentIntentsCreate = async () => ({ id: 'pi_x', client_secret: 'sec_x' });
 
     await callPurchase({
-      auth: { uid: 'owner1' },
-      data: { shopId: 'shop1', tier: 'premium', periodMonths: 1 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'owner1' },
+      data: { expectedUid: 'owner1', shopId: 'shop1', tier: 'premium', periodMonths: 1 },
     });
     await callPurchase({
-      auth: { uid: 'owner1' },
-      data: { shopId: 'shop1', tier: 'premium', periodMonths: 1 },
+      auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'owner1' },
+      data: { expectedUid: 'owner1', shopId: 'shop1', tier: 'premium', periodMonths: 1 },
     });
     const k1 = (stripeMock.calls.paymentIntentsCreate[0][1] as Record<string, unknown>)
       .idempotencyKey as string;

@@ -1,3 +1,9 @@
+import { chatIdForPair } from '@/services/chat/primitives';
+import { useMeetupProposalRecovery } from '@/hooks/useMeetupProposalRecovery';
+import { assertNewSaleAdmission, assertNewProposalAdmission } from '@/services/newSaleAdmission';
+import { useTradeAdmissionError } from '@/hooks/useTradeAdmissionError';
+import { captureTradeSession, assertTradeSessionCurrent } from '@/services/tradeOperation';
+import { acknowledgeMeetupProposal } from '@/services/chat/offers';
 /**
  * useArticleActions — orchestrates all user-triggered actions on the article detail
  * screen (favorite, share, buy, make offer, propose swap, owner actions, more options).
@@ -6,71 +12,130 @@
  */
 
 import { useQueryClient } from '@tanstack/react-query';
+import { useShallow } from 'zustand/react/shallow';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, Share } from 'react-native';
 
-import type { MakeOfferModalRef } from '@/components/MakeOfferModal';
+/**
+ * Ref structurelle minimale pour ouvrir la proposition. On évite un
+ * import vers features/offers (interdit entre features) en décrivant le seul
+ * contrat dont on a besoin.
+ */
+type PresentableRef = { present: () => void };
 import type { ReportBottomSheetRef } from '@/components/ReportBottomSheet';
 
 import { AUTH_MESSAGES } from '@/constants/authMessages';
+import {
+  CANCEL_LABEL,
+  MARK_AS_SOLD_ALERT,
+  OWNER_ACTION_SHEET_MESSAGE,
+  buildOwnerActionSheetIOS,
+  ownerArticleActions,
+  removeArticleAlert,
+  type OwnerArticleAction,
+} from '@/features/article/services/ownerArticleActions';
 import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { useFavorites, favoritesKeys } from '@/hooks/useFavorites';
 import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
 
-import { httpsCallable } from 'firebase/functions';
 import { ArticlesService } from '@/services/articlesService';
 import { ChatService } from '@/services/chatService';
 import { GENERALIST_ZONE_ID } from '@/services/swapService';
-import { functions } from '@/config/firebaseConfig';
-import { SHIPPING_ENABLED } from '@/config/featureFlags';
-import { useAuthStore } from '@/store/authStore';
+import { SHIPPING_ENABLED, SHIPPING_LISTINGS_ENABLED } from '@/config/featureFlags';
+import { runtimeEnvironment } from '@/config/firebaseEnvironment';
+import { getAuthSessionGeneration, useAuthStore } from '@/store/authStore';
+import { useTradeOperation, type TradeOperation } from '@/hooks/useTradeOperation';
+import { staleTradeOperation, isDefinitiveTradeRefusal } from '@/services/tradeOperation';
+import { prepareArticleSoldChange, toggleArticleSoldSafely, type ArticleSoldIntent } from '@/services/articleSoldService';
 import { formatPrice } from '@/utils/formatPrice';
+import { articleAvailability } from '@/utils/articleAvailability';
 
 import type { Article, MeetupSpot } from '@/types';
 
 interface UseArticleActionsParams {
   article: Article | null;
   setArticle: React.Dispatch<React.SetStateAction<Article | null>>;
+  /** Returns the actual stored cache value, or null when the captured cache was replaced. */
+  isArticleCurrent?: (expected: Article) => boolean;
+  applyArticleReceipt?: (received: Article, expected: Article, assertCurrent: () => void) => Article | null;
   partyId?: string;
   swapItemId?: string;
-  makeOfferModalRef: React.RefObject<MakeOfferModalRef | null>;
+  makeOfferModalRef: React.RefObject<PresentableRef | null>;
   reportBottomSheetRef: React.RefObject<ReportBottomSheetRef | null>;
 }
 
 export function useArticleActions({
   article,
   setArticle,
+  applyArticleReceipt,
+  isArticleCurrent,
   partyId,
   swapItemId,
   makeOfferModalRef,
   reportBottomSheetRef,
 }: UseArticleActionsParams) {
+  const operationContext = useTradeOperation(JSON.stringify([article?.id, article?.sellerId]), useAuthStore.getState().user?.id ?? null);
+  const [sourceFrame, setSourceFrame] = useState(() => ({ article, epoch: 0 }));
+  if (sourceFrame.article !== article) setSourceFrame({ article, epoch: sourceFrame.epoch + 1 });
+  const articleEpoch = sourceFrame.epoch;
+  const source = useRef(sourceFrame);
+  useLayoutEffect(() => { source.current = { article, epoch: articleEpoch }; }, [article, articleEpoch]);
+  const assertArticleCurrent = useCallback(() => {
+    if (!article || source.current.article !== article || source.current.epoch !== articleEpoch || (isArticleCurrent && !isArticleCurrent(article))) throw staleTradeOperation();
+  }, [article, articleEpoch, isArticleCurrent]);
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
+  const showAdmissionError = useTradeAdmissionError();
+  const offerPreviousAttempt = useMeetupProposalRecovery();
+  const {user, entryGeneration} = useAuthStore(useShallow(state => ({user: state.user, entryGeneration: getAuthSessionGeneration()})));
   const { toggleFavorite, isFavorite } = useFavorites();
   const { requireAuth } = useRequireAuth();
   const queryClient = useQueryClient();
+  const displayedToggle = useRef<{ result: Awaited<ReturnType<typeof toggleArticleSoldSafely>>; operation: TradeOperation; applied: Article | null } | null>(null);
+  const pendingConfirmation = useRef<{ article: Article; cancel: () => void } | null>(null);
+  useLayoutEffect(() => { if (pendingConfirmation.current && pendingConfirmation.current.article !== article) { pendingConfirmation.current.cancel(); pendingConfirmation.current = null; } }, [article]);
+  const [applicationRevision, setApplicationRevision] = useState(0);
+  useLayoutEffect(() => {
+    const displayed = displayedToggle.current;
+    if (!displayed) return;
+    if (!operationContext.isCurrent(displayed.operation)) { displayedToggle.current = null; return; }
+    if (!article || article !== displayed.applied) { displayedToggle.current = null; return; }
+    displayedToggle.current = null;
+    try { displayed.result.acknowledge(); }
+    catch (error) {
+      if (operationContext.isCurrent(displayed.operation)) Alert.alert('État à vérifier', error instanceof Error ? error.message : 'Actualisez cet article avant une nouvelle modification.');
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
+    queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
+    if (displayed.result.reconciled) Alert.alert('État actualisé', 'Vérifiez le statut affiché avant de choisir une nouvelle modification.');
+    else {
+      track('article_sold_toggled', { article_id: article.id, new_state: article.isSold ? 'sold' : 'relisted', success: true, source: 'article_detail' });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [article, applicationRevision, operationContext, queryClient]);
 
   // Navigation guard against double-taps on Buy / Offer / Swap: a synchronous
   // ref flips to true before the first router.push and blocks any further push
   // until the screen regains focus (i.e. the user navigates back).
   const isTransitioning = useRef(false);
+  const entryFocus = useRef({ active: false, epoch: 0 });
   useFocusEffect(
     useCallback(() => {
       isTransitioning.current = false;
+      entryFocus.current.active = true; entryFocus.current.epoch++;
+      return () => { entryFocus.current.active = false; entryFocus.current.epoch++; };
     }, [])
   );
 
   // Per-article lock against double-taps on "Marquer comme vendu" / "Remettre
   // en vente": holds the ids of articles whose toggle request is in-flight.
-  const togglingArticles = useRef<Set<string>>(new Set());
 
   const handleToggleFavorite = useCallback(() => {
     if (!article) return;
-    if (article.isSold) return;
+    if (['sold', 'unavailable'].includes(articleAvailability(article))) return;
     requireAuth(
       () => {
         // Play the favorite haptic only once the user is authenticated, so a
@@ -96,15 +161,17 @@ export function useArticleActions({
   const handleShare = useCallback(async () => {
     if (!article) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Universal link — requires Apple AASA / Android assetlinks on seconde.ca
-    // Fallback scheme: seconde://article/{id} (configured in app.config.js)
-    const webUrl = `https://seconde.ca/article/${article.id}`;
-    const shareMessage = `Découvrez cet article sur Seconde : ${article.title} — ${formatPrice(article.price)}\n${webUrl}`;
+    // Dev IDs stay in Seconde Dev. Triple slash preserves the complete route
+    // path when Expo Linking parses a custom scheme without a hostname.
+    const shareUrl = runtimeEnvironment.name === 'production'
+      ? `https://seconde.ca/article/${encodeURIComponent(article.id)}`
+      : `${runtimeEnvironment.appScheme}:///article/${encodeURIComponent(article.id)}`;
+    const shareMessage = `Découvrez cet article sur Seconde : ${article.title} — ${formatPrice(article.price)}\n${shareUrl}`;
     try {
       await Share.share({
         title: article.title,
         message: shareMessage,
-        url: webUrl,
+        url: shareUrl,
       });
       track('content_shared', {
         content_type: 'article',
@@ -118,7 +185,12 @@ export function useArticleActions({
   }, [article]);
 
   const handleBuy = useCallback(() => {
-    if (!article) return;
+    if (!article || !entryFocus.current.active) return;
+    if (!SHIPPING_ENABLED && article.isHandDelivery === false) {
+      Alert.alert('Achat indisponible', 'La remise en main propre n’est pas proposée pour cet article.');
+      return;
+    }
+    const focusEpoch = entryFocus.current.epoch;
 
     const buyEventBase = {
       article_id: article.id,
@@ -145,20 +217,33 @@ export function useArticleActions({
     requireAuth(
       () => {
         if (isTransitioning.current) return;
-        isTransitioning.current = true;
-        track('buy_button_tapped', { ...buyEventBase, outcome: 'navigated' });
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        router.push({
-          pathname: '/checkout' as any,
-          params: { articleId: article.id },
-        });
+        try {
+          const session = captureTradeSession();
+          assertTradeSessionCurrent(session); assertArticleCurrent();
+          if (!entryFocus.current.active || entryFocus.current.epoch !== focusEpoch ||
+              (user && (session.uid !== user.id || entryGeneration !== getAuthSessionGeneration()))) return;
+          isTransitioning.current = true;
+          track('buy_button_tapped', { ...buyEventBase, outcome: 'navigated' });
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          // Admission and exact-attempt recovery are checked in checkout before
+          // any new engagement. Opening its interface needs no network roundtrip.
+          router.push({ pathname: '/checkout', params: { articleId: article.id } });
+        } catch (error) {
+          isTransitioning.current = false;
+          Alert.alert('Action indisponible', error instanceof Error ? error.message : 'Impossible de poursuivre.');
+        }
       },
       AUTH_MESSAGES.buy
     );
-  }, [article, user, requireAuth, router]);
+  }, [article, user, requireAuth, router, assertArticleCurrent, entryGeneration]);
 
   const handleMakeOffer = useCallback(() => {
-    if (!article) return;
+    if (!article || !entryFocus.current.active) return;
+    if (!SHIPPING_ENABLED && article.isHandDelivery === false) {
+      Alert.alert('Offre indisponible', 'La remise en main propre n’est pas proposée pour cet article.');
+      return;
+    }
+    const focusEpoch = entryFocus.current.epoch;
 
     const priceCents = Math.round(article.price * 100);
     const defaultMode =
@@ -193,34 +278,51 @@ export function useArticleActions({
 
     requireAuth(
       () => {
-        track('offer_modal_opened', {
-          source: 'article',
-          article_id: article.id,
-          price_cents: priceCents,
-          default_mode: defaultMode,
-          blocked_reason: 'none',
-        });
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        makeOfferModalRef.current?.present();
+        if (isTransitioning.current) return;
+        try {
+          const session = captureTradeSession();
+          assertTradeSessionCurrent(session); assertArticleCurrent();
+          if (!entryFocus.current.active || entryFocus.current.epoch !== focusEpoch ||
+              (user && (session.uid !== user.id || entryGeneration !== getAuthSessionGeneration()))) return;
+          isTransitioning.current = true;
+          track('offer_modal_opened', { source: 'article', article_id: article.id, price_cents: priceCents, default_mode: defaultMode, blocked_reason: 'none' });
+          // The form opens immediately. New-sale admission and exact stored
+          // proposal recovery still precede the submit RPC below.
+          makeOfferModalRef.current?.present();
+        } catch (error) {
+          Alert.alert('Action indisponible', error instanceof Error ? error.message : 'Impossible de poursuivre.');
+        } finally { isTransitioning.current = false; }
       },
       AUTH_MESSAGES.buy
     );
-  }, [article, user, requireAuth, makeOfferModalRef]);
+  }, [article, user, requireAuth, makeOfferModalRef, assertArticleCurrent, entryGeneration]);
 
   const handleMeetupOfferSubmit = useCallback(async (
     amount: number,
     message: string,
-    meetupSpot: MeetupSpot
+    meetupSpot: MeetupSpot,
+    assertIntention?: () => void,
   ) => {
-    if (!article || !user) return;
+    if (!article || !user) throw staleTradeOperation();
+    const operation = operationContext.start('offer');
+    if (!operation) throw Object.assign(new Error('Une proposition est déjà en cours.'), { code: 'client/operation-pending' });
 
-    if (user.id === article.sellerId) {
-      throw new Error('Vous ne pouvez pas faire une offre sur votre propre article.');
-    }
 
+
+    const assertCurrent = () => { operationContext.assertCurrent(operation); assertIntention?.(); };
     const listPrice = article.price;
     try {
+      assertCurrent();
+      const intendedSpot = JSON.parse(JSON.stringify(meetupSpot)) as MeetupSpot;
+      if (await offerPreviousAttempt(user.id, chatIdForPair(user.id, article.sellerId, article.id), assertCurrent)) {
+        throw Object.assign(new Error('La proposition précédente doit être vérifiée.'), { code: 'client/proposal-recovery-presented' });
+      }
+      assertCurrent();
+      await assertNewProposalAdmission(user.id, 'buy', { chatId: chatIdForPair(user.id, article.sellerId, article.id), amount, location: intendedSpot, ...(message ? { message } : {}) }, assertCurrent);
+      assertCurrent();
+      if (user.id === article.sellerId) throw new Error('Vous ne pouvez pas faire une offre sur votre propre article.');
       const chat = await ChatService.createOrGetChat(user.id, article.sellerId, article.id);
+      assertCurrent();
       track('chat_started', {
         chat_id: chat.id,
         source: 'article',
@@ -234,9 +336,14 @@ export function useArticleActions({
         user.id,
         article.sellerId,
         amount,
-        meetupSpot,
-        message
+        intendedSpot,
+        message,
+        assertCurrent,
+        { deferAdoption: true, beforeNewDispatch: () => assertNewSaleAdmission(user.id, 'buy', assertCurrent) },
       );
+      assertCurrent();
+      if (!messageId) throw new Error('La réception de cette proposition doit être vérifiée.');
+      acknowledgeMeetupProposal(messageId, assertCurrent);
       track('offer_sent', {
         article_id: article.id,
         seller_id: article.sellerId,
@@ -254,6 +361,7 @@ export function useArticleActions({
       router.push(`/chat/${chat.id}`);
     } catch (error) {
       if (__DEV__) console.error('Error submitting meetup offer:', error);
+      try { assertCurrent(); } catch { throw staleTradeOperation(); }
       track('offer_send_failed', {
         article_id: article.id,
         source: 'article',
@@ -262,22 +370,31 @@ export function useArticleActions({
         failure_type: 'server_error',
       });
       throw error;
-    }
-  }, [article, user, router]);
+    } finally { operationContext.finish(operation); }
+  }, [article, user, router, operationContext, offerPreviousAttempt]);
 
   const handleShippingOfferSubmit = useCallback(async (
     amount: number,
     message: string,
+    assertIntention?: () => void,
   ) => {
-    if (!article || !user) return;
+    if (!article || !user) throw staleTradeOperation();
+    const operation = operationContext.start('offer');
+    if (!operation) throw Object.assign(new Error('Une proposition est déjà en cours.'), { code: 'client/operation-pending' });
 
-    if (user.id === article.sellerId) {
-      throw new Error('Vous ne pouvez pas faire une offre sur votre propre article.');
-    }
+
 
     const listPrice = article.price;
+    const assertCurrent = () => { operationContext.assertCurrent(operation); assertIntention?.(); };
     try {
+      assertCurrent();
+      if (await offerPreviousAttempt(user.id, chatIdForPair(user.id, article.sellerId, article.id), assertCurrent)) {
+        throw Object.assign(new Error('La proposition précédente doit être vérifiée.'), { code: 'client/proposal-recovery-presented' });
+      }
+      assertCurrent();
+      if (user.id === article.sellerId) throw new Error('Vous ne pouvez pas faire une offre sur votre propre article.');
       const chat = await ChatService.createOrGetChat(user.id, article.sellerId, article.id);
+      assertCurrent();
       track('chat_started', {
         chat_id: chat.id,
         source: 'article',
@@ -291,8 +408,15 @@ export function useArticleActions({
         user.id,
         article.sellerId,
         amount,
-        message
+        message,
+        undefined,
+        undefined,
+        assertCurrent,
+        { deferAdoption: true, beforeNewDispatch: () => assertNewSaleAdmission(user.id, 'buy', assertCurrent) },
       );
+      assertCurrent();
+      if (!messageId) throw new Error('La réception de cette proposition doit être vérifiée.');
+      acknowledgeMeetupProposal(messageId, assertCurrent);
       track('offer_sent', {
         article_id: article.id,
         seller_id: article.sellerId,
@@ -308,6 +432,7 @@ export function useArticleActions({
       router.push(`/chat/${chat.id}`);
     } catch (error) {
       if (__DEV__) console.error('Error submitting shipping offer:', error);
+      if (!operationContext.isCurrent(operation)) throw staleTradeOperation();
       track('offer_send_failed', {
         article_id: article.id,
         source: 'article',
@@ -316,8 +441,8 @@ export function useArticleActions({
         failure_type: 'server_error',
       });
       throw error;
-    }
-  }, [article, user, router]);
+    } finally { operationContext.finish(operation); }
+  }, [article, user, router, operationContext, offerPreviousAttempt]);
 
   const handleProposeSwap = useCallback(() => {
     if (!article) return;
@@ -336,7 +461,6 @@ export function useArticleActions({
             targetArticleId: article.id,
             receiverId: article.sellerId,
             receiverName: article.sellerName || '',
-            receiverImage: article.sellerImage || '',
           },
         });
       },
@@ -352,23 +476,34 @@ export function useArticleActions({
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
   }, [router]);
 
   const handleDeleteArticle = useCallback(() => {
     if (!article) return;
 
+    // Same copy as « Mes articles ». The former text claimed transactions in
+    // progress would be « affected » — the server refuses to touch them.
+    let operation;
+    try { operation = operationContext.capture(); } catch { return; }
+    const confirm = removeArticleAlert(article.title);
     Alert.alert(
-      'Supprimer l\'article',
-      `Êtes-vous sûr de vouloir supprimer "${article.title}" ? Si des offres ou transactions sont en cours, elles seront affectées.`,
+      confirm.title,
+      confirm.message,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: CANCEL_LABEL, style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: confirm.confirmLabel,
           style: 'destructive',
           onPress: async () => {
+            if (!operationContext.isCurrent(operation)) return;
+            const deletion = operationContext.start('toggle');
+            if (!deletion) return;
             try {
+              operationContext.assertCurrent(operation);
               await ArticlesService.deleteArticle(article.id);
+              operationContext.assertCurrent(operation);
               track('article_deleted', {
                 article_id: article.id,
                 is_sold: article.isSold,
@@ -382,6 +517,7 @@ export function useArticleActions({
               queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
               router.back();
             } catch (error) {
+              if (!operationContext.isCurrent(operation)) return;
               if (__DEV__) console.error('Erreur suppression:', error);
               track('article_deleted', {
                 article_id: article.id,
@@ -391,13 +527,16 @@ export function useArticleActions({
                 entry: 'menu',
                 price_cents: Math.round(article.price * 100),
               });
-              Alert.alert('Erreur', 'Impossible de supprimer l\'article');
-            }
+              Alert.alert(
+                'Erreur',
+                error instanceof Error ? error.message : 'Impossible de retirer l\'article'
+              );
+            } finally { operationContext.finish(deletion); }
           },
         },
       ]
     );
-  }, [article, router, queryClient]);
+  }, [article, router, queryClient, operationContext]);
 
   const handleEditArticle = useCallback(() => {
     if (!article) return;
@@ -410,96 +549,96 @@ export function useArticleActions({
 
   const handleMarkAsSold = useCallback(async () => {
     if (!article) return;
-    // Ignore taps while a toggle for this article is already in-flight.
-    if (togglingArticles.current.has(article.id)) return;
-    togglingArticles.current.add(article.id);
-
-    const nextState: 'sold' | 'relisted' = article.isSold ? 'relisted' : 'sold';
+    let operation: TradeOperation | null;
+    try { assertArticleCurrent(); operation = operationContext.start('toggle'); } catch { return; }
+    if (!operation) return;
+    let application: Article | null = null;
+    let cancelled = false; let used = false;
+    const cancel = () => { if (!used) { cancelled = true; operationContext.finish(operation!); } };
+    pendingConfirmation.current = { article, cancel };
+    const assertCurrent = () => {
+      if (cancelled) throw staleTradeOperation();
+      operationContext.assertCurrent(operation!);
+      if (application) {
+        if (source.current.article !== application || (isArticleCurrent && !isArticleCurrent(application))) throw staleTradeOperation();
+      } else assertArticleCurrent();
+    };
+    const apply = (result: Awaited<ReturnType<typeof toggleArticleSoldSafely>>) => {
+      assertCurrent();
+      const displayed = { result, operation: operation!, applied: result.article as Article | null };
+      displayedToggle.current = displayed;
+      if (applyArticleReceipt) {
+        displayed.applied = applyArticleReceipt(result.article, article, () => operationContext.assertCurrent(operation!));
+        if (!displayed.applied) { if (displayedToggle.current === displayed) displayedToggle.current = null; return; }
+      } else {
+        setArticle(prev => prev === article && operationContext.isCurrent(operation!) ? result.article : prev);
+      }
+      application = displayed.applied;
+      setApplicationRevision(value => value + 1);
+    };
+    const fail = (error: unknown) => {
+      try { assertCurrent(); } catch { return; }
+      if (showAdmissionError(error, {isCurrent: () => {try {assertCurrent(); return true;} catch {return false;}}, publication: {uid: operation!.session.uid}})) return;
+      const message = error instanceof Error ? error.message : 'Impossible de mettre à jour l’article';
+      Alert.alert('Erreur', isDefinitiveTradeRefusal(error) ? message : `${message} L’état doit être vérifié avant une nouvelle modification.`);
+    };
+    const execute = async (intent: ArticleSoldIntent) => {
+      if (used || cancelled) return;
+      used = true; pendingConfirmation.current = null;
+      try { assertCurrent(); apply(await toggleArticleSoldSafely(article.id, operation!.session.uid, assertCurrent, intent)); }
+      catch (error) { fail(error); }
+      finally { operationContext.finish(operation!); }
+    };
     try {
-      const toggleSold = httpsCallable(functions, 'toggleArticleSold');
-      await toggleSold({ articleId: article.id });
-      // Optimistic update
-      setArticle((prev) => prev ? { ...prev, isSold: !prev.isSold } : null);
-      track('article_sold_toggled', {
-        article_id: article.id,
-        new_state: nextState,
-        success: true,
-        source: 'article_detail',
-      });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
-      queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
-    } catch (error: unknown) {
-      if (__DEV__) console.error('Erreur mise à jour:', error);
-      track('article_sold_toggled', {
-        article_id: article.id,
-        new_state: nextState,
-        success: false,
-        source: 'article_detail',
-      });
-      const message = error instanceof Error ? error.message : 'Impossible de mettre à jour l\'article';
-      Alert.alert('Erreur', message);
-    } finally {
-      togglingArticles.current.delete(article.id);
-    }
-  }, [article, setArticle, queryClient]);
+      const prepared = await prepareArticleSoldChange(article.id, operation.session.uid, !!article.isSold, assertCurrent);
+      assertCurrent();
+      if (prepared.result) { pendingConfirmation.current = null; apply(prepared.result); operationContext.finish(operation); return; }
+      if (prepared.intent.payload.desiredIsSold === false) { await execute(prepared.intent); return; }
+      Alert.alert(MARK_AS_SOLD_ALERT.title, MARK_AS_SOLD_ALERT.message, [
+        { text: CANCEL_LABEL, style: 'cancel', onPress: cancel },
+        { text: MARK_AS_SOLD_ALERT.confirmLabel, onPress: () => { void execute(prepared.intent); } },
+      ], { onDismiss: cancel });
+    } catch (error) { pendingConfirmation.current = null; fail(error); operationContext.finish(operation); }
+  }, [article, articleEpoch, setArticle, applyArticleReceipt, isArticleCurrent, operationContext, showAdmissionError, assertArticleCurrent]);
 
   const handleMoreOptions = useCallback(() => {
     if (!article) return;
+    try { assertArticleCurrent(); } catch { return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const isOwner = user && user.id === article.sellerId;
 
     if (isOwner) {
-      const soldOption = article.isSold ? 'Remettre en vente' : 'Marquer comme vendu';
+      let operation;
+      try { operation = operationContext.capture(); } catch { return; }
+      const run = (action: OwnerArticleAction | null) => {
+        try { operationContext.assertCurrent(operation); assertArticleCurrent(); } catch { return; }
+        if (action === 'edit') handleEditArticle();
+        else if (action === 'shipping') router.push({ pathname: '/article/shipping/[id]', params: { id: article.id } });
+        else if (action === 'toggle_sold') handleMarkAsSold();
+        else if (action === 'delete') handleDeleteArticle();
+      };
 
-      if (article.isSold) {
-        // Sold articles: no "Modifier" option
-        const options = [soldOption, 'Supprimer', 'Annuler'];
-        if (Platform.OS === 'ios') {
-          ActionSheetIOS.showActionSheetWithOptions(
-            {
-              options,
-              destructiveButtonIndex: 1,
-              cancelButtonIndex: 2,
-              title: article.title,
-            },
-            (buttonIndex) => {
-              if (buttonIndex === 0) handleMarkAsSold();
-              else if (buttonIndex === 1) handleDeleteArticle();
-            }
-          );
-        } else {
-          Alert.alert(article.title, 'Que souhaitez-vous faire ?', [
-            { text: 'Annuler', style: 'cancel' },
-            { text: soldOption, onPress: handleMarkAsSold },
-            { text: 'Supprimer', style: 'destructive', onPress: handleDeleteArticle },
-          ]);
-        }
+      if (Platform.OS === 'ios') {
+        const sheet = buildOwnerActionSheetIOS(article.title, !!article.isSold, SHIPPING_LISTINGS_ENABLED && article.isShipping === true);
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            options: sheet.options,
+            destructiveButtonIndex: sheet.destructiveButtonIndex,
+            cancelButtonIndex: sheet.cancelButtonIndex,
+            title: sheet.title,
+          },
+          (buttonIndex) => run(sheet.actions[buttonIndex] ?? null)
+        );
       } else {
-        const options = ['Modifier', soldOption, 'Supprimer', 'Annuler'];
-        if (Platform.OS === 'ios') {
-          ActionSheetIOS.showActionSheetWithOptions(
-            {
-              options,
-              destructiveButtonIndex: 2,
-              cancelButtonIndex: 3,
-              title: article.title,
-            },
-            (buttonIndex) => {
-              if (buttonIndex === 0) handleEditArticle();
-              else if (buttonIndex === 1) handleMarkAsSold();
-              else if (buttonIndex === 2) handleDeleteArticle();
-            }
-          );
-        } else {
-          Alert.alert(article.title, 'Que souhaitez-vous faire ?', [
-            { text: 'Annuler', style: 'cancel' },
-            { text: 'Modifier', onPress: handleEditArticle },
-            { text: soldOption, onPress: handleMarkAsSold },
-            { text: 'Supprimer', style: 'destructive', onPress: handleDeleteArticle },
-          ]);
-        }
+        Alert.alert(article.title, OWNER_ACTION_SHEET_MESSAGE, [
+          { text: CANCEL_LABEL, style: 'cancel' },
+          ...ownerArticleActions(!!article.isSold, SHIPPING_LISTINGS_ENABLED && article.isShipping === true).map((entry) => ({
+            text: entry.label,
+            style: entry.action === 'delete' ? ('destructive' as const) : undefined,
+            onPress: () => run(entry.action),
+          })),
+        ]);
       }
     } else {
       const options = ['Signaler cet article', 'Annuler'];
@@ -509,7 +648,7 @@ export function useArticleActions({
           (buttonIndex) => {
             if (buttonIndex === 0) {
               requireAuth(
-                () => reportBottomSheetRef.current?.open('article', article.id, 'article_detail', article.sellerId),
+                () => reportBottomSheetRef.current?.open('article', article.id, 'article_detail', article.sellerId, article),
                 'Connectez-vous pour signaler cet article'
               );
             }
@@ -522,7 +661,7 @@ export function useArticleActions({
             style: 'destructive',
             onPress: () => {
               requireAuth(
-                () => reportBottomSheetRef.current?.open('article', article.id, 'article_detail', article.sellerId),
+                () => reportBottomSheetRef.current?.open('article', article.id, 'article_detail', article.sellerId, article),
                 'Connectez-vous pour signaler cet article'
               );
             },
@@ -531,7 +670,7 @@ export function useArticleActions({
         ]);
       }
     }
-  }, [article, user, requireAuth, handleEditArticle, handleMarkAsSold, handleDeleteArticle, reportBottomSheetRef]);
+  }, [article, user, requireAuth, handleEditArticle, handleMarkAsSold, handleDeleteArticle, reportBottomSheetRef, articleEpoch, isArticleCurrent, operationContext, assertArticleCurrent, router]);
 
   return {
     user,

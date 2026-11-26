@@ -9,16 +9,34 @@
  * Uses GCS URI (gs://bucket/path) to pass images to Vertex AI,
  * which avoids base64 encoding issues with HEIC and other non-JPEG formats.
  */
+import { isDeepStrictEqual } from 'node:util';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { PredictionServiceClient, helpers } from '@google-cloud/aiplatform';
 import * as logger from 'firebase-functions/logger';
 import { db, storage, FieldValue } from '../config/firebase';
+import { isOwnBucketImageUrl, parseFirebaseStorageUrl } from '../utils/storagePaths';
+import { isIndexableArticle } from '../utils/search';
+import { requireRuntimeProjectId } from '../config/runtimeEnvironment';
 
 // Vertex AI configuration
-const VERTEX_PROJECT = process.env.GCLOUD_PROJECT || 'seconde-b47a6';
 const VERTEX_LOCATION = 'us-central1';
 const EMBEDDING_MODEL = 'multimodalembedding@001';
 const EMBEDDING_DIMENSIONS = 1408;
+// Eventarc retries transient failures; acknowledge old events instead of looping
+// for the platform's full retry window. A relevant later edit can repair a miss.
+const MAX_RETRY_EVENT_AGE_MS = 15 * 60 * 1000;
+
+function isTransientEmbeddingError(error: unknown): boolean {
+  const code = (error as { code?: unknown; statusCode?: unknown } | null)?.code
+    ?? (error as { statusCode?: unknown } | null)?.statusCode;
+  return [4, 8, 10, 13, 14, 408, 429, 500, 502, 503, 504].includes(Number(code))
+    || ['DEADLINE_EXCEEDED', 'RESOURCE_EXHAUSTED', 'ABORTED', 'INTERNAL', 'UNAVAILABLE',
+      'ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN'].includes(String(code));
+}
+
+function retryWindowExpired(time: string): boolean {
+  return Date.now() - Date.parse(time) > MAX_RETRY_EVENT_AGE_MS;
+}
 
 // Vertex AI client (singleton)
 let vertexClient: PredictionServiceClient | null = null;
@@ -42,18 +60,12 @@ function getPriceRange(price: number): 'low' | 'medium' | 'high' {
 }
 
 /**
- * Parse Firebase Storage URL and extract bucket and path
+ * An embedding is searchable only for an article that is online AND not sold:
+ * a sold article stayed active in the vector index, and « Articles
+ * similaires » and photo search offered it again and again.
  */
-export function parseFirebaseStorageUrl(url: string): { bucketName: string; filePath: string } | null {
-  const match = url.match(
-    /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/([^/]+)\/o\/([^?]+)/
-  );
-  if (match) {
-    const [, bucketName, encodedPath] = match;
-    const filePath = decodeURIComponent(encodedPath);
-    return { bucketName, filePath };
-  }
-  return null;
+function isEmbeddingActive(article: FirebaseFirestore.DocumentData): boolean {
+  return isIndexableArticle(article);
 }
 
 /**
@@ -61,6 +73,9 @@ export function parseFirebaseStorageUrl(url: string): { bucketName: string; file
  * Returns gs://bucket/path or null if URL is not a valid Firebase Storage URL.
  */
 function buildGcsUri(imageUrl: string): string | null {
+  // Only the project's bucket: the bucket name comes from a URL the seller
+  // wrote, and it is read with the function's admin rights.
+  if (!isOwnBucketImageUrl(imageUrl)) return null;
   const parsed = parseFirebaseStorageUrl(imageUrl);
   if (!parsed) return null;
   return `gs://${parsed.bucketName}/${parsed.filePath}`;
@@ -70,40 +85,39 @@ function buildGcsUri(imageUrl: string): string | null {
  * Download image from Firebase Storage and return as base64 (fallback)
  * Used only when GCS URI approach fails.
  */
-async function downloadImageAsBase64(imageUrl: string): Promise<string | null> {
+async function downloadImageAsBase64(imageUrl: string, authorize?: () => Promise<void>): Promise<string | null> {
+  // An image outside the project's bucket is not embedded. The former HTTP
+  // fallback fetched whatever URL the seller wrote: an arbitrary outbound
+  // request from the function, with no allow-list and no size cap.
+  if (!isOwnBucketImageUrl(imageUrl)) return null;
   const parsed = parseFirebaseStorageUrl(imageUrl);
 
   if (parsed) {
     try {
+      if (authorize) await authorize();
       const bucket = storage.bucket(parsed.bucketName);
       const file = bucket.file(parsed.filePath);
 
       const [exists] = await file.exists();
+      if (authorize) await authorize();
       if (!exists) {
         logger.error('[embeddings] File does not exist', { filePath: parsed.filePath });
         return null;
       }
 
       const [buffer] = await file.download();
+      if (authorize) await authorize();
       return buffer.toString('base64');
     } catch (error) {
+      // The optional maintenance authority is not a provider/media failure.
+      // Its caller preserves and rethrows the original refusal below.
+      if (authorize) await authorize();
       logger.error('[embeddings] Error downloading from Storage', { error });
+      if (isTransientEmbeddingError(error)) throw error;
     }
   }
 
-  // Fallback: HTTP fetch
-  try {
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      logger.error('[embeddings] HTTP download failed', { status: response.status });
-      return null;
-    }
-    const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer).toString('base64');
-  } catch (error) {
-    logger.error('[embeddings] Error downloading via HTTP', { error });
-    return null;
-  }
+  return null;
 }
 
 /**
@@ -116,7 +130,7 @@ export async function generateMultimodalEmbedding(
 ): Promise<number[] | null> {
   try {
     const client = getVertexClient();
-    const endpoint = `projects/${VERTEX_PROJECT}/locations/${VERTEX_LOCATION}/publishers/google/models/${EMBEDDING_MODEL}`;
+    const endpoint = `projects/${requireRuntimeProjectId()}/locations/${VERTEX_LOCATION}/publishers/google/models/${EMBEDDING_MODEL}`;
 
     const instanceValue = helpers.toValue({
       image: imageInput,
@@ -145,53 +159,90 @@ export async function generateMultimodalEmbedding(
       return null;
     }
 
-    const embedding = values.map((v: { numberValue?: number | null }) => v.numberValue || 0);
+    const embedding = values.map((v: { numberValue?: number | null }) => v.numberValue ?? NaN);
 
-    if (embedding.length !== EMBEDDING_DIMENSIONS) {
-      logger.warn('[embeddings] Unexpected dimension', { got: embedding.length, expected: EMBEDDING_DIMENSIONS });
+    if (embedding.length !== EMBEDDING_DIMENSIONS || !embedding.every(Number.isFinite)) {
+      logger.error('[embeddings] Invalid embedding vector', { got: embedding.length, expected: EMBEDDING_DIMENSIONS });
+      return null;
     }
 
     return embedding;
   } catch (error) {
     logger.error('[embeddings] Vertex AI error', { error });
+    if (isTransientEmbeddingError(error)) throw error;
     return null;
   }
 }
 
 /**
- * Generate embedding and store in embeddings collection.
- * Uses GCS URI (preferred) with base64 fallback for non-Storage URLs.
+ * Generate an embedding for a currently public article in this project's
+ * bucket. GCS is preferred, with a base64 fallback for supported media errors.
  */
 export async function generateAndStoreEmbedding(
   articleId: string,
-  article: FirebaseFirestore.DocumentData
+  article: FirebaseFirestore.DocumentData,
+  authorize?: (tx?: FirebaseFirestore.Transaction) => Promise<void>,
 ): Promise<void> {
+  let authorizationFailure: unknown;
+  const qualify = async (tx?: FirebaseFirestore.Transaction) => {
+    if (!authorize) return;
+    try { await authorize(tx); } catch (error) { authorizationFailure = error; throw error; }
+  };
+  await qualify();
   const imageUrl = article.images?.[0]?.url;
-  if (!imageUrl) {
-    logger.info('[embeddings] No image for article, skipping', { articleId });
+  if (typeof imageUrl !== 'string' || !isOwnBucketImageUrl(imageUrl)) {
+    logger.info('[embeddings] No admissible image for article, skipping', { articleId });
     return;
   }
 
   try {
+    // Events can arrive late or twice. Never send an old/private photo to
+    // Vertex, and reuse an already generated vector for this exact source.
+    const needsEmbedding = await db.runTransaction(async tx => {
+      await qualify(tx);
+      const [currentSnap, existing] = await Promise.all([
+        tx.get(db.collection('articles').doc(articleId)),
+        tx.get(db.collection('embeddings').doc(articleId)),
+      ]);
+      const current = currentSnap.data();
+      if (!current || !isEmbeddingActive(current)) {
+        tx.delete(existing.ref);
+        return false;
+      }
+      if (current.images?.[0]?.url !== imageUrl || current.sellerId !== article.sellerId) return false;
+      if (existing.exists && existing.data()?.imageUrl === imageUrl && existing.data()?.embedding) {
+        tx.update(existing.ref, { ...embeddingProjection(current), updatedAt: FieldValue.serverTimestamp() });
+        return false;
+      }
+      return true;
+    });
+    if (!needsEmbedding) return;
+
     // Try GCS URI first (handles HEIC and all formats natively)
     const gcsUri = buildGcsUri(imageUrl);
     let embedding: number[] | null = null;
 
     if (gcsUri) {
+      await qualify();
       logger.info('[embeddings] Generating embedding via GCS URI', { articleId, gcsUri });
       embedding = await generateMultimodalEmbedding({ gcsUri });
+      await qualify();
     }
 
-    // Fallback to base64 if GCS URI failed or URL is not a Storage URL
+    // Fallback for a permanent GCS media-format error, not transient outages.
     if (!embedding) {
       logger.info('[embeddings] GCS URI failed or unavailable, falling back to base64', { articleId });
-      const imageBase64 = await downloadImageAsBase64(imageUrl);
+      await qualify();
+      const imageBase64 = await downloadImageAsBase64(imageUrl, authorize ? () => qualify() : undefined);
+      if (authorizationFailure) throw authorizationFailure;
       if (!imageBase64) {
         logger.error('[embeddings] Failed to download image', { articleId });
         return;
       }
       logger.info('[embeddings] Generating embedding via base64', { articleId, sizeKB: Math.round(imageBase64.length / 1024) });
+      await qualify();
       embedding = await generateMultimodalEmbedding({ bytesBase64Encoded: imageBase64 });
+      await qualify();
     }
 
     if (!embedding) {
@@ -200,22 +251,51 @@ export async function generateAndStoreEmbedding(
     }
 
     // Store in embeddings collection
-    await db.collection('embeddings').doc(articleId).set({
-      articleId,
-      embedding: FieldValue.vector(embedding),
-      imageUrl,
-      categoryIds: article.categoryIds || (article.category ? [article.category] : []),
-      brand: article.brand || null,
-      priceRange: getPriceRange(article.price || 0),
-      isActive: article.isActive ?? true,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+    const stored = await db.runTransaction(async tx => {
+      await qualify(tx);
+      const current = (await tx.get(db.collection('articles').doc(articleId))).data();
+      const ref = db.collection('embeddings').doc(articleId);
+      await qualify(tx);
+      if (!current || !isEmbeddingActive(current)) {
+        tx.delete(ref); return false;
+      }
+      if (current.images?.[0]?.url !== imageUrl || current.sellerId !== article.sellerId) return false;
+      tx.set(ref, {
+        articleId,
+        embedding: FieldValue.vector(embedding!),
+        imageUrl,
+        categoryIds: current.categoryIds || (current.category ? [current.category] : []),
+        brand: current.brand || null,
+        priceRange: getPriceRange(current.price || 0),
+        isActive: true,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return true;
     });
 
-    logger.info('[embeddings] Stored embedding', { articleId, dims: embedding.length });
+    if (stored) logger.info('[embeddings] Stored embedding', { articleId, dims: embedding.length });
   } catch (error) {
+    if (error === authorizationFailure) throw error;
     logger.error('[embeddings] Error generating/storing embedding', { articleId, error });
+    if (isTransientEmbeddingError(error)) throw error;
   }
+}
+
+/**
+ * Ce que le document d'embedding retient de l'article. Tout le reste — le nom
+ * du vendeur, sa photo, les compteurs — ne le concerne pas.
+ */
+function embeddingProjection(
+  article: FirebaseFirestore.DocumentData
+): Record<string, unknown> {
+  return {
+    imageUrl: article.images?.[0]?.url ?? null,
+    categoryIds: article.categoryIds || (article.category ? [article.category] : []),
+    brand: article.brand || null,
+    priceRange: getPriceRange(article.price || 0),
+    isActive: isEmbeddingActive(article),
+  };
 }
 
 /**
@@ -224,42 +304,50 @@ export async function generateAndStoreEmbedding(
 async function updateEmbeddingMetadata(
   articleId: string,
   article: FirebaseFirestore.DocumentData
-): Promise<void> {
+): Promise<FirebaseFirestore.DocumentData | undefined> {
   const embeddingRef = db.collection('embeddings').doc(articleId);
-  const doc = await embeddingRef.get();
+  return db.runTransaction(async tx => {
+    const [doc, articleSnap] = await Promise.all([tx.get(embeddingRef), tx.get(db.collection('articles').doc(articleId))]);
+    const current = articleSnap.data();
+    if (!current || !isEmbeddingActive(current)) { tx.delete(embeddingRef); return; }
+    if (current.images?.[0]?.url !== article.images?.[0]?.url || current.sellerId !== article.sellerId) return;
+    if (!doc.exists || doc.data()?.imageUrl !== current.images?.[0]?.url || !doc.data()?.embedding) {
+      // Only reached for a meaningful photo/index metadata/visibility edit.
+      // Views and profile changes are filtered before this transaction.
+      return current;
+    }
+    tx.update(embeddingRef, {
+      ...embeddingProjection(current),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return;
+  });
+}
 
-  if (!doc.exists) {
-    // No embedding yet, generate one
-    await generateAndStoreEmbedding(articleId, article);
+async function processEmbeddingEvent(time: string, articleId: string, work: () => Promise<void>): Promise<void> {
+  if (retryWindowExpired(time)) {
+    logger.error('[embeddings] Retry window expired; repair on a relevant edit or targeted backfill', { articleId });
     return;
   }
-
-  await embeddingRef.update({
-    categoryIds: article.categoryIds || (article.category ? [article.category] : []),
-    brand: article.brand || null,
-    priceRange: getPriceRange(article.price || 0),
-    isActive: article.isActive ?? true,
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  logger.info('[embeddings] Updated metadata', { articleId });
+  try { await work(); } catch (error) {
+    if (isTransientEmbeddingError(error)) throw error;
+    logger.error('[embeddings] Permanent indexing failure; not retrying event', { articleId, error });
+  }
 }
 
 /**
  * Generate embedding when article is created
  */
 export const generateEmbeddingOnCreate = onDocumentCreated(
-  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB', timeoutSeconds: 120 },
+  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB', timeoutSeconds: 120, retry: true },
   async (event) => {
     const articleId = event.params.articleId;
     const article = event.data?.data();
 
     if (!article) return;
 
-    // Mirror the search_index filter (P3-8): never embed inactive or rejected
-    // articles. (`moderationStatus` absent === legacy approved.)
-    if (!article.isActive || article.moderationStatus === 'rejected') {
-      logger.info('[embeddings] Inactive/rejected new article, skipping', { articleId });
+    if (!isEmbeddingActive(article)) {
+      logger.info('[embeddings] Non-public new article, skipping', { articleId });
       return;
     }
 
@@ -269,7 +357,7 @@ export const generateEmbeddingOnCreate = onDocumentCreated(
       return;
     }
 
-    await generateAndStoreEmbedding(articleId, article);
+    await processEmbeddingEvent(event.time, articleId, () => generateAndStoreEmbedding(articleId, article));
   }
 );
 
@@ -277,7 +365,7 @@ export const generateEmbeddingOnCreate = onDocumentCreated(
  * Update embedding when article is updated
  */
 export const generateEmbeddingOnUpdate = onDocumentUpdated(
-  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB', timeoutSeconds: 120 },
+  { document: 'articles/{articleId}', region: 'northamerica-northeast1', memory: '512MiB', timeoutSeconds: 120, retry: true },
   async (event) => {
     const articleId = event.params.articleId;
     const before = event.data?.before.data();
@@ -285,36 +373,16 @@ export const generateEmbeddingOnUpdate = onDocumentUpdated(
 
     if (!after) return;
 
-    // If article was deactivated, update isActive flag
-    if (before?.isActive && !after.isActive) {
-      const embeddingRef = db.collection('embeddings').doc(articleId);
-      const doc = await embeddingRef.get();
-      if (doc.exists) {
-        await embeddingRef.update({ isActive: false, updatedAt: FieldValue.serverTimestamp() });
-        logger.info('[embeddings] Deactivated embedding', { articleId });
-      }
+    // Changer sa photo de profil réécrit tous les articles du vendeur : sans
+    // cette garde, chaque article coûtait une lecture et une écriture
+    // d'embedding pour des champs qui n'avaient pas bougé.
+    if (before && isDeepStrictEqual(embeddingProjection(before), embeddingProjection(after))) {
       return;
     }
 
-    // Mirror the search_index filter (P3-8): never (re)generate or refresh an
-    // embedding for an inactive or rejected article. The deactivation case above
-    // already flipped the flag; this guards remaining transitions (e.g. created
-    // inactive then edited, or moderation-rejected) so we don't index them.
-    if (!after.isActive || after.moderationStatus === 'rejected') {
-      logger.info('[embeddings] Inactive/rejected article on update, skipping', { articleId });
-      return;
-    }
-
-    // Check if main image changed
-    const beforeImage = before?.images?.[0]?.url;
-    const afterImage = after.images?.[0]?.url;
-
-    if (beforeImage !== afterImage && afterImage) {
-      // Image changed: regenerate embedding
-      await generateAndStoreEmbedding(articleId, after);
-    } else {
-      // Only metadata changed: update denormalized fields
-      await updateEmbeddingMetadata(articleId, after);
-    }
+    await processEmbeddingEvent(event.time, articleId, async () => {
+      const missingSource = await updateEmbeddingMetadata(articleId, after);
+      if (missingSource) await generateAndStoreEmbedding(articleId, missingSource);
+    });
   }
 );

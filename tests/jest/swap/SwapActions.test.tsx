@@ -1,270 +1,91 @@
-/**
- * SwapActions — machine à états du cycle de vie d'un échange.
- *
- * SwapActions rend l'UI d'action en fonction de (status, rôle de l'utilisateur,
- * progression). On vérifie le comportement MÉTIER de chaque transition :
- *  - proposed : le receveur voit Accepter/Refuser ; l'initiateur voit Annuler.
- *  - payment_pending : le payeur du complément voit "Régler le complément" ;
- *    l'autre voit l'attente du paiement.
- *  - accepted (sans mode) : sélection du mode d'échange.
- *  - photos_pending : upload puis attente.
- *  - shipping : confirmer l'envoi puis la réception ; litige disponible.
- *  - completed : notation + litige (fenêtre de protection).
- *
- * Les callbacks sont fournis par l'écran ; on s'assure qu'ils sont câblés au
- * bon bouton et neutralisés pendant le traitement (isProcessing).
- */
-
+/** Main and options actions follow the current agreement, participant and receipt state. */
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
-
-// Le barrel @/components/ui ré-exporte des composants natifs lourds
-// (ThemedBottomSheet → @expo/ui → expo-asset, OfflineBanner → expo-network…)
-// non transformés par le preset. SwapActions n'en consomme que Text/Caption :
-// on réduit le barrel à ces primitives (texte RN).
-jest.mock('@/components/ui', () => {
-  const React = require('react');
-  const { Text: RNText } = require('react-native');
-  const Text = (props: Record<string, unknown>) => React.createElement(RNText, props);
-  const Caption = (props: Record<string, unknown>) => React.createElement(RNText, props);
-  return { Text, Caption };
-});
-
-// Le mock global d'expo-router expose useLocalSearchParams comme simple fonction
-// (pas un jest.fn). Le bouton litige de SwapActions en a besoin pour résoudre le
-// swapId → on le re-mocke en jest.fn paramétrable.
-jest.mock('expo-router', () => ({
-  useLocalSearchParams: jest.fn(() => ({ id: 'swap-1' })),
-}));
-
-// La callable de litige est appelée par le bouton "Ouvrir un litige" ; on la
-// neutralise (le rendu/affichage du bouton suffit pour ce test métier).
-jest.mock('@/services/swapService', () => ({
-  openSwapDispute: jest.fn(() => Promise.resolve()),
-}));
-
-import { SwapActions } from '@/features/swap/components/SwapActions';
-import type { SwapActionHandlers, SwapParticipantContext } from '@/features/swap/types';
-import type { SwapStatus } from '@/types';
-
-// useLocalSearchParams est mocké global ({}). Le bouton litige résout swapId
-// depuis la route ; on le surcharge ici pour les scénarios shipping/completed.
-import { useLocalSearchParams } from 'expo-router';
-
-function makeHandlers(): SwapActionHandlers {
-  return {
-    onAccept: jest.fn(),
-    onDecline: jest.fn(),
-    onCancel: jest.fn(),
-    onPayTopUp: jest.fn(),
-    onSetExchangeMode: jest.fn(),
-    onUploadPhotos: jest.fn(),
-    onConfirmShipping: jest.fn(),
-    onConfirmReception: jest.fn(),
-    onRate: jest.fn(),
-  };
+import * as RN from 'react-native';
+import {fireEvent, render, screen} from '@testing-library/react-native';
+import {establishIdentityFixture, clearIdentityFixture} from '@/tests/jest/helpers/identityFixture';
+import type {SwapActionHandlers, SwapParticipantContext} from '@/features/swap/types';
+import type {SwapStatus} from '@/types';
+jest.mock('@/components/ui', () => ({Text: jest.requireActual('@/components/ui/Text').Text,
+  Caption: jest.requireActual('@/components/ui/Text').Caption, Button: jest.requireActual('@/components/ui/Button').Button}));
+jest.mock('expo-router', () => ({useLocalSearchParams: () => ({id: 'swap-1'}),
+  useFocusEffect: (effect: () => void | (() => void)) => require('react').useEffect(effect, [effect])}));
+jest.mock('@/services/swapService', () => ({openSwapDispute: jest.fn(async () => undefined)}));
+jest.mock('@/config/featureFlags', () => ({PAYMENTS_ENABLED: false}));
+import {SwapActions} from '@/features/swap/components/detail/SwapActions';
+const flags = jest.requireMock('@/config/featureFlags') as {PAYMENTS_ENABLED: boolean};
+const participant = (over: Partial<SwapParticipantContext> = {}): SwapParticipantContext => ({isInitiator: false, isReceiver: false,
+ senderName: 'Alice', senderImage: undefined, senderItems: [], myItems: [], hasUploadedPhotos: false, hasConfirmedShipping: false,
+ hasConfirmedReception: false, hasRated: false, isTopUpPayer: false, topUpPayerName: 'Alice', ...over});
+const handlers = (): SwapActionHandlers => ({onAccept: jest.fn(), onDecline: jest.fn(), onCancel: jest.fn(), onPayTopUp: jest.fn(),
+ onSetExchangeMode: jest.fn(), onUploadPhotos: jest.fn(), onConfirmShipping: jest.fn(), onConfirmReception: jest.fn(), onRate: jest.fn()});
+function surface(status: SwapStatus, over: Partial<SwapParticipantContext> = {}, extra: {optionsOnly?: boolean; isProcessing?: boolean; exchangeMode?: string; agreementReady?: boolean} = {}) {
+ const h = handlers(); render(<SwapActions status={status} participant={participant(over)} handlers={h} isProcessing={false} exchangeMode="shipping" {...extra}/>); return h;
 }
-
-function makeParticipant(over: Partial<SwapParticipantContext> = {}): SwapParticipantContext {
-  return {
-    isInitiator: false,
-    isReceiver: false,
-    senderName: 'Alice',
-    senderImage: undefined,
-    senderItems: [],
-    myItems: [],
-    hasUploadedPhotos: false,
-    hasConfirmedShipping: false,
-    hasConfirmedReception: false,
-    hasRated: false,
-    isTopUpPayer: false,
-    topUpPayerName: 'Alice',
-    ...over,
-  };
-}
-
-function renderActions(opts: {
-  status: SwapStatus;
-  participant?: Partial<SwapParticipantContext>;
-  handlers?: SwapActionHandlers;
-  isProcessing?: boolean;
-  exchangeMode?: string;
-}) {
-  const handlers = opts.handlers ?? makeHandlers();
-  render(
-    <SwapActions
-      status={opts.status}
-      participant={makeParticipant(opts.participant)}
-      handlers={handlers}
-      isProcessing={opts.isProcessing ?? false}
-      exchangeMode={opts.exchangeMode}
-    />
-  );
-  return handlers;
-}
-
-describe('SwapActions — statut proposed', () => {
-  it('le receveur peut accepter ou refuser', () => {
-    const handlers = renderActions({ status: 'proposed', participant: { isReceiver: true } });
-
-    fireEvent.press(screen.getByText('Accepter'));
-    expect(handlers.onAccept).toHaveBeenCalledTimes(1);
-
-    fireEvent.press(screen.getByText('Refuser'));
-    expect(handlers.onDecline).toHaveBeenCalledTimes(1);
-    // L'initiateur ne doit pas voir le bouton Annuler ici.
-    expect(screen.queryByText('Annuler la proposition')).toBeNull();
-  });
-
-  it('l’initiateur ne voit que l’annulation, pas accepter/refuser', () => {
-    const handlers = renderActions({ status: 'proposed', participant: { isInitiator: true } });
-
-    expect(screen.queryByText('Accepter')).toBeNull();
-    fireEvent.press(screen.getByText('Annuler la proposition'));
-    expect(handlers.onCancel).toHaveBeenCalledTimes(1);
-  });
-
-  it('neutralise accepter pendant le traitement (isProcessing)', () => {
-    const handlers = renderActions({
-      status: 'proposed',
-      participant: { isReceiver: true },
-      isProcessing: true,
-    });
-
-    // En cours : le label disparaît au profit du spinner, donc onAccept reste à 0.
-    expect(screen.queryByText('Accepter')).toBeNull();
-    expect(handlers.onAccept).not.toHaveBeenCalled();
-  });
+beforeEach(() => {establishIdentityFixture('me'); flags.PAYMENTS_ENABLED = false;});
+afterEach(() => {clearIdentityFixture(); jest.restoreAllMocks();});
+it('accepts a receiver proposal through the main action', () => {
+ const h = surface('proposed', {isReceiver: true}); fireEvent.press(screen.getByText('Accepter la proposition'));
+ expect(h.onAccept).toHaveBeenCalledTimes(1); expect(screen.queryByText('Refuser la proposition')).toBeNull();
 });
-
-describe('SwapActions — statut payment_pending (complément)', () => {
-  it.each([true, false])('aucun règlement lorsque les paiements sont désactivés (payeur=%s)', isTopUpPayer => {
-    const handlers = renderActions({ status: 'payment_pending', participant: { isTopUpPayer } });
-    expect(screen.getByText('Ce complément appartient à un ancien échange. Les paiements sont indisponibles actuellement.')).toBeOnTheScreen();
-    expect(screen.queryByText('Régler le complément')).toBeNull();
-    expect(handlers.onPayTopUp).not.toHaveBeenCalled();
-  });
-
+it('keeps refusal in receiver options and does not show initiator cancellation', () => {
+ const h = surface('proposed', {isReceiver: true}, {optionsOnly: true}); fireEvent.press(screen.getByText('Refuser la proposition'));
+ expect(h.onDecline).toHaveBeenCalledTimes(1); expect(screen.queryByText('Annuler la proposition')).toBeNull();
 });
-
-describe('SwapActions — statut accepted', () => {
-  it('propose le choix du mode d’échange tant qu’aucun mode n’est défini', () => {
-    const handlers = renderActions({ status: 'accepted', exchangeMode: undefined });
-
-    fireEvent.press(screen.getByText('En main propre'));
-    expect(handlers.onSetExchangeMode).toHaveBeenCalledWith('hand_delivery');
-
-    fireEvent.press(screen.getByText('Envoi postal'));
-    expect(handlers.onSetExchangeMode).toHaveBeenCalledWith('shipping');
-  });
-
-  it('masque le sélecteur de mode une fois le mode choisi', () => {
-    renderActions({ status: 'accepted', exchangeMode: 'shipping' });
-
-    expect(screen.queryByText('En main propre')).toBeNull();
-  });
-
-  it('expose l’ouverture de litige dès accepted (F51 — payeur coincé)', () => {
-    renderActions({ status: 'accepted', exchangeMode: 'shipping' });
-
-    expect(screen.getByText('Ouvrir un litige')).toBeOnTheScreen();
-  });
+it('keeps cancellation in initiator options', () => {
+ const h = surface('proposed', {isInitiator: true}, {optionsOnly: true}); fireEvent.press(screen.getByText('Annuler la proposition'));
+ expect(h.onCancel).toHaveBeenCalledTimes(1); expect(screen.queryByText('Accepter la proposition')).toBeNull();
 });
-
-describe('SwapActions — statut photos_pending', () => {
-  it('propose l’upload tant que les photos ne sont pas envoyées', () => {
-    const handlers = renderActions({
-      status: 'photos_pending',
-      participant: { hasUploadedPhotos: false },
-    });
-
-    fireEvent.press(screen.getByText('Ajouter des photos'));
-    expect(handlers.onUploadPhotos).toHaveBeenCalledTimes(1);
-  });
-
-  it('affiche l’attente de l’autre participant une fois ses photos envoyées', () => {
-    renderActions({ status: 'photos_pending', participant: { hasUploadedPhotos: true } });
-
-    expect(screen.getByText("Vos photos sont ajoutées. Vous attendez celles de l’autre membre.")).toBeOnTheScreen();
-    expect(screen.queryByText('Ajouter des photos')).toBeNull();
-  });
-
-  it('expose l’ouverture de litige dès photos_pending (F51)', () => {
-    renderActions({ status: 'photos_pending', participant: { hasUploadedPhotos: true } });
-
-    expect(screen.getByText('Ouvrir un litige')).toBeOnTheScreen();
-  });
+it('disables acceptance and refusal while processing', () => {
+ const h = handlers(); render(<><SwapActions status="proposed" participant={participant({isReceiver: true})} handlers={h} isProcessing exchangeMode="shipping"/>
+ <SwapActions optionsOnly status="proposed" participant={participant({isReceiver: true})} handlers={h} isProcessing exchangeMode="shipping"/></>);
+ expect(screen.getByRole('button', {name: 'Refuser la proposition'})).toBeDisabled(); expect(h.onDecline).not.toHaveBeenCalled(); expect(h.onAccept).not.toHaveBeenCalled();
 });
-
-describe('SwapActions — statut shipping', () => {
-  beforeEach(() => {
-    (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'swap-1' });
-  });
-
-  it('demande d’abord la confirmation d’envoi', () => {
-    const handlers = renderActions({
-      status: 'shipping',
-      participant: { hasConfirmedShipping: false },
-    });
-
-    fireEvent.press(screen.getByText("J'ai envoyé mes articles"));
-    expect(handlers.onConfirmShipping).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('icon-send')).toBeOnTheScreen();
-    // Pas encore la réception.
-    expect(screen.queryByText("J'ai reçu les articles")).toBeNull();
-  });
-
-  it('demande la réception une fois l’envoi confirmé', () => {
-    const handlers = renderActions({
-      status: 'shipping',
-      participant: { hasConfirmedShipping: true, hasConfirmedReception: false },
-    });
-
-    fireEvent.press(screen.getByText("J'ai reçu les articles"));
-    expect(handlers.onConfirmReception).toHaveBeenCalledTimes(1);
-  });
-
-  it('confirme une remise en main propre avec le même handler serveur', () => {
-    const handlers = renderActions({ status: 'shipping', exchangeMode: 'hand_delivery' });
-    fireEvent.press(screen.getByText("J'ai remis mes articles"));
-    expect(handlers.onConfirmShipping).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("J'ai envoyé mes articles")).toBeNull();
-    expect(screen.getByTestId('icon-hand-left-outline')).toBeOnTheScreen();
-    expect(screen.queryByTestId('icon-send')).toBeNull();
-  });
-
-  it('explique l’attente après sa confirmation de réception', () => {
-    renderActions({ status: 'shipping', participant: { hasConfirmedShipping: true, hasConfirmedReception: true } });
-    expect(screen.getByText('Réception confirmée. Vous attendez la confirmation de l’autre membre.')).toBeOnTheScreen();
-    expect(screen.queryByText("J'ai reçu les articles")).toBeNull();
-  });
-
-  it('expose toujours l’ouverture de litige pendant l’envoi', () => {
-    renderActions({ status: 'shipping', participant: { hasConfirmedShipping: false } });
-
-    expect(screen.getByText('Ouvrir un litige')).toBeOnTheScreen();
-  });
+it.each([true, false])('keeps production payment actions closed for payer=%s', isTopUpPayer => {
+ const h = surface('payment_pending', {isTopUpPayer}); expect(screen.queryByText('Régler le complément')).toBeNull(); expect(h.onPayTopUp).not.toHaveBeenCalled();
 });
-
-describe('SwapActions — statut completed', () => {
-  beforeEach(() => {
-    (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'swap-1' });
-  });
-
-  it('propose la notation tant que l’échange n’a pas été noté', () => {
-    const handlers = renderActions({ status: 'completed', participant: { hasRated: false } });
-
-    // 5 étoiles cliquables → on note 5.
-    const fives = screen.getByText('5');
-    fireEvent.press(fives);
-    expect(handlers.onRate).toHaveBeenCalledWith(5);
-  });
-
-  it('laisse la fenêtre de litige ouverte après complétion', () => {
-    renderActions({ status: 'completed', participant: { hasRated: true } });
-
-    expect(screen.getByText('Ouvrir un litige')).toBeOnTheScreen();
-    // Déjà noté → la section de notation disparaît.
-    expect(screen.queryByText("Comment s'est passé l'échange ?")).toBeNull();
-  });
+it('preserves the explicitly enabled legacy payer callback', () => {
+ flags.PAYMENTS_ENABLED = true; const h = surface('payment_pending', {isTopUpPayer: true}); fireEvent.press(screen.getByText('Régler le complément')); expect(h.onPayTopUp).toHaveBeenCalledTimes(1);
+});
+it('does not offer a mode change after agreement acceptance', () => {
+ const h = surface('accepted', {}, {exchangeMode: undefined}); expect(screen.queryByText('En main propre')).toBeNull(); expect(screen.queryByText('Envoi postal')).toBeNull(); expect(h.onSetExchangeMode).not.toHaveBeenCalled();
+});
+it.each(['accepted', 'photos_pending', 'shipping'] as const)('allows dispute in the options of %s with a current agreement', status => {
+ surface(status, {}, {optionsOnly: true}); expect(screen.getByRole('button', {name: 'Ouvrir un litige'})).toBeEnabled();
+});
+it('requires a qualified agreement before active transport actions', () => {
+ const h = surface('shipping', {counterpartHasShipped: true}, {agreementReady: false});
+ expect(screen.queryByText('J’ai reçu les articles')).toBeNull(); expect(screen.queryByText('J’ai envoyé mes articles')).toBeNull(); expect(h.onConfirmReception).not.toHaveBeenCalled();
+});
+it('offers missing postal photos through the upload callback', () => {
+ const h = surface('photos_pending'); fireEvent.press(screen.getByText('Ajouter des photos')); expect(h.onUploadPhotos).toHaveBeenCalledTimes(1);
+});
+it('does not offer photos again when they are already uploaded', () => {surface('photos_pending', {hasUploadedPhotos: true}); expect(screen.queryByText('Ajouter des photos')).toBeNull();});
+it('does not require postal photos for a hand delivery', () => {surface('photos_pending', {}, {exchangeMode: 'hand_delivery'}); expect(screen.queryByText('Ajouter des photos')).toBeNull();});
+it('offers sending while no counterpart dispatch has been observed', () => {
+ const h = surface('shipping'); fireEvent.press(screen.getByText('J’ai envoyé mes articles')); expect(h.onConfirmShipping).toHaveBeenCalledTimes(1); expect(screen.queryByText('J’ai reçu les articles')).toBeNull();
+});
+it('never infers counterpart dispatch from the member’s own sending confirmation', () => {
+ const h = surface('shipping', {hasConfirmedShipping: true}); expect(screen.queryByText('J’ai reçu les articles')).toBeNull(); expect(h.onConfirmReception).not.toHaveBeenCalled();
+});
+it('offers reception after explicit counterpart dispatch', () => {
+ const h = surface('shipping', {hasConfirmedShipping: true, counterpartHasShipped: true}); fireEvent.press(screen.getByText('J’ai reçu les articles')); expect(h.onConfirmReception).toHaveBeenCalledTimes(1);
+});
+it('retains sending in options when reception has priority', () => {
+ const h = surface('shipping', {counterpartHasShipped: true}, {optionsOnly: true}); fireEvent.press(screen.getByText('J’ai envoyé mes articles')); expect(h.onConfirmShipping).toHaveBeenCalledTimes(1);
+});
+it('confirms receiving in a hand delivery without inventing a postal dispatch', () => {
+ const h = surface('accepted', {}, {exchangeMode: 'hand_delivery'}); fireEvent.press(screen.getByText('J’ai reçu les articles')); expect(h.onConfirmReception).toHaveBeenCalledTimes(1); expect(h.onConfirmShipping).not.toHaveBeenCalled();
+});
+it('does not repeat a confirmed reception', () => {surface('shipping', {hasConfirmedShipping: true, hasConfirmedReception: true, counterpartHasShipped: true}); expect(screen.queryByText('J’ai reçu les articles')).toBeNull();});
+it('rates a completed swap through its rating callback', () => {const h = surface('completed'); fireEvent.press(screen.getByRole('button', {name: 'Évaluer l’échange : 5 sur 5'})); expect(h.onRate).toHaveBeenCalledWith(5);});
+it('keeps dispute options after completion without repeating a submitted rating', () => {surface('completed', {hasRated: true}, {optionsOnly: true}); expect(screen.getByText('Ouvrir un litige')).toBeOnTheScreen(); expect(screen.queryByText("Comment s'est passé l'échange ?")).toBeNull();});
+it('keeps the dispute dialog lock across a font-size change and releases only on cancellation', () => {
+ const dimensions = jest.spyOn(RN, 'useWindowDimensions'); dimensions.mockReturnValue({width: 390, height: 844, scale: 3, fontScale: 1});
+ const alert = jest.spyOn(RN.Alert, 'alert').mockImplementation(() => undefined); const p = participant(), h = handlers();
+ const tree = () => <SwapActions optionsOnly status="shipping" participant={p} handlers={h} isProcessing={false} exchangeMode="hand_delivery"/>;
+ const view = render(tree()); fireEvent.press(screen.getByRole('button', {name: 'Ouvrir un litige'})); expect(alert).toHaveBeenCalledTimes(1);
+ dimensions.mockReturnValue({width: 390, height: 844, scale: 3, fontScale: 2}); view.rerender(tree());
+ fireEvent.press(screen.getByRole('button', {name: 'Ouvrir un litige'})); expect(alert).toHaveBeenCalledTimes(1);
+ alert.mock.calls[0][2]?.find(button => button.text === 'Annuler')?.onPress?.();
+ fireEvent.press(screen.getByRole('button', {name: 'Ouvrir un litige'})); expect(alert).toHaveBeenCalledTimes(2);
 });

@@ -5,10 +5,10 @@
  * - état "achetable" : double CTA Offre + Acheter (avec prix formaté CA),
  *   et chaque bouton notifie le bon handler ;
  * - feature flag livraison désactivée : le bouton d'achat devient une simple
- *   PROPOSITION d'achat (pas de paiement), libellé "PROPOSER UN ACHAT" ;
+ *   PROPOSITION d'achat (pas de paiement), libellé "Proposer un achat" ;
  * - article vendu / réservé : la barre verrouille l'achat et affiche l'état,
  *   aucun CTA d'achat n'est rendu ;
- * - contexte d'échange (SwapZone) : un unique CTA "PROPOSER UN ÉCHANGE" ;
+ * - contexte d'échange (SwapZone) : un unique CTA "Proposer un échange" ;
  * - article du vendeur lui-même : message "C'est votre article", pas d'achat.
  */
 
@@ -44,7 +44,7 @@ describe('<ArticleCTABar />', () => {
       renderBar({ price: 45, onBuy });
 
       // Prix entier → "45 $" (convention formatPrice CA, sans décimales).
-      expect(screen.getByText('ACHETER · 45 $')).toBeOnTheScreen();
+      expect(screen.getByText('Acheter · 45 $')).toBeOnTheScreen();
 
       fireEvent.press(screen.getByTestId('article-buy-button'));
       expect(onBuy).toHaveBeenCalledTimes(1);
@@ -52,7 +52,7 @@ describe('<ArticleCTABar />', () => {
 
     it('formate un prix décimal avec virgule (45,50 $)', () => {
       renderBar({ price: 45.5 });
-      expect(screen.getByText('ACHETER · 45,50 $')).toBeOnTheScreen();
+      expect(screen.getByText('Acheter · 45,50 $')).toBeOnTheScreen();
     });
 
     it('expose un CTA Offre distinct qui notifie onMakeOffer (pas onBuy)', () => {
@@ -70,8 +70,8 @@ describe('<ArticleCTABar />', () => {
     it('transforme l\'achat en proposition (pas de prix, libellé dédié)', () => {
       renderBar({ shippingEnabled: false, price: 45 });
 
-      expect(screen.getByText('PROPOSER UN ACHAT')).toBeOnTheScreen();
-      expect(screen.queryByText('ACHETER · 45 $')).not.toBeOnTheScreen();
+      expect(screen.getByText('Proposer un achat')).toBeOnTheScreen();
+      expect(screen.queryByText('Acheter · 45 $')).not.toBeOnTheScreen();
       // Le CTA reste fonctionnel : c'est le même bouton d'achat.
       expect(screen.getByTestId('article-buy-button')).toBeOnTheScreen();
     });
@@ -106,7 +106,7 @@ describe('<ArticleCTABar />', () => {
       const onProposeSwap = jest.fn();
       renderBar({ isSwapContext: true, onProposeSwap });
 
-      expect(screen.getByText('PROPOSER UN ÉCHANGE')).toBeOnTheScreen();
+      expect(screen.getByText('Proposer un échange')).toBeOnTheScreen();
       // En contexte swap, ni achat ni offre monétaire.
       expect(screen.queryByTestId('article-buy-button')).not.toBeOnTheScreen();
       expect(screen.queryByTestId('article-make-offer-button')).not.toBeOnTheScreen();

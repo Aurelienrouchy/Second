@@ -13,6 +13,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import {hasPhase1LocalOfferOrigin} from '../utils/phase1CronPartition';
 
 /**
  * F80: bound the stale-offer query per run. An unbounded .get() loads every
@@ -52,6 +53,7 @@ const LIVE_TRANSACTION_STATUSES = new Set<string>([
   'disputed',
   'refunded',
   'refund_in_progress',
+  'refund_action_required',
   'delivery_failed',
   'lost',
   'return_requested',
@@ -106,6 +108,8 @@ export const expireStaleOffers = onSchedule(
       for (const candidate of pendingOffersSnap.docs) {
         const expired = await db.runTransaction(async (tx) => {
           const current = (await tx.get(candidate.ref)).data();
+          // Native phase-1 proposals have a separate installation/epoch job.
+          if (hasPhase1LocalOfferOrigin(current)) return false;
           const expiresAt = toMillis(current?.offer?.expiresAt);
           // A query snapshot can be stale after acceptance or replacement.
           if (current?.offer?.status !== 'pending' || expiresAt == null || expiresAt >= now.getTime()) return false;
@@ -178,6 +182,7 @@ export const expireStaleAcceptedOffers = onSchedule(
 
       for (const offerDoc of acceptedOffersSnap.docs) {
         const data = offerDoc.data();
+        if (hasPhase1LocalOfferOrigin(data)) continue;
         const offer = data.offer ?? {};
 
         // Grace window: skip offers accepted too recently to be considered
@@ -200,6 +205,7 @@ export const expireStaleAcceptedOffers = onSchedule(
             const freshOffer = fresh.data()?.offer ?? {};
             if (freshOffer.status !== 'accepted') return false;
             const freshData = fresh.data()!;
+            if (hasPhase1LocalOfferOrigin(freshData)) return false;
             const chatId = freshData.chatId;
             if (typeof chatId !== 'string') return false;
             // Transactional reads prevent checkout/acceptance from racing the
@@ -211,7 +217,7 @@ export const expireStaleAcceptedOffers = onSchedule(
               if (freshOffer.transactionId) return d.id === freshOffer.transactionId;
               if (agreement.offerMessageId) return agreement.offerMessageId === offerDoc.id;
               // Conservative legacy fallback when no link was ever persisted.
-              return agreement.buyerId === (freshOffer.buyerId ?? freshData.senderId) &&
+              return (agreement.buyerId === (freshOffer.buyerId ?? freshData.senderId) || agreement.sellerId === freshData.senderId) &&
                 (agreement.amount == null || agreement.amount === freshOffer.amount);
             });
             if (consumed) { totalConsumed++; return false; }

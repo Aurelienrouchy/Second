@@ -22,7 +22,7 @@ const stripeMock: StripeMock = createStripeMock();
 holder.fs = fs;
 holder.stripe = stripeMock;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -31,7 +31,8 @@ vi.mock('../config/firebase', () => ({
   },
 }));
 
-vi.mock('firebase-admin/firestore', () => ({
+vi.mock('firebase-admin/firestore', async importOriginal => ({
+  ...await importOriginal<typeof import('firebase-admin/firestore')>(),
   Timestamp: {
     fromMillis: (ms: number) => ({ toMillis: () => ms, __ts: true }),
   },
@@ -129,13 +130,13 @@ describe('confirmSwapReception — race-safe pending -> held (F54)', () => {
     seedShippingSwap();
 
     // First party (payer P) confirms — not both yet, no money move.
-    await callConfirm({ auth: { uid: 'P' }, data: { swapId: 's1' } });
+    await callConfirm({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'P' }, data: { expectedUid: 'P', swapId: 's1' } });
     expect(fs.getDoc('wallets/Q')!.pendingBalance).toBe(5000);
     expect(fs.getDoc('wallets/Q')!.heldBalance).toBe(0);
     expect(fs.getDoc('swaps/s1')!.status).toBe('shipping');
 
     // Second party (payee Q) confirms — both received → completed + pending->held.
-    await callConfirm({ auth: { uid: 'Q' }, data: { swapId: 's1' } });
+    await callConfirm({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'Q' }, data: { expectedUid: 'Q', swapId: 's1' } });
     expect(fs.getDoc('swaps/s1')!.status).toBe('completed');
     expect(fs.getDoc('wallets/Q')!.pendingBalance).toBe(0);
     expect(fs.getDoc('wallets/Q')!.heldBalance).toBe(5000);
@@ -143,14 +144,14 @@ describe('confirmSwapReception — race-safe pending -> held (F54)', () => {
 
   it('a duplicate confirmation after completion is a no-op (no double held move)', async () => {
     seedShippingSwap();
-    await callConfirm({ auth: { uid: 'P' }, data: { swapId: 's1' } });
-    await callConfirm({ auth: { uid: 'Q' }, data: { swapId: 's1' } });
+    await callConfirm({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'P' }, data: { expectedUid: 'P', swapId: 's1' } });
+    await callConfirm({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'Q' }, data: { expectedUid: 'Q', swapId: 's1' } });
     expect(fs.getDoc('wallets/Q')!.heldBalance).toBe(5000);
 
     // A stale/duplicate confirmation re-reads status='completed' and is rejected
     // by the status guard — heldBalance must NOT move again.
     await expect(
-      callConfirm({ auth: { uid: 'P' }, data: { swapId: 's1' } })
+      callConfirm({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'P' }, data: { expectedUid: 'P', swapId: 's1' } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(fs.getDoc('wallets/Q')!.heldBalance).toBe(5000);
     expect(fs.getDoc('wallets/Q')!.pendingBalance).toBe(0);

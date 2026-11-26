@@ -1,11 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, radius } from '@/constants/theme';
+import { colors, components, spacing } from '@/constants/theme';
 
 interface SellFooterProps {
   label: string;
   onPress: () => void;
+  /**
+   * Called on a tap while the step is invalid, to say why. Without it the
+   * button is simply disabled — and a screen whose messages only appear on a
+   * tap never showed them.
+   */
+  onInvalidPress?: () => void;
   isValid: boolean;
   bottomInset: number;
   testID?: string;
@@ -14,6 +20,7 @@ interface SellFooterProps {
 export const SellFooter = React.memo(function SellFooter({
   label,
   onPress,
+  onInvalidPress,
   isValid,
   bottomInset,
   testID,
@@ -27,8 +34,9 @@ export const SellFooter = React.memo(function SellFooter({
           !isValid && styles.continueButtonDisabled,
           pressed && { opacity: 0.7 },
         ]}
-        onPress={onPress}
-        disabled={!isValid}
+        onPress={isValid ? onPress : onInvalidPress}
+        disabled={!isValid && !onInvalidPress}
+        accessibilityState={{ disabled: !isValid }}
       >
         <Text
           style={[
@@ -41,7 +49,7 @@ export const SellFooter = React.memo(function SellFooter({
         <Ionicons
           name="arrow-forward"
           size={18}
-          color={isValid ? colors.cream : colors.muted}
+          color={isValid ? colors.foreground : colors.muted}
         />
       </Pressable>
     </View>
@@ -57,22 +65,17 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   continueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.charcoal,
-    paddingVertical: 16,
-    borderRadius: radius.md,
-    gap: 10,
+    ...components.button.container,
+    ...components.button.primary,
+    paddingVertical: spacing.md,
   },
   continueButtonDisabled: {
-    backgroundColor: colors.border,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceWarm,
   },
   continueButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    letterSpacing: 2.16,
-    color: colors.cream,
+    ...components.button.label,
+    ...components.button.primaryLabel,
   },
   continueButtonTextDisabled: {
     color: colors.muted,

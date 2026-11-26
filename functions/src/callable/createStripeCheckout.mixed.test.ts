@@ -1,399 +1,57 @@
-/**
- * Tests for createStripeCheckout mixed wallet+card edge cases.
- *  - F24: when the CARD remainder of a mixed payment would fall below Stripe's
- *         CAD 50¢ minimum, reject BEFORE debiting the wallet (no invalid PI, no
- *         confusing debit/revert round-trip).
- *  - F23: when Stripe PI creation fails, the wallet re-credit AND the
- *         walletAmountUsed/paidVia purge happen in ONE transaction (so no refund
- *         path can later re-credit a phantom wallet portion).
- */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createFirestoreMock, createStripeMock } from '../utils/testHelpers/firestoreMock';
-import type { MockFirestore } from '../utils/testHelpers/firestoreMock';
-
-const holder = vi.hoisted(() => ({
-  fs: null as MockFirestore | null,
-  stripe: null as ReturnType<typeof import('../utils/testHelpers/firestoreMock').createStripeMock> | null,
-}));
-
-const fs: MockFirestore = createFirestoreMock();
-const stripeMock = createStripeMock();
-holder.fs = fs;
-holder.stripe = stripeMock;
-
-vi.mock('../config/firebase', () => ({
-  get db() {
-    return holder.fs!.db;
-  },
-  get FieldValue() {
-    return holder.fs!.FieldValue;
-  },
-}));
-
-vi.mock('../config/stripe', () => ({
-  getStripe: () => holder.stripe!.client,
-}));
-
-vi.mock('../config/shipEngine', () => ({
-  getShipEngine: () => ({}),
-}));
-
-// calculateFees returns a controlled buyerTotal so we can size the card remainder
-// precisely. The other fee exports are unused on this path but must exist.
-const feeHolder = vi.hoisted(() => ({ buyerTotal: 10 }));
-vi.mock('../utils/fees', () => ({
-  calculateFees: () => ({
-    articlePrice: feeHolder.buyerTotal,
-    shippingCost: 0,
-    serviceFee: 0,
-    serviceFeePercent: 0,
-    taxTotal: 0,
-    taxGst: 0,
-    taxQst: 0,
-    sellerPayout: feeHolder.buyerTotal,
-    buyerTotal: feeHolder.buyerTotal,
-  }),
-  calculateServiceFee: () => 0,
-  getServiceFeeConfig: () => ({}),
-  calculateTaxOnServiceFee: () => 0,
-  getTaxConfig: () => ({ enabled: false }),
-}));
-
-vi.mock('../utils/rateLimit', () => ({
-  checkRateLimit: async () => {},
-  resolveCallerKey: (request: { auth?: { uid?: string } }) => ({
-    callerKey: request.auth?.uid ?? 'anon',
-    isAuthenticated: !!request.auth,
-  }),
-}));
-
-vi.mock('../utils/trackingTransition', () => ({
-  applyTrackingOutcome: () => {},
-  DELIVERABLE_STATUSES: new Set<string>(),
-}));
-
-vi.mock('../utils/notifications', () => ({
-  sendPushNotification: async () => {},
-}));
-
-vi.mock('../utils/refund', () => ({
-  issueTransactionRefund: async () => ({ success: true }),
-}));
-
-vi.mock('firebase-functions/logger', () => ({
-  info: () => {},
-  error: () => {},
-  warn: () => {},
-  debug: () => {},
-}));
-
-vi.mock('firebase-functions/v2/https', () => {
-  class _HttpsError extends Error {
-    code: string;
-    constructor(code: string, message: string) {
-      super(message);
-      this.code = code;
-      this.name = 'HttpsError';
-    }
-  }
-  return {
-    onCall: (_opts: unknown, handler: unknown) => handler,
-    HttpsError: _HttpsError,
-  };
-});
-
-import { createStripeCheckout } from './payments';
-
-type CallableHandler = (request: {
-  auth?: { uid: string } | null;
-  data?: Record<string, unknown>;
-}) => Promise<Record<string, unknown>>;
-const call = createStripeCheckout as unknown as CallableHandler;
-
-function seedPending(opts?: { walletBalance?: number }) {
-  fs.setDoc('transactions/tx1', {
-    buyerId: 'buyer1',
-    sellerId: 'seller1',
-    status: 'pending_payment',
-    amount: feeHolder.buyerTotal,
-    shippingCost: 0,
-    articleId: 'article1',
-  });
-  fs.setDoc('wallets/buyer1', {
-    balance: opts?.walletBalance ?? 100000,
-    pendingBalance: 0,
-    status: 'active',
-    currency: 'cad',
-  });
-  fs.setDoc('users/seller1', { stripeAccountId: 'acct_seller1' });
+/** Author 03B3C: real quote/claim handlers, explicit eligible fixtures. Provider IO simulated. */
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { createFirestoreMock, type MockFirestore } from '../utils/testHelpers/firestoreMock';
+const h = vi.hoisted(() => ({ fs: null as MockFirestore | null, retrieve: null as any, get: null as any, analytics: null as any, create: null as any, piRetrieve: null as any, params: [] as any[], labels: 0, confirm: null as any, cancel: null as any, list: null as any, pis: new Map<string,any>(), confirms: 0, cancels: 0 }));
+const fs = createFirestoreMock({ enforceReadBeforeWrite: true }); h.fs = fs;
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) }, get db() { return h.fs!.db; }, get FieldValue() { return { ...h.fs!.FieldValue, serverTimestamp: () => new Date() }; } }));
+vi.mock('../config/stripe', () => ({ getStripe: () => ({ accounts: { retrieve: (...args: any[]) => h.retrieve(...args) }, paymentIntents: { create: (...args:any[]) => h.create(...args), retrieve: (...args:any[]) => h.piRetrieve(...args), confirm: (...args:any[]) => h.confirm(...args), cancel: (...args:any[]) => h.cancel(...args), list: (...args:any[]) => h.list(...args) } }) }));
+vi.mock('../config/shipEngine', () => ({ getShipEngine: () => ({ getPurchaseRates: async () => purchaseRates(), getPurchaseRatesForShipment: (...args: any[]) => h.get(...args) }) }));
+vi.mock('../utils/labelFulfillment', async original => ({ ...await original<any>(), createLabelIdempotent: async () => { h.labels++; return 'failed'; } }));
+vi.mock('../utils/rateLimit', () => ({ checkRateLimit: async () => {}, resolveCallerKey: (r: any) => ({ callerKey: r.auth?.uid, isAuthenticated: !!r.auth }) }));
+vi.mock('../lib/analytics', () => ({ captureServerEvent: (...args:any[]) => h.analytics(...args) }));
+import { quoteShippingPurchase } from './payments/shippingPurchase';
+import { createTransaction } from './payments/checkout';
+import { createStripeCheckout, confirmStripeCheckout, retireLegacyStripeCheckout } from './payments/checkout';
+import { purchaseAddress, purchaseAccount, purchaseRates, seedPurchase, personalProfile } from '../utils/testHelpers/shippingPurchaseFixture';
+import { invalidateConnectObservation } from '../utils/connectEligibility';
+import { createHash } from 'node:crypto';
+import { eligibilityVersion } from '../shared/eligibility';
+const call = (fn: any, data: any, uid = 'buyer') => fn.run({ auth: { uid, token: { auth_time: Math.floor(Date.now() / 1000),} }, data });
+const checkout = (id: string, walletAmount:unknown=0, uid='buyer') => call(createStripeCheckout, {transactionId:id,walletAmount},uid);
+function change(path: string, patch: any) { fs.setDoc(path, { ...fs.getDoc(path), ...patch }); }
+async function reserved() {
+  const q = await call(quoteShippingPurchase, { articleId: 'article', shippingAddress: purchaseAddress });
+  const r = await call(createTransaction, { deliveryType: 'shipping', quoteId: q.quoteId, rateId: q.rates[0].rateId, expectedTotal: q.rates[0].totalAmount });
+  return { q, id: r.transactionId as string };
 }
-
+function conservation(id: string) {
+  const paths = ['wallets/buyer', 'wallets/seller', 'wallets/seller/ledger/other_sale', 'transactions/old', `transactions/${id}`, 'articles/article'];
+  const before = structuredClone(paths.map(p => fs.getDoc(p)));
+  const writes = fs.writeOps.length;
+  return () => { expect(paths.map(p => fs.getDoc(p))).toEqual(before); expect(fs.writeOps.slice(writes).filter(o => /^(wallets|transactions|articles)\//.test(o.path))).toHaveLength(0); expect(h.labels).toBe(0); };
+}
 beforeEach(() => {
-  vi.stubEnv('PAYMENTS_ENABLED', 'true');
-  fs.reset();
-  stripeMock.reset();
-  feeHolder.buyerTotal = 10; // $10 = 1000 cents
+  vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-10T16:00:00Z')); vi.stubEnv('PAYMENTS_ENABLED', 'true'); vi.stubEnv('SHIPPING_ENABLED', 'true');
+  fs.reset(); seedPurchase(fs); h.retrieve = async () => purchaseAccount(); h.get = async () => purchaseRates(); h.labels = 0; h.analytics = async () => {}; h.params=[]; h.create=async(p:any)=>{h.params.push(p);return {id:'pi_cardbaseline',object:'payment_intent',amount:p.amount,amount_received:0,amount_capturable:0,currency:'cad',status:'requires_payment_method',confirmation_method:p.confirmation_method??'automatic',capture_method:'automatic_async',metadata:p.metadata,client_secret:'pi_cardbaseline_secret_local',payment_method:null,latest_charge:null};}; h.list=async()=>({data:[],has_more:false});h.pis.clear();h.confirms=0;h.cancels=0;
+  h.create=async(p:any)=>{h.params.push(p);const pi={id:'pi_manual',object:'payment_intent',amount:p.amount,amount_received:0,amount_capturable:0,currency:'cad',status:'requires_payment_method',confirmation_method:p.confirmation_method,capture_method:'automatic_async',metadata:p.metadata,client_secret:'pi_manual_secret_local',payment_method:null,latest_charge:null};h.pis.set(pi.id,pi);return {...pi};};
+  h.piRetrieve=async(id:string)=>{const pi=h.pis.get(id);if(!pi)throw new Error('Unknown PI');return {...pi};};
+  h.confirm=async(id:string,p:any)=>{h.confirms++;const pi=h.pis.get(id);if(pi.status==='canceled')throw new Error('Canceled');pi.payment_method=p.payment_method??pi.payment_method;pi.status=pi.payment_method==='pm_action'&&pi.status!=='requires_confirmation'?'requires_action':'succeeded';if(pi.status==='succeeded')pi.amount_received=pi.amount;return {...pi};};
+  h.cancel=async(id:string)=>{h.cancels++;const pi=h.pis.get(id);if(['succeeded','processing','requires_capture'].includes(pi.status))throw new Error('Engaged');pi.status='canceled';return {...pi};};
+  fs.setDoc('wallets/buyer', { status: 'active', currency: 'cad', balance: 10000, pendingBalance: 700, heldBalance: 800 });
+  fs.setDoc('wallets/seller', { status: 'active', currency: 'cad', balance: 2500, pendingBalance: 9000, heldBalance: 4500 });
+  fs.setDoc('wallets/seller/ledger/other_sale', { type: 'sale_pending', amount: 9000, transactionId: 'old' });
+  fs.setDoc('transactions/old', { buyerId: 'other', sellerId: 'seller', articleId: 'other_article', status: 'delivered', deliveryType: 'shipping', shippingAddress: { province: 'ON' } });
 });
-
-describe('createStripeCheckout — F24 mixed sub-minimum card remainder', () => {
-  it('rejects when the card remainder would be below the 50¢ Stripe minimum (no wallet debit)', async () => {
-    seedPending();
-    // total = 1000c, wallet = 970c → card remainder = 30c (< 50c).
-    await expect(
-      call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 970 } })
-    ).rejects.toMatchObject({ code: 'failed-precondition' });
-
-    // Wallet was NOT debited (guard fired before the debit).
-    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(100000);
-    // No PaymentIntent was created.
-    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(0);
-  });
-
-  it('allows a mixed payment whose card remainder clears 50¢', async () => {
-    seedPending();
-    stripeMock.impl.paymentIntentsCreate = async () => ({
-      id: 'pi_mixed_ok',
-      client_secret: 'pi_mixed_ok_secret',
-    });
-    // total = 1000c, wallet = 900c → card remainder = 100c (>= 50c) — OK.
-    const res = await call({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1', walletAmount: 900 },
-    });
-    expect(res.success).toBe(true);
-    // Wallet debited 900c.
-    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(99100);
-    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(1);
-  });
-});
-
-describe('createStripeCheckout — F23 atomic revert on Stripe failure', () => {
-  it('re-credits the wallet AND purges walletAmountUsed/paidVia atomically', async () => {
-    seedPending();
-    // PI creation fails → the F05/F23 revert path runs.
-    stripeMock.impl.paymentIntentsCreate = async () => {
-      throw Object.assign(new Error('card_declined'), { type: 'StripeCardError', statusCode: 402 });
-    };
-
-    await expect(
-      call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })
-    ).rejects.toThrow();
-
-    // Wallet re-credited to its original balance (debited 600, then refunded 600).
-    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(100000);
-    // The transaction's wallet markers were cleared so no later refund path can
-    // re-credit a phantom wallet portion (F23).
-    const tx = fs.getDoc('transactions/tx1')!;
-    expect(tx.walletAmountUsed).toBeUndefined();
-    expect(tx.paidVia).toBeUndefined();
-  });
-});
-
-// ===========================================================================
-// SINGLE-RAIL CHARGE MODEL — the PaymentIntent must ALWAYS be a plain platform
-// charge: NO transfer_data.destination, NO application_fee_amount, NO
-// on_behalf_of, on BOTH the carte-seule and the mixed wallet+card branch.
-// Re-introducing any of those would double-finance every sale (Stripe would
-// auto-transfer to the connected account AND walletWithdraw would transfer
-// again). This guards the exact invariant the charge-model migration enforces.
-// ===========================================================================
-
-// ===========================================================================
-// B3 — the seller Stripe account is validated INSIDE the runTransaction, BEFORE
-// the wallet debit. A seller with no account aborts the tx with NO debit (the
-// staged wallet debit is discarded because the tx callback throws before commit).
-// ===========================================================================
-
-describe('createStripeCheckout — B3 seller account validated before wallet debit', () => {
-  it('does NOT debit the wallet (mixed) when the seller has no Stripe account', async () => {
-    seedPending();
-    // Seller exists but has NO stripeAccountId (disabled after createTransaction).
-    fs.setDoc('users/seller1', { displayName: 'Vendeur' });
-
-    await expect(
-      call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })
-    ).rejects.toMatchObject({ code: 'failed-precondition' });
-
-    // Wallet untouched — the precondition fired before the debit, inside the tx,
-    // so no staged debit was ever committed (no immobilised balance, B3).
-    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(100000);
-    const tx = fs.getDoc('transactions/tx1')!;
-    expect(tx.walletAmountUsed).toBeUndefined();
-    expect(tx.paidVia).toBeUndefined();
-    // No PaymentIntent and no Stripe call.
-    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(0);
-  });
-
-  it('does NOT debit the wallet (mixed) when the seller doc is missing', async () => {
-    seedPending();
-    fs.setDoc('users/seller1', null); // seller user doc gone
-
-    await expect(
-      call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })
-    ).rejects.toMatchObject({ code: 'not-found' });
-
-    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(100000);
-    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(0);
-  });
-});
-
-describe('createStripeCheckout — single-rail platform charge (no transfer_data)', () => {
-  it('carte-seule: charges the full buyerTotal with NO transfer_data / application_fee / on_behalf_of', async () => {
-    seedPending();
-    stripeMock.impl.paymentIntentsCreate = async () => ({
-      id: 'pi_cardonly',
-      client_secret: 'pi_cardonly_secret',
-    });
-
-    const res = await call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1' } });
-    expect(res.success).toBe(true);
-
-    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(1);
-    const [piParams, reqOpts] = stripeMock.calls.paymentIntentsCreate[0] as [
-      Record<string, unknown>,
-      Record<string, unknown>,
-    ];
-    // Full buyerTotal charged to the platform (1000c = $10).
-    expect(piParams.amount).toBe(1000);
-    expect(piParams.currency).toBe('cad');
-    // Single-rail invariants.
-    expect(piParams.transfer_data).toBeUndefined();
-    expect(piParams.application_fee_amount).toBeUndefined();
-    expect(piParams.on_behalf_of).toBeUndefined();
-    // Deterministic idempotency key tied to the transaction.
-    expect(reqOpts.idempotencyKey).toBe('pi_tx1');
-  });
-
-  it('mixed wallet+card: charges only the card remainder with NO transfer_data / application_fee / on_behalf_of', async () => {
-    seedPending();
-    stripeMock.impl.paymentIntentsCreate = async () => ({
-      id: 'pi_mixed',
-      client_secret: 'pi_mixed_secret',
-    });
-
-    // total = 1000c, wallet = 600c → card remainder = 400c.
-    const res = await call({
-      auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1', walletAmount: 600 },
-    });
-    expect(res.success).toBe(true);
-
-    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(1);
-    const [piParams, reqOpts] = stripeMock.calls.paymentIntentsCreate[0] as [
-      Record<string, unknown>,
-      Record<string, unknown>,
-    ];
-    // Only the card remainder is charged (wallet portion already debited).
-    expect(piParams.amount).toBe(400);
-    expect(piParams.currency).toBe('cad');
-    // Same single-rail invariants as the carte-seule branch.
-    expect(piParams.transfer_data).toBeUndefined();
-    expect(piParams.application_fee_amount).toBeUndefined();
-    expect(piParams.on_behalf_of).toBeUndefined();
-    expect(reqOpts.idempotencyKey).toBe(`pi_tx1_${fs.getDoc('transactions/tx1')!.walletCheckoutAttemptId}`);
-  });
-});
-
-// ===========================================================================
-// F137 — server-authoritative SHIPPING_ENABLED flag on createStripeCheckout
-// ===========================================================================
-
-describe('createStripeCheckout — F137 server shipping flag', () => {
-  function seedShippingPending() {
-    fs.setDoc('transactions/txShip', {
-      buyerId: 'buyer1',
-      sellerId: 'seller1',
-      status: 'pending_payment',
-      deliveryType: 'shipping',
-      amount: feeHolder.buyerTotal,
-      shippingCost: 5,
-      articleId: 'article1',
-    });
-    fs.setDoc('users/seller1', { stripeAccountId: 'acct_seller1' });
-  }
-
-  it('REFUSES checkout for a shipping transaction when SHIPPING_ENABLED is OFF', async () => {
-    seedShippingPending();
-    process.env.SHIPPING_ENABLED = 'false';
-
-    await expect(
-      call({ auth: { uid: 'buyer1' }, data: { transactionId: 'txShip' } })
-    ).rejects.toMatchObject({ code: 'failed-precondition' });
-
-    // No PaymentIntent created.
-    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(0);
-  });
-
-  it('ALLOWS checkout for a shipping transaction when SHIPPING_ENABLED is ON', async () => {
-    seedShippingPending();
-    process.env.SHIPPING_ENABLED = 'true';
-    stripeMock.impl.paymentIntentsCreate = async () => ({
-      id: 'pi_ship_ok',
-      client_secret: 'pi_ship_ok_secret',
-    });
-
-    const res = await call({ auth: { uid: 'buyer1' }, data: { transactionId: 'txShip' } });
-    expect(res.success).toBe(true);
-    expect(stripeMock.calls.paymentIntentsCreate.length).toBe(1);
-  });
-});
-
-describe('mixed checkout compensation under contention', () => {
-  it('two concurrent Stripe failures compensate the shared reservation once', async () => {
-    seedPending();
-    let calls = 0;
-    let release!: () => void;
-    const gate = new Promise<void>(resolve => { release = resolve; });
-    stripeMock.impl.paymentIntentsCreate = async () => {
-      if (++calls === 2) release();
-      await gate;
-      throw Object.assign(new Error('confirmed rejection'), { type: 'StripeInvalidRequestError', statusCode: 400 });
-    };
-    const results = await Promise.allSettled([1, 2].map(() => call({ auth: { uid: 'buyer1' },
-      data: { transactionId: 'tx1', walletAmount: 600 } })));
-    expect(results.every(result => result.status === 'rejected')).toBe(true);
-    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(100000);
-    expect(fs.writeOps.filter(op => op.path.startsWith('wallets/buyer1/ledger/') && op.data.type === 'refund_credit')).toHaveLength(1);
-    expect(fs.getDoc('transactions/tx1')!.walletAmountUsed).toBeUndefined();
-  });
-
-  it('an old failed attempt cannot compensate a newer checkout', async () => {
-    seedPending();
-    let rejectOld!: (error: Error) => void;
-    let entered!: () => void;
-    const started = new Promise<void>(resolve => { entered = resolve; });
-    const oldPI = new Promise<never>((_, reject) => { rejectOld = reject; });
-    let calls = 0;
-    stripeMock.impl.paymentIntentsCreate = async () => {
-      if (++calls === 1) { entered(); return oldPI; }
-      throw Object.assign(new Error('confirmed rejection'), { type: 'StripeInvalidRequestError', statusCode: 400 });
-    };
-    const old = call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } });
-    const observedOld = old.catch(() => undefined);
-    await started;
-    await expect(call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })).rejects.toThrow();
-    stripeMock.impl.paymentIntentsCreate = async () => ({ id: 'pi_new', client_secret: 'test_only' });
-    await call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } });
-    rejectOld(Object.assign(new Error('late old rejection'), { type: 'StripeInvalidRequestError', statusCode: 400 }));
-    await observedOld;
-    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(99400);
-    expect(fs.getDoc('transactions/tx1')!.stripePaymentIntentId).toBe('pi_new');
-    expect(fs.writeOps.filter(op => op.path.startsWith('wallets/buyer1/ledger/') && op.data.type === 'refund_credit')).toHaveLength(1);
-    const keys = stripeMock.calls.paymentIntentsCreate.map(args => (args[1] as { idempotencyKey: string }).idempotencyKey);
-    expect(keys[0]).toBe(keys[1]);
-    expect(keys[2]).not.toBe(keys[0]);
-  });
-});
+afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
 
-describe('mixed checkout outcome uncertainty', () => {
-  it('keeps funds reserved and refuses a second checkout when PI creation times out', async () => {
-    seedPending();
-    stripeMock.impl.paymentIntentsCreate = async () => { throw new Error('network timeout'); };
-    await expect(call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })).rejects.toMatchObject({ code: 'unavailable' });
-    expect(fs.getDoc('wallets/buyer1')!.balance).toBe(99400);
-    expect(fs.getDoc('transactions/tx1')!.walletCheckoutOutcome).toBe('unknown');
-    await expect(call({ auth: { uid: 'buyer1' }, data: { transactionId: 'tx1', walletAmount: 600 } })).rejects.toMatchObject({ code: 'unavailable' });
-    expect(stripeMock.calls.paymentIntentsCreate).toHaveLength(1);
-  });
-});
+const confirm=(id:string,version:number,pm='pm_good')=>call(confirmStripeCheckout,{transactionId:id,expectedIntentVersion:version,paymentMethodId:pm});
+it('F24 below CAD50 card remainder refuses before PI or any wallet debit with real canonical total',async()=>{const {id}=await reserved();const check=conservation(id);await expect(checkout(id,6445)).rejects.toMatchObject({code:'invalid-argument'});check();expect(h.params).toHaveLength(0);});
+it('F24 CAD50 remainder is payable through manual confirm, exact wallet debit once',async()=>{const {id}=await reserved(),r=await checkout(id,6425);expect(r).toMatchObject({cardCents:50,walletCents:6425});expect(fs.getDoc('wallets/buyer')!.balance).toBe(10000);await confirm(id,r.intentVersion);expect(fs.getDoc('wallets/buyer')!.balance).toBe(3575);expect((await fs.db.collection('wallets').doc('buyer').collection('ledger').get()).docs[0].data()).toMatchObject({amount:6425,balanceAfter:3575});});
+it.each([0,1000])('platform direct charge preserves full/remainder amount %s, no transfers/application fee/on behalf',async wallet=>{const {id}=await reserved();await checkout(id,wallet);expect(h.params[0]).toMatchObject({amount:6475-wallet,currency:'cad',confirmation_method:'manual'});for(const key of['transfer_data','application_fee_amount','on_behalf_of','capture_method'])expect(h.params[0]).not.toHaveProperty(key);expect(fs.getDoc('wallets/buyer')!.balance).toBe(10000);});
+it('F23 changed protocol: rejected create never first debits; no compensating credit or phantom mixed markers',async()=>{const {id}=await reserved(),check=conservation(id);h.create=async()=>{throw Object.assign(new Error('rejected'),{type:'StripeInvalidRequestError',statusCode:400});};await expect(checkout(id,1000)).rejects.toBeDefined();expect(fs.getDoc('wallets/buyer')!.balance).toBe(10000);expect((await fs.db.collection('wallets').doc('buyer').collection('ledger').get()).size).toBe(0);expect(fs.getDoc(`transactions/${id}`)).not.toHaveProperty('walletAmountUsed');expect(fs.getDoc(`transactions/${id}`)).not.toHaveProperty('paidVia');expect(fs.getDoc(`stripe_checkout_intents/${id}`)!.state).toBe('unknown');});
+it.each(['missing_user','missing_account','disabled_account'])('B3 seller %s refuses before debit and provider creation',async kind=>{const {id}=await reserved();if(kind==='missing_user')fs.setDoc('users/seller',null);if(kind==='missing_account')change('users/seller',{stripeAccountId:null});if(kind==='disabled_account')h.retrieve=async()=>({...purchaseAccount(),charges_enabled:false});const check=conservation(id);await expect(checkout(id,1000)).rejects.toMatchObject({code:'failed-precondition'});check();expect(h.params).toHaveLength(0);});
+it.each([false,true])('F137 shipping flag %s governs new manual preparation from real quote',async enabled=>{const {id}=await reserved();vi.stubEnv('SHIPPING_ENABLED',String(enabled));if(enabled){expect((await checkout(id)).protocol).toBe('server_manual_v1');expect(h.params).toHaveLength(1);}else{const check=conservation(id);await expect(checkout(id)).rejects.toMatchObject({code:'failed-precondition'});check();expect(h.params).toHaveLength(0);}});
+it('two create timeouts have no shared wallet reservation to compensate, one durable intention',async()=>{const {id}=await reserved();h.create=async()=>{h.params.push('submitted');throw new Error('timeout');};const r=await Promise.allSettled([checkout(id,1000),checkout(id,1000)]);expect(r.every(r=>r.status==='rejected')).toBe(true);expect(fs.getDoc('wallets/buyer')!.balance).toBe(10000);expect((await fs.db.collection('wallets').doc('buyer').collection('ledger').get()).size).toBe(0);expect(h.params).toHaveLength(1);});
+it('older failed create cannot compensate or replace durable intent; explicitly changed mode refused',async()=>{const {id}=await reserved();let enter!:()=>void,reject!:(e:any)=>void;const entered=new Promise<void>(r=>enter=r);h.create=async()=>{h.params.push('first');enter();return new Promise((_,r)=>reject=r);};const old=checkout(id,1000);await entered;await expect(checkout(id,500)).rejects.toMatchObject({code:'failed-precondition'});reject(new Error('old failure'));await expect(old).rejects.toMatchObject({code:'unavailable'});expect(fs.getDoc('wallets/buyer')!.balance).toBe(10000);expect((await fs.db.collection('wallets').doc('buyer').collection('ledger').get()).size).toBe(0);expect(h.params).toHaveLength(1);});
+it('create timeout persists unknown without debit and cannot retry same or omitted mode blindly',async()=>{const {id}=await reserved();h.create=async()=>{h.params.push('first');throw new Error('lost');};await expect(checkout(id,1000)).rejects.toMatchObject({code:'unavailable'});await expect(call(createStripeCheckout,{transactionId:id})).rejects.toMatchObject({code:'unavailable'});expect(fs.getDoc('wallets/buyer')!.balance).toBe(10000);expect(h.params).toHaveLength(1);});

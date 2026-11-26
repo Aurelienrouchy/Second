@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,7 +14,11 @@ import {
 } from 'react-native';
 
 import { Text, Label, Caption, ScreenHeader } from '@/components/ui';
-import { useUser, useAuthActions } from '@/hooks/useAuth';
+import { useUser, useAuthenticatedUid } from '@/hooks/useAuth';
+import { useLabelLifecycleContext } from '@/hooks/useLabelLifecycleContext';
+import { getAuthSessionGeneration, useAuthStore } from '@/store/authStore';
+import { auth } from '@/config/firebaseConfig';
+import { staleTradeOperation } from '@/services/tradeOperation';
 import { track } from '@/lib/analytics';
 import { UserService } from '@/services/userService';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
@@ -22,15 +26,30 @@ import { colors, fonts, spacing, radius } from '@/constants/theme';
 export default function PhoneSettingsScreen() {
   const router = useRouter();
   const user = useUser();
-  const { refreshUser } = useAuthActions();
+  const uid = useAuthenticatedUid();
+  const scope = JSON.stringify([uid, getAuthSessionGeneration(), user?.id]);
+  const context = useLabelLifecycleContext(`phone-settings:${scope}`, uid);
 
   const [phoneNumber, setPhoneNumber] = useState(() => {
     // Si le numéro commence par +1, retirer le préfixe pour l'affichage
-    const stored = user?.phoneNumber;
+    const stored = user?.id === uid ? user.phoneNumber : null;
     if (!stored) return '';
     return stored.startsWith('+1') ? stored.slice(2).trim() : stored;
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [formScope, setFormScope] = useState(scope);
+  const lock = useRef<symbol | null>(null);
+  const form = useRef({scope, mounted: false});
+  useLayoutEffect(() => {
+    form.current = {scope, mounted: true}; lock.current = null;
+    return () => {if (form.current.scope === scope) form.current.mounted = false;};
+  }, [scope]);
+  if (formScope !== scope) {
+    const stored = user?.id === uid ? user.phoneNumber ?? '' : '';
+    setFormScope(scope); setPhoneNumber(stored.startsWith('+1') ? stored.slice(2).trim() : stored);
+    setIsSaving(false);
+  }
+  const ready = !!uid && user?.id === uid && auth.currentUser?.uid === uid && context.focused;
 
   const formatPhoneDisplay = (text: string) => {
     // Retirer tout sauf les chiffres
@@ -42,6 +61,7 @@ export default function PhoneSettingsScreen() {
   };
 
   const handlePhoneChange = (text: string) => {
+    if (!ready || lock.current) return;
     const digits = text.replace(/\D/g, '');
     if (digits.length <= 10) {
       setPhoneNumber(formatPhoneDisplay(digits));
@@ -49,7 +69,15 @@ export default function PhoneSettingsScreen() {
   };
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!ready || !user || lock.current) return;
+    const owner = auth.currentUser;
+    if (!owner) return;
+    let operation: ReturnType<typeof context.capture>;
+    try {operation = context.capture();} catch {return;}
+    const current = () => {
+      context.assertCurrent(operation);
+      if (auth.currentUser !== owner || owner.uid !== uid) throw staleTradeOperation();
+    };
 
     // Validation pour un numéro canadien (10 chiffres)
     const cleanPhone = phoneNumber.replace(/\D/g, '');
@@ -59,27 +87,34 @@ export default function PhoneSettingsScreen() {
       return;
     }
 
-    setIsSaving(true);
+    const ticket = Symbol(); lock.current = ticket; setIsSaving(true);
     try {
+      current();
       // Stocker avec le préfixe +1
-      await UserService.updateUserProfile(user.id, {
+      await UserService.updateUserProfile(owner.uid, {
         phoneNumber: `+1${cleanPhone}`,
-      });
+      }, current);
+      current();
 
       // Rafraîchir les données utilisateur depuis Firestore
-      await refreshUser();
+      await useAuthStore.getState().refreshUser();
+      current();
 
       track('phone_saved', { success: true });
 
       Alert.alert('Succès', 'Votre numéro de téléphone a été mis à jour', [
-        { text: 'OK', onPress: () => router.back() }
+        { text: 'OK', onPress: () => {try {current(); router.back();} catch { /* Superseded owner or route. */ }} }
       ]);
     } catch (error) {
+      try {current();} catch {return;}
       if (__DEV__) console.error('Error updating phone:', error);
       track('phone_saved', { success: false });
       Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour du numéro');
     } finally {
-      setIsSaving(false);
+      if (lock.current === ticket) {
+        lock.current = null;
+        if (form.current.mounted && form.current.scope === scope && auth.currentUser === owner) setIsSaving(false);
+      }
     }
   };
 
@@ -89,7 +124,7 @@ export default function PhoneSettingsScreen() {
         title="Numéro de téléphone"
         onBack={() => router.back()}
         rightContent={
-          <Pressable onPress={handleSave} disabled={isSaving}>
+          <Pressable onPress={handleSave} disabled={!ready || isSaving}>
             {isSaving ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
@@ -107,7 +142,7 @@ export default function PhoneSettingsScreen() {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
             <Text variant="body" style={styles.infoText}>
-              Ajouter un numéro de téléphone aide à sécuriser votre compte et facilite les transactions.
+              Ce numéro est une coordonnée de contact. Il n’est pas vérifié comme méthode de connexion ou de récupération de votre compte.
             </Text>
           </View>
 
@@ -121,6 +156,7 @@ export default function PhoneSettingsScreen() {
                 <TextInput
                   style={[styles.input, styles.phoneInput]}
                   value={phoneNumber}
+                  editable={ready && !isSaving}
                   onChangeText={handlePhoneChange}
                   placeholder="(514) 555-1234"
                   keyboardType="phone-pad"

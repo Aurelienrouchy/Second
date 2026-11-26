@@ -1,5 +1,36 @@
 # Required Firestore Indexes for useProducts Hook
 
+## Bank-dispute withdrawal guards (production preparation, 2026-10-09)
+
+`walletWithdraw` reads four targeted queries inside the wallet debit transaction,
+each with `limit(201)`. Existing `(sellerId ASC, disputed ASC)` protects commercial
+cases. Three composite indexes in `firestore.indexes.json` protect legacy bank
+identities and orphaned freezes even when `disputed` was cleared:
+
+- `transactions (sellerId ASC, disputeId ASC)` — `sellerId == uid && disputeId > ''`.
+- `transactions (sellerId ASC, disputeFreezeCents ASC)` — `sellerId == uid && disputeFreezeCents > 0`.
+- `transactions (sellerId ASC, bankDispute.reconciliationRequired ASC)` —
+  `sellerId == uid && bankDispute.reconciliationRequired == true`. Added after
+  the independent review to find closed histories even when older projections
+  were lost; a local reconciliation requirement remains a financial guard.
+
+Recognized new bank closures delete the legacy `disputeId` projection only when no
+local reconciliation is required, while retaining
+the historical identity in `bankDispute.id`; a retained commercial hold keeps its
+freeze until commercial resolution. A full page fails closed for operator review,
+so queries stay bounded. Pre-existing closed legacy identities must be inspected
+and their projections cleaned by a separately approved migration when they reach
+this threshold. This package executes no migration or deployment.
+
+`retryFailedOperations` rotates a bounded page with
+`where status == pending`, `orderBy __name__ ASC`, `startAfter(lastPendingId)` and
+`limit(100)`, wrapping once on an empty page. The automatic single-field `status`
+index already appends document name ASC, so no composite is added for this query.
+Unlike timestamp ordering, document-name ordering includes old operations without
+`createdAt` and cannot skip equal timestamps. The server cursor lives in
+`job_locks/retryFailedOperations_cursor`.
+
+
 ## Data-retention purge indexes (`retentionPurge`)
 
 Added for the daily `retentionPurge` scheduled function (Loi 25 / RGPD):
@@ -513,6 +544,7 @@ des chantiers paiement/livraison). Tous sont déjà présents dans
 | `transactions` | `labelCreationPending ASC, status ASC, createdAt ASC` | `sweepPendingLabels` (`scheduled/sweepPendingLabels.ts`, `labelCreationPending == true` + `status == 'paid'` + `orderBy createdAt asc`) |
 | `transactions` | `sellerId ASC, disputed ASC` | listing des litiges vendeur ouverts (blocage retrait) |
 | `withdrawal_requests` | `status ASC, createdAt ASC` | `reconcileFinances` payouts bloqués (`scheduled/reconcile.ts`, `status == 'processing'` + `createdAt <`) |
+| `withdrawal_requests` | `userId ASC, createdAt DESC` | Portefeuille : historique récent des retraits du propriétaire (`features/wallet/services/walletService.ts`, `getWithdrawalRequests`) |
 | `withdrawal_requests` | `userId ASC, status ASC` | **F89** — gate suppression de compte (`callable/users.ts`, `userId == uid && status == 'processing'` + `limit(1)`) |
 | `disputes` | `transactionId ASC, status ASC` | **F27/F88** — `resolveDispute` + `adminRefundTransaction` ferment les litiges liés (`callable/payments.ts`, `transactionId == txId && status == 'open'`) |
 
@@ -688,5 +720,120 @@ service cloud.firestore {
 }
 ```
 
+### Paquet 2 — projection de remboursement actif
 
+Index composite ajouté à la source de vérité `firestore.indexes.json` :
+`transactions: sellerId ASC, refundBlocked ASC`. Query exacte sous la transaction
+de retrait : `where(sellerId == uid).where(refundBlocked == true).limit(201)`.
+La cinquième projection rejoint les quatre gardes bancaires/commerciales du paquet 1.
+201 résultats constituent une garde fail-closed ; les nouvelles intentions soldées
+passent refundBlocked=false et ne grossissent pas une liste historique active.
+
+Le watcher utilise `where(refund.watch == true).orderBy(__name__).limit(100)`,
+puis `startAfter(lastId)` et rotation. Le filtre unique et l’ordre de nom utilisent
+l’index simple Firestore (aucun deuxième filtre/orderBy métier). Les listes de
+ledger sont scopées au wallet + transactionId ; les litiges sont cherchés par
+transactionId. Aucune nouvelle recherche globale d’historique par vendeur.
+
+Aucun index/règle/function n’a été déployé. L’index composite doit être provisionné
+avant exposition d’un rail financier ; les flags restent fermés.
+
+### Raccord RN remboursements / historique privé — 2026-10-10
+
+Source vérifiée : `PACKAGE_REFUND_UI_QUERY_CONTRACT.md` et services RN figés par SHA.
+Ajout de **5 composites COLLECTION**, sans changer les83 définitions ni les4
+fieldOverrides préexistants (snapshot `PACKAGE_REFUND_QUERY_INDEXES_BEFORE.json`).
+
+| Query réelle | Définition ajoutée dans firestore.indexes.json |
+|---|---|
+| Latest datée acheteur : buyerId==uid,chatId==chat,createdAt DESC,name DESC,limit1 | buyerId ASC,chatId ASC,createdAt DESC,__name__ DESC |
+| Latest datée vendeur : sellerId==uid,chatId==chat,createdAt DESC,name DESC,limit1 | sellerId ASC,chatId ASC,createdAt DESC,__name__ DESC |
+| Historique acheteur : buyerId==uid,chatId==chat,name DESC,limit50,startAfter(id) | buyerId ASC,chatId ASC,__name__ DESC |
+| Historique vendeur : sellerId==uid,chatId==chat,name DESC,limit50,startAfter(id) | sellerId ASC,chatId ASC,__name__ DESC |
+| Litiges ouverts : status==open,name DESC,limit50,startAfter(id) | disputes: status ASC,__name__ DESC |
+
+Les anciens buyer/seller+createdAt n'ajoutent pas chatId ; les anciens
+buyer/seller+chatId+status introduisent un champ absent des nouvelles queries et
+ne couvrent pas leur historique sans filtre de statut. Les requêtes datées ont
+deux égalités et un tri créé ; l'ordre final de nom DESC correspond au tri date
+DESC et est explicité dans les nouveaux indexes. Pour les définitions d'égalité
+ASC de l'historique et de status, le nom DESC diffère du nom ASC implicite : son
+sens est déclaré. Cette justification découle du contrat/planification documentée,
+**pas du succès d'un émulateur qui n'impose pas les composites**.
+[Ordre de nom Firebase](https://firebase.google.com/docs/firestore/query-data/index-overview#default_ordering_and_the__name__field).
+
+Pas de composite supplémentaire pour les shapes suivantes :
+
+- Offre : buyerId/chatId/offerMessageId==valeurs,name ASC,limit2 : fusion
+  d'égalités simples avec leur nom ASC par défaut.
+- Captures : type==payment_capture_reconciliation,status==pending,name ASC,
+  limit50 : même fusion d'égalités, sans tri d'un autre champ métier.
+- Refund OR13 : refundBlocked==true OR refundLegacyReconciliationRequired==true
+  OR refund.state IN8 OR status IN3, puis name ASC,limit50. Chaque branche DNF
+  est une égalité unique avec nom ASC ; les indexes simples des quatre champs
+  sont activés dans ce manifeste, sans exemption wildcard ni de map refund.
+- Compte : buyerId|sellerId==uid,name ASC,limit201 : index simple ASC.
+
+La fusion et les indexes simples automatiques sont documentés par
+[Firebase — index merging](https://firebase.google.com/docs/firestore/query-data/index-overview#use_index_merging).
+**Hypothèse de configuration réelle non vérifiée** : pas d'exemption/index simple
+désactivé hors manifeste dans la base de production. L'édition réelle, l'existence
+et la préparation des indexes production ne sont pas certifiées ; credentials
+expirés, pas de login, interrogation nouvelle de production ou déploiement.
+
+**Raccord complet FAIL local conservé** : l'onglet Tous exécute disputes avec
+`orderBy(__name__,DESC)` seul. Le vrai SDK Web reçoit FAILED_PRECONDITION,
+« Firestore does not support descending key scans », aussi dans une repro minimale
+limit1. Aucun faux composite de nom seul n'est créé. Le candidat nom ASC pagine
+55 documents (dates présentes/absentes) localement ; seule la prochaine tâche RN
+peut changer la source, puis rejouer ce contrat. Ce test rouge ne prouve pas à lui
+seul que production échoue, ni qu'il s'agit exclusivement d'un bug émulateur.
+Voir `PACKAGE_REFUND_QUERY_BRIDGE.md` et SDK_WEB_FINAL.log.
+
+#### Reprise courante ALL/ASC V2 — 2026-10-10
+
+Le FAIL ci-dessus reste historique pour le shape V1. Le propriétaire RN a changé
+seulement le tri de l'onglet Tous en `__name__ ASC`, avec limit50 et cursor dernier
+ID ASC ; Ouverts conserve status=open/name DESC. Le vrai SDK Web/règles rejoue
+maintenant **50+5 dossiers,55 uniques**, dates absentes/égales, curseur exact et
+confidentialité. Les tests du raccord courant sont verts (30 total, dont7 assertions
+manifeste,22 acceptances SDK et1 diagnostic historique DESC distinct).
+
+Aucun index ajouté/modifié à cette reprise : les83 anciens +5 du bridge V1 et4
+fieldOverrides sont inchangés. Tous/name ASC seul utilise l'ordre de nom simple
+par défaut. Le refus DESC nu demeure reproduit en diagnostic ; ce n'est pas un
+succès du produit corrigé. La qualification du lot reste **PASS LOCAL borné** aux
+shapes actuels testés, avant revue indépendante, sans preuve d'indexes production
+READY ni de données historiques homogènes. Rapport PACKAGE_REFUND_QUERY_BRIDGE_V2.md,
+gel SOURCE_FREEZE_V2.sha256 et log SDK_WEB_V2.log sous production-readiness.
+
+### Admission 03A — requêtes privées bornées (2026-10-10)
+
+Aucun composite ajouté. Manifeste 83 anciens +5 du bridge,4 overrides conservé.
+
+| Callable | Shape exacte |
+|---|---|
+| listMyEligibilityReviews | eligibility_requests, ownerId==UID auth, name ASC, limit50, startAfter(ID) optionnel |
+| listAdminEligibilityReviews sans status | eligibility_requests, status IN submitted/needs_information, name ASC, limit50, startAfter(ID) optionnel |
+| listAdminEligibilityReviews avec status | eligibility_requests, status==valeur autorisée, name ASC, limit50, startAfter(ID) optionnel |
+
+Chaque filtre est une égalité simple (ou ses deux branches IN), avec ordre de nom
+ASC implicite du simple ASC. Pas de tri chronologique ni de filtre sur réception,
+échéance ou note. Pas de composite requis par ces shapes selon
+[Firebase — ordre de nom](https://firebase.google.com/docs/firestore/query-data/index-overview#default_ordering_and_the__name__field).
+Hypothèse : indexes simples ownerId/status non désactivés hors manifeste ; état de
+la production non interrogé/non certifié. SDK Admin demo-second Standard a exécuté
+réellement ces requêtes (55 dossiers owner, dates absentes/égales, pages50+5 ;
+admin pages50+6). L'émulateur ne prouve pas les composites production READY.
+
+Les propriétaires ne peuvent pas reproduire ces requêtes avec le SDK client :
+documents mixtes privés admin-only ; le serveur filtre et retourne les DTO sûrs.
+
+
+### Phase 1 — partitions locales initiales (25 novembre 2026)
+
+Deux composites ajoutés au manifeste : swaps(status, localAgreementWitness.protocol, localAgreementWitness.installationId, localAgreementWitness.epoch, createdAt ASC) et messages(phase1Contract, phase1Source.installationId, phase1Source.epoch, type, offer.status, offer.expiresAt ASC). Les égalités lient le job au contrôle et à son epoch ; seules les propositions jamais acceptées peuvent expirer. READY cloud doit être vérifié avant ouverture ; les émulateurs ne prouvent pas cet état.
+# Historique de recherche V1 — 25 novembre 2026
+
+`searchHistory.timestamp` conserve `ASCENDING / COLLECTION_GROUP` pour la rétention et ajoute `DESCENDING / COLLECTION` pour `users/{uid}/searchHistory`, son affichage, la déduplication et le nettoyage des entrées anciennes. Le précédent override ne conservait que le groupe et désactivait ce tri local. Ajout Dev ciblé au seul champ, sans suppression d'index ni changement TTL/règles ; aucune lecture de l'historique des membres.
 

@@ -1,3 +1,5 @@
+import { ShopService } from '@/services/shopService';
+import { queryKeys } from '@/lib/queryKeys';
 /**
  * useSearchScreen — orchestrates state, derived values, and handlers for the
  * search screen. The route file owns refs (for bottom sheets) + JSX only.
@@ -5,21 +7,22 @@
 
 import * as Haptics from 'expo-haptics';
 import { useQuery } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { InteractionManager, Keyboard, TextInput } from 'react-native';
+import { AppState, InteractionManager, Keyboard, TextInput } from 'react-native';
 
 import { CATEGORIES, getCategoryLabelFromIds } from '@/data/categories-v2';
 import { colors as colorData } from '@/data/colors';
 import { getMaterialName } from '@/data/materials';
 
 import { useUser } from '@/hooks/useAuth';
-import { useArticleSearch } from '@/hooks/useArticleSearch';
+import { auth } from '@/config/firebaseConfig';
+import { getAuthSessionGeneration, useAuthStore } from '@/store/authStore';
+import { captureVisualSearchOwner, isVisualSearchImageUri } from '../services/visualSearchService';
+import { useArticleSearch } from './useArticleSearch';
 import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
 import { track } from '@/lib/analytics';
-import { SearchHistoryItem, SearchHistoryService } from '@/services/searchHistoryService';
-import { ShopService } from '@/services/shopService';
-import { queryKeys } from '@/lib/queryKeys';
+import { SearchHistoryItem, SearchHistoryService } from '@/features/search/services/searchHistoryService';
 
 import type { Article, ArticleSize, ArticleWithLocation, SearchFilters, SortBy } from '@/types';
 import { formatPrice } from '@/utils/formatPrice';
@@ -151,7 +154,51 @@ export function useSearchScreen() {
   const [searchQuery, setSearchQueryLocal] = useState(params.query || '');
   const [recentSearches, setRecentSearches] = useState<SearchHistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [showVisualSearch, setShowVisualSearch] = useState(false);
+  const [showVisualSearch, setVisualSearchVisible] = useState(false);
+  const visualGeneration = useAuthStore(() => getAuthSessionGeneration());
+  const visualOwner = auth.currentUser;
+  type VisualOpening = {assertOwner: () => void; focusRevision: number};
+  type PendingVisualNavigation = {cancel?: () => void};
+  const [visualOpening, setVisualOpening] = useState<VisualOpening | null>(null);
+  const currentVisualOpening = useRef<VisualOpening | null>(null);
+  const pendingVisualNavigation = useRef<PendingVisualNavigation | null>(null);
+  const visualLifecycle = useRef({mounted: false, focused: false, focusRevision: 0,
+    activity: AppState.currentState, activityRevision: 0});
+  const cancelVisualNavigation = useCallback(() => {
+    pendingVisualNavigation.current?.cancel?.(); pendingVisualNavigation.current = null;
+  }, []);
+  const setShowVisualSearch = useCallback((visible: boolean) => {
+    if (visible) return; // Opening requires a freshly captured owner through the explicit camera action.
+    cancelVisualNavigation(); currentVisualOpening.current = null;
+    setVisualOpening(null); setVisualSearchVisible(false);
+  }, [cancelVisualNavigation]);
+  useEffect(() => {
+    const lifecycle = visualLifecycle.current;
+    lifecycle.mounted = true;
+    const changed = (state: typeof AppState.currentState) => {
+      const context = visualLifecycle.current;
+      if (state === context.activity) return;
+      context.activity = state; context.activityRevision++;
+      cancelVisualNavigation();
+      // The native photo picker may temporarily deactivate the app. A fresh
+      // confirmation after returning remains possible; any already queued push is lost.
+    };
+    const subscription = AppState.addEventListener('change', changed);
+    changed(AppState.currentState);
+    return () => {lifecycle.mounted = false; currentVisualOpening.current = null;
+      cancelVisualNavigation(); subscription.remove();};
+  }, [cancelVisualNavigation]);
+  useFocusEffect(useCallback(() => {
+    visualLifecycle.current.focused = true; visualLifecycle.current.focusRevision++;
+    return () => {visualLifecycle.current.focused = false; visualLifecycle.current.focusRevision++;
+      setShowVisualSearch(false);};
+  }, [setShowVisualSearch]));
+  const [visualIdentity, setVisualIdentity] = useState({generation: visualGeneration, owner: visualOwner});
+  if (visualIdentity.generation !== visualGeneration || visualIdentity.owner !== visualOwner) {
+    setVisualIdentity({generation: visualGeneration, owner: visualOwner});
+    setVisualOpening(null); setVisualSearchVisible(false);
+  }
+  useEffect(() => {cancelVisualNavigation(); currentVisualOpening.current = null;}, [visualGeneration, visualOwner, cancelVisualNavigation]);
   const [isSearching, setIsSearching] = useState(hasInitialContext);
   // M6 — hydrate the sort chip from restored filters (deep-link / saved search)
   // so the chip label/active state matches the query's actual sort.
@@ -353,9 +400,7 @@ export function useSearchScreen() {
   const handleRecentSearchTap = useCallback((item: SearchHistoryItem) => {
     setSearchQueryLocal(item.query);
     setFilters(item.filters as any);
-    if (item.filters.categoryIds) {
-      setSelectedCategoryPath(item.filters.categoryIds);
-    }
+    setSelectedCategoryPath(item.filters.categoryIds ?? []);
     // M6 — keep the sort chip in sync with the restored sort.
     setSelectedSort((item.filters?.sortBy as SortBy) || 'recent');
     // M7 — keep the price inputs in sync with the restored range.
@@ -433,23 +478,43 @@ export function useSearchScreen() {
 
   // ─── Visual search ──────────────────────────────────────────────
   const handleOpenVisualSearch = useCallback(() => {
-    track('visual_search_opened', {
-      source: 'search',
-      query_length: searchQuery.trim().length,
-    });
+    const context = visualLifecycle.current;
+    if (!context.mounted || !context.focused || visualOwner !== auth.currentUser || visualGeneration !== getAuthSessionGeneration() ||
+        AppState.currentState !== 'active' || context.activity !== 'active' || currentVisualOpening.current) return;
+    let assertOwner: () => void;
+    try {assertOwner = captureVisualSearchOwner();} catch {return;}
+    const opening = {assertOwner, focusRevision: context.focusRevision};
+    currentVisualOpening.current = opening; setVisualOpening(opening);
+    track('visual_search_opened', {source: 'search', query_length: searchQuery.trim().length});
     Keyboard.dismiss();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowVisualSearch(true);
-  }, [searchQuery]);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setVisualSearchVisible(true);
+  }, [searchQuery, visualOwner, visualGeneration]);
 
   const handleVisualSearchCapture = useCallback((imageUri: string) => {
-    setShowVisualSearch(false);
-    // Defer the push until the Modal dismiss interaction settles, otherwise the
-    // Modal close and router.push race and the navigation can be dropped.
-    InteractionManager.runAfterInteractions(() => {
-      router.push({ pathname: '/visual-search-results', params: { imageUri } });
+    const opening = visualOpening;
+    const context = visualLifecycle.current;
+    if (!opening || !isVisualSearchImageUri(imageUri) || pendingVisualNavigation.current) return;
+    const activityRevision = context.activityRevision;
+    const isCurrent = () => {
+      try {opening.assertOwner();} catch {return false;}
+      return currentVisualOpening.current === opening && visualLifecycle.current.mounted && visualLifecycle.current.focused &&
+        visualLifecycle.current.focusRevision === opening.focusRevision && visualLifecycle.current.activityRevision === activityRevision &&
+        visualLifecycle.current.activity === 'active' && AppState.currentState === 'active';
+    };
+    if (!isCurrent()) return;
+    const pending: PendingVisualNavigation = {};
+    pendingVisualNavigation.current = pending;
+    setVisualSearchVisible(false);
+    // Keep the Modal dismissal delay, but bind it to this exact confirmation and owner.
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (pendingVisualNavigation.current !== pending || !isCurrent()) return;
+      pendingVisualNavigation.current = null; currentVisualOpening.current = null;
+      setVisualOpening(null);
+      router.push({pathname: '/visual-search-results', params: {imageUri}});
     });
-  }, []);
+    pending.cancel = () => task.cancel();
+  }, [visualOpening]);
 
   // ─── Sort handler ───────────────────────────────────────────────
   const handleSortSelect = useCallback(
@@ -641,7 +706,7 @@ export function useSearchScreen() {
       price_was_swapped: wasSwapped,
     });
     setShowPriceInputs(false);
-    if (!isSearching && (minPrice || maxPrice)) setIsSearching(true);
+    if (!isSearching && (minPrice !== undefined || maxPrice !== undefined)) setIsSearching(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [minPriceText, maxPriceText, filters, setFilters, isSearching]);
 
@@ -746,9 +811,9 @@ export function useSearchScreen() {
   };
 
   const getPriceLabel = (): string => {
-    if (filters.minPrice && filters.maxPrice) return `${formatPrice(filters.minPrice)} - ${formatPrice(filters.maxPrice)}`;
-    if (filters.minPrice) return `Min ${formatPrice(filters.minPrice)}`;
-    if (filters.maxPrice) return `Max ${formatPrice(filters.maxPrice)}`;
+    if (filters.minPrice !== undefined && filters.maxPrice !== undefined) return `${formatPrice(filters.minPrice)} - ${formatPrice(filters.maxPrice)}`;
+    if (filters.minPrice !== undefined) return `Min ${formatPrice(filters.minPrice)}`;
+    if (filters.maxPrice !== undefined) return `Max ${formatPrice(filters.maxPrice)}`;
     return 'Prix';
   };
 
@@ -769,7 +834,7 @@ export function useSearchScreen() {
   const isMaterialActive = (filters.materials?.length || 0) > 0;
   const isBrandActive = (filters.brands?.length || 0) > 0;
   const isConditionActive = !!filters.condition;
-  const isPriceActive = !!(filters.minPrice || filters.maxPrice);
+  const isPriceActive = filters.minPrice !== undefined || filters.maxPrice !== undefined;
   const isSortActive = selectedSort !== 'recent';
 
   const anyFilterActive =

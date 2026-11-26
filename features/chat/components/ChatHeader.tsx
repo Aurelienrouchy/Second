@@ -50,7 +50,6 @@ export const ChatHeader = React.memo(function ChatHeader({
               <Text style={styles.headerTitle} numberOfLines={1}>
                 {formatDisplayName(otherParticipant.userName)}
               </Text>
-
             </View>
           </>
         )}

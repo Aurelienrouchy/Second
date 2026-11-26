@@ -2,39 +2,17 @@
  * Seed script: Populate Firestore with 100 realistic clothing articles
  * Articles look like real user listings (casual descriptions, varied quality)
  *
- * Usage: node scripts/seed-articles.js
+ * Usage: node scripts/seed-articles.js (dev only, never production)
  */
 
 const admin = require('firebase-admin');
-const path = require('path');
-const fs = require('fs');
+const { initializeScriptAdmin } = require('./devAdminTarget.cjs');
 // =============================================================================
 // FIREBASE INIT
 // =============================================================================
 
-const SERVICE_ACCOUNT_PATHS = [
-  path.join(__dirname, '..', 'functions', 'serviceAccountKey.json'),
-  path.join(__dirname, '..', 'serviceAccountKey.json'),
-  path.join(__dirname, '..', 'service-account.json'),
-];
-
-let serviceAccount = null;
-for (const p of SERVICE_ACCOUNT_PATHS) {
-  if (fs.existsSync(p)) {
-    serviceAccount = require(p);
-    console.log(`✅ Service account found: ${p}`);
-    break;
-  }
-}
-
-if (!serviceAccount) {
-  console.error('❌ No service account key found. Checked:', SERVICE_ACCOUNT_PATHS);
-  process.exit(1);
-}
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+const target = initializeScriptAdmin(admin);
+console.log(`🌱 Seed target: ${target.projectId}${target.emulator ? ' (emulator)' : ''}`);
 
 const db = admin.firestore();
 

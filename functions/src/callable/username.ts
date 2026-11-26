@@ -23,6 +23,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import { assertAccountOperationOpen } from '../utils/eligibility';
+import { assertPrivateAccountSession, withPrivateAccountSession } from '../utils/privateAccountSession';
 
 export const USERNAME_MIN_LEN = 3;
 export const USERNAME_MAX_LEN = 30;
@@ -204,7 +206,7 @@ interface AssignUsernameResult {
  */
 export const assignUsername = onCall(
   { region: 'northamerica-northeast1', memory: '512MiB' },
-  async (request): Promise<AssignUsernameResult> => {
+  async (request): Promise<AssignUsernameResult> => withPrivateAccountSession(request, async () => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Auth required');
     }
@@ -212,6 +214,7 @@ export const assignUsername = onCall(
 
     try {
       const result = await db.runTransaction(async (tx) => {
+        await assertPrivateAccountSession(request, tx);
         const userRef = db.collection('users').doc(uid);
         const userSnap = await tx.get(userRef);
 
@@ -227,6 +230,7 @@ export const assignUsername = onCall(
         if (typeof existing === 'string' && existing.length > 0) {
           return { username: existing, alreadyAssigned: true };
         }
+        await assertAccountOperationOpen(tx, uid, false, true, false);
 
         const base = slugifyUsername(userData.displayName, uid);
 
@@ -289,5 +293,5 @@ export const assignUsername = onCall(
       logger.error('assignUsername failed', { uid, error: message });
       throw new HttpsError('internal', 'Failed to assign username: ' + message);
     }
-  }
+  })
 );

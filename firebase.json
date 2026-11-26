@@ -8,7 +8,7 @@
     "predeploy": [
       "npm --prefix \"$RESOURCE_DIR\" run build"
     ],
-    "runtime": "nodejs20"
+    "runtime": "nodejs22"
   },
   "hosting": {
     "public": "public",
@@ -19,6 +19,15 @@
       "**/node_modules/**"
     ],
     "headers": [
+      {
+        "source": "/account-erasure-apple{,.html,.js}",
+        "headers": [
+          { "key": "Cache-Control", "value": "private, no-store" },
+          { "key": "Referrer-Policy", "value": "no-referrer" },
+          { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'; base-uri 'none'; object-src 'none'" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" }
+        ]
+      },
       {
         "source": "/.well-known/apple-app-site-association",
         "headers": [
@@ -33,6 +42,10 @@
       }
     ],
     "rewrites": [
+      {
+        "source": "/account-erasure-apple/callback",
+        "function": { "functionId": "accountErasureAppleWebCallback", "region": "northamerica-northeast1" }
+      },
       {
         "source": "**",
         "destination": "/index.html"

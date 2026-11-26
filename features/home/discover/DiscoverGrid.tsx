@@ -21,7 +21,7 @@ import {
   View,
 } from 'react-native';
 
-import { SectionHeader } from '@/components/home/SectionHeader';
+import { SectionHeader } from '@/features/home/components/SectionHeader';
 import ProductCard from '@/components/ProductCard';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
 import { track } from '@/lib/analytics';

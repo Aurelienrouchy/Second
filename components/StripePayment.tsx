@@ -5,15 +5,19 @@
  * — the SDK presents the sheet on top of the app automatically.
  *
  * Flow:
- * 1. Parent obtains a clientSecret from the createStripeCheckout CF
+ * 1. A compatible shop/top-up flow provides its attributed PaymentIntent secret.
  * 2. When `visible` turns true, we init + present the Payment Sheet
  * 3. On success/error/cancel, we call onResult
+ * Marketplace purchases use CardField + server_manual_v1 in the payment route;
+ * createStripeCheckout grants no autonomous Payment Sheet confirmation.
  */
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useStripe } from '@/lib/stripe';
 
 import { track } from '@/lib/analytics';
+import { CHECKOUT_RETURN_URL } from '@/config/stripeConfig';
+import { runtimeEnvironment } from '@/config/firebaseEnvironment';
 
 type PaymentSheetSource = 'checkout' | 'payment' | 'shop_upgrade' | 'swap_topup';
 
@@ -34,7 +38,7 @@ export interface StripePaymentResult {
 }
 
 interface StripePaymentProps {
-  /** PaymentIntent client secret from createStripeCheckout Cloud Function */
+  /** Attributed PaymentIntent secret from a compatible shop/top-up flow. */
   clientSecret: string;
   /** When true, initialise and present the Payment Sheet */
   visible: boolean;
@@ -109,10 +113,10 @@ function StripePaymentComponent({
         // configured on their device (Android only)
         googlePay: {
           merchantCountryCode: 'CA',
-          testEnv: __DEV__,
+          testEnv: runtimeEnvironment.name !== 'production',
         },
         style: 'alwaysLight',
-        returnURL: 'seconde://checkout/success',
+        returnURL: CHECKOUT_RETURN_URL,
       });
 
       if (initError) {

@@ -19,11 +19,13 @@ module.exports = {
   // native iOS (suffit pour des composants/hook cross-platform).
   preset: 'jest-expo/ios',
 
-  // Jest ne prend QUE les tests composant/écran/hook RN (.test.tsx) + le
-  // dossier dédié tests/jest/. Les *.test.ts restent à Vitest.
+  // Jest prend les tests composant/écran/hook RN et tests/jest/. Les probes
+  // historiques se rejouent via leurs configs dédiées, qui remplacent testMatch.
+  // Les *.test.ts hors tests/jest/ restent à Vitest.
   testMatch: [
     '<rootDir>/**/*.test.tsx',
     '<rootDir>/tests/jest/**/*.test.{ts,tsx}',
+    '!**/_audit-reports/**',
   ],
 
   // Garde-fous anti-collision : on n'entre jamais dans les zones Vitest /

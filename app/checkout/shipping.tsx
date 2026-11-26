@@ -1,969 +1,442 @@
-/**
- * Checkout — Shipping Address + Stripe Payment
- * 1. Enter shipping address  2. Select shipping option  3. Review price  4. Pay via Stripe
- */
-
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressable, Switch,
-  ActivityIndicator,
-} from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
+/** Canonical shipping quote → explicit price acceptance → recoverable reservation.
+ * The reservation receipt grants no permission to pay. Card/wallet are a later step. */
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { doc, getDoc } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import * as Haptics from 'expo-haptics';
-
-import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { ScreenHeader } from '@/components/ui';
-import { firestore, functions, auth } from '@/config/firebaseConfig';
-import { Article, ShippingAddress } from '@/types';
+import { Button, Checkbox, ScreenHeader } from '@/components/ui';
+import {OrdinaryShippingAddressChoice} from '@/components/OrdinaryShippingAddressChoice';
+import { colors, radius, sizing, spacing, typography } from '@/constants/theme';
+import { PAYMENTS_ENABLED, SHIPPING_ENABLED } from '@/config/featureFlags';
+import { ShippingAddressForm, ShippingEstimateList, PriceBreakdown, PayButton, ShippingPurchaseConditions, ShippingCheckoutSkeleton, INITIAL_ADDRESS } from '@/features/checkout-shipping';
+import type { AddressFormValues } from '@/features/checkout-shipping';
+import { useAuthenticatedSession } from '@/hooks/useAuth';
+import { useLabelLifecycleContext } from '@/hooks/useLabelLifecycleContext';
+import { useTradeAdmissionError } from '@/hooks/useTradeAdmissionError';
+import { ArticlesService } from '@/services/articlesService';
+import { ShippingPurchaseService, isShippingQuoteExpiredError, shippingLaunchErrorMessage } from '@/services/shippingPurchaseService';
 import { TransactionService } from '@/services/transactionService';
-import { ChatService } from '@/services/chatService';
-import { ModerationService } from '@/services/moderationService';
-import { WalletService } from '@/services/walletService';
-import { StripePayment, StripePaymentResult } from '@/components/StripePayment';
-import {
-  ShippingAddressForm,
-  ShippingEstimateList,
-  PriceBreakdown,
-  PayButton,
-  ShippingCheckoutSkeleton,
-  INITIAL_ADDRESS,
-  FALLBACK_ESTIMATES,
-  isFallbackRate,
-  CHECKOUT_COPY,
-} from '@/features/checkout-shipping';
-import type { ShippingEstimate, AddressFormValues } from '@/features/checkout-shipping';
-import { homeKeys } from '@/features/home/query-keys';
-import { useAuthStore } from '@/store/authStore';
-import { useWallet } from '@/hooks/useWallet';
-import { SHIPPING_ENABLED } from '@/config/featureFlags';
-import { classifyStripePaymentError } from '@/utils/stripePaymentError';
-import { getCallableErrorCode, mapCallableError } from '@/utils/callableError';
-import { isPaidStatus } from '@/lib/transactionStatusMeta';
-import { track } from '@/lib/analytics';
+import { staleTradeOperation } from '@/services/tradeOperation';
+import { getAuthSessionGeneration } from '@/store/authStore';
+import { queryKeys } from '@/lib/queryKeys';
+import { formatPriceWithCurrency } from '@/utils/formatPrice';
+import { shippingOrderProgress } from '@/utils/shippingOrderProgress';
+import {readScopedQuery} from '@/utils/readScopedQuery';
+import type {AddressSuggestion} from '@/services/addressAutocompleteService';
+import type { OrdinaryShippingAddressKind, ShippingPurchaseAddress, ShippingPurchaseQuote, ShippingPurchaseRate, ShippingReservationReceipt } from '@/types/shippingPurchase';
+import {createOrdinaryAddressInteraction, ordinaryPhysicalAddress, ordinaryShippingAddressDeclaration} from '@/utils/ordinaryShippingAddress';
+import type { User } from '@/types';
 
-/** Default postal code used when seller location is unavailable */
-const DEFAULT_SELLER_POSTAL_CODE = 'H2S3C4';
-
-/** Canadian postal code pattern: A1A1A1 or A1A 1A1 */
-const CA_POSTAL_RE = /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/;
-
-/** How long to wait for the webhook to flip status before proceeding anyway. */
-const PAYMENT_CONFIRM_TIMEOUT_MS = 12000;
-/** Delay between transaction status polls. */
-const PAYMENT_CONFIRM_POLL_MS = 1500;
-
-/**
- * True when the server rejected the payment because the selected shipping
- * rate has expired and must be re-quoted (re-tarification serveur).
- */
-function isRateExpiredError(error: unknown): boolean {
-  if (getCallableErrorCode(error) !== 'failed-precondition') return false;
-  const message = error instanceof Error ? error.message.toLowerCase() : '';
-  return message.includes('tarif') || message.includes('expir') || message.includes('rate');
+const CA_POSTAL = /^[ABCEGHJKLMNPRSTVXY]\d[ABCEGHJKLMNPRSTVWXYZ] ?\d[ABCEGHJKLMNPRSTVWXYZ]\d$/;
+const QC_POSTAL = /^[GHJ]\d[ABCEGHJKLMNPRSTVWXYZ] ?\d[ABCEGHJKLMNPRSTVWXYZ]\d$/;
+const newShippingEnabled = SHIPPING_ENABLED && PAYMENTS_ENABLED;
+const monotonicNow = () => typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+function prefill(user: User | null): AddressFormValues {
+  const physical = user?.address ? ordinaryPhysicalAddress({...user.address, country: 'CA'}) : null;
+  return { ...INITIAL_ADDRESS, fullName: user?.displayName ?? '', address: user?.address?.street ?? '',
+    city: user?.address?.city ?? '', province: user?.address ? user.address.province ?? '' : 'QC', postalCode: user?.address?.postalCode ?? '', apartment: physical?.line2 ?? '' };
 }
-
-// =============================================================================
-// SCREEN
-// =============================================================================
+function destination(values: AddressFormValues): ShippingPurchaseAddress | null {
+  const name = values.fullName.trim(), street = values.address.trim(), city = values.city.trim();
+  const postalCode = values.postalCode.trim().toUpperCase();
+  if (!name || name.length > 100 || !street || street.length > 200 || !city || city.length > 100 ||
+      values.province.trim().toUpperCase() !== 'QC' || !QC_POSTAL.test(postalCode) || values.apartment.trim().length > 200) return null;
+  return { street, city, province: 'QC', postalCode: postalCode.replace(' ', ''), country: 'CA',
+    ...(values.apartment.trim() ? { line2: values.apartment.trim() } : {}), name };
+}
 
 export default function ShippingCheckoutScreen() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { articleId, chatId: paramChatId, negotiatedPrice } = useLocalSearchParams<{
-    articleId: string;
-    chatId?: string;
-    negotiatedPrice?: string;
-  }>();
+  const params = useLocalSearchParams<{ articleId?: string; negotiatedPrice?: string; existingTransactionId?: string; chatId?: string; offerMessageId?: string }>();
+  const articleId = typeof params.articleId === 'string' ? params.articleId : '';
+  const chatId = typeof params.chatId === 'string' ? params.chatId : '';
+  const offerMessageId = typeof params.offerMessageId === 'string' ? params.offerMessageId : '';
+  const agreementRequested = params.chatId != null || params.offerMessageId != null;
+  const agreementInvalid = agreementRequested && (!/^[A-Za-z0-9_-]{1,200}$/.test(chatId) || !/^[A-Za-z0-9_-]{1,200}$/.test(offerMessageId)) || params.negotiatedPrice != null;
+  const existingTransactionId = typeof params.existingTransactionId === 'string' ? params.existingTransactionId : '';
+  const { uid, identity } = useAuthenticatedSession();
+  const generation = getAuthSessionGeneration();
+  const dossier = useLabelLifecycleContext(JSON.stringify([articleId, existingTransactionId, chatId, offerMessageId]), uid);
+  const showAdmissionError = useTradeAdmissionError();
+  const [addressForm, setAddressForm] = useState<AddressFormValues>(() => prefill(identity));
+  const [editingAddress, setEditingAddress] = useState(() => !destination(prefill(identity)));
+  const [addressKind, setAddressKind] = useState<OrdinaryShippingAddressKind | null>(null);
+  const [addressAccepted, setAddressAccepted] = useState(false);
+  const [inputInteraction] = useState(createOrdinaryAddressInteraction);
+  const [, setInputRenderRevision] = useState(0);
+  const [quoteState, setQuoteState] = useState<{ quote: ShippingPurchaseQuote; source: string; focus: string; receivedAt: number } | null>(null);
+  const [quoteClock, setQuoteClock] = useState(monotonicNow);
+  const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
+  const [acceptedKey, setAcceptedKey] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<ShippingReservationReceipt | null>(null);
+  const [notice, setNotice] = useState('');
+  const [working, setWorking] = useState<'quote' | 'reserve' | 'verify' | 'restart' | null>(null);
+  const inputEpoch = useRef(0);
+  const recoveredReservation = useRef<string | null>(null);
+  const routedReservation = useRef<string | null>(null);
+  const [screenOwner, setScreenOwner] = useState({ uid, generation, articleId, existingTransactionId, chatId, offerMessageId });
+  if (screenOwner.uid !== uid || screenOwner.generation !== generation || screenOwner.articleId !== articleId || screenOwner.existingTransactionId !== existingTransactionId || screenOwner.chatId !== chatId || screenOwner.offerMessageId !== offerMessageId) {
+    inputInteraction.invalidate();
+    if (screenOwner.uid !== uid) {setAddressForm(prefill(identity)); setEditingAddress(!destination(prefill(identity)));}
+    setAddressKind(null); setAddressAccepted(false);
+    setScreenOwner({ uid, generation, articleId, existingTransactionId, chatId, offerMessageId });
+    setQuoteState(null); setSelectedRateId(null); setAcceptedKey(null); setReceipt(null); setNotice(''); setWorking(null);
+  }
+  const focusKey = JSON.stringify([dossier.frame.toString(), dossier.focusRevision, uid, generation]);
+  const [previousFocus, setPreviousFocus] = useState(focusKey);
+  if (previousFocus !== focusKey) { inputInteraction.invalidate(); setPreviousFocus(focusKey); setWorking(null); setReceipt(null); }
+  const inputGuard = inputInteraction.capture();
+  const advanceInput = () => {inputInteraction.invalidate(); inputEpoch.current++; setInputRenderRevision(n => n + 1);};
 
-  const [article, setArticle] = useState<Article | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [loadingEstimates, setLoadingEstimates] = useState(false);
-  const [addressForm, setAddressForm] = useState<AddressFormValues>(() => {
-    // Pre-fill from the user profile at mount.
-    const user = useAuthStore.getState().user;
-    if (!user) return INITIAL_ADDRESS;
-    return {
-      ...INITIAL_ADDRESS,
-      fullName: user.displayName || '',
-      address: user.address?.street || '',
-      city: user.address?.city || '',
-      province: user.address?.province || '',
-      postalCode: user.address?.postalCode || '',
-    };
+  const articleQuery = useQuery({ queryKey: queryKeys.articles.detail(articleId),
+    queryFn: () => ArticlesService.getArticleById(articleId), enabled: !existingTransactionId && newShippingEnabled && !!articleId && !!uid,
+    staleTime: 10 * 60 * 1000, retry: false });
+  const article = articleQuery.data ?? null;
+  useFocusEffect(useCallback(() => {
+    if (!existingTransactionId && newShippingEnabled && uid && articleId) void articleQuery.refetch();
+  }, [uid, articleId, existingTransactionId, articleQuery.refetch]));
+  const attemptQuery = useQuery({ queryKey: ['shipping-reservation', uid, generation, articleId, dossier.focusRevision],
+    queryFn: ({signal}) => readScopedQuery(signal, () => {
+      const operation = dossier.capture(); return () => dossier.assertCurrent(operation);
+    }, current => ShippingPurchaseService.readAttempt(uid!, articleId, current)), enabled: !existingTransactionId && !!uid && !!articleId && dossier.focused, staleTime: 0, gcTime: 0, retry: false });
+  const existingQuery = useQuery({ queryKey: ['shipping-existing-order', uid, generation, existingTransactionId, dossier.focusRevision],
+    queryFn: ({signal}) => readScopedQuery(signal, () => {
+      const operation = dossier.capture(); return () => dossier.assertCurrent(operation);
+    }, async current => {
+      const existing = await TransactionService.readExistingShippingReservation(uid!, existingTransactionId, current);
+      current();
+      if (existing.transactionId !== existingTransactionId) throw new Error('Commande inaccessible.');
+      return existing;
+    }), enabled: !!uid && !!existingTransactionId && dossier.focused, staleTime: 0, gcTime: 0, retry: false });
+
+  const pendingAttempt = !existingTransactionId ? attemptQuery.data ?? null : null;
+  const knownReceipt = existingTransactionId
+    ? existingQuery.data?.transactionId === existingTransactionId ? existingQuery.data : null
+    : receipt ?? pendingAttempt?.receipt ?? null;
+  const currentOrderQuery = useQuery({
+    queryKey: ['shipping-current-order', uid, generation, knownReceipt?.transactionId, dossier.focusRevision],
+    enabled: !!uid && !!knownReceipt && dossier.focused,
+    staleTime: 0, gcTime: 0, retry: false,
+    queryFn: ({signal}) => readScopedQuery(signal, () => {
+      const operation = dossier.capture(); return () => dossier.assertCurrent(operation);
+    }, async current => {
+      const order = await TransactionService.getTransaction(knownReceipt!.transactionId, {expectedUid: uid!, assertCurrent: current});
+      current();
+      if (!order || order.id !== knownReceipt!.transactionId || existingTransactionId && order.id !== existingTransactionId || order.buyerId !== uid) throw new Error('Commande inaccessible.');
+      return order;
+    }),
   });
-  const [estimates, setEstimates] = useState<ShippingEstimate[]>([]);
-  const [selectedEstimate, setSelectedEstimate] = useState<ShippingEstimate | null>(null);
-  const [showStripePayment, setShowStripePayment] = useState(false);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  /**
-   * Server-authoritative buyer total (createStripeCheckout feeBreakdown). The
-   * recap above (PriceBreakdown) is built from server-priced components
-   * (getServiceFee + getShippingEstimate); this is the final total the backend
-   * actually charges. Once known, it overrides the displayed recap total so the
-   * buyer never sees a client-guessed amount diverge from the charge (F124).
-   */
-  const [serverBuyerTotal, setServerBuyerTotal] = useState<number | null>(null);
-  const [pendingTransactionId, setPendingTransactionId] = useState<string | null>(null);
-  const [pendingChatId, setPendingChatId] = useState<string | null>(null);
-  const [serviceFee, setServiceFee] = useState(0);
-  /** Sales tax (TPS/TVQ) on the service fee — 0 when TAX_ENABLED=false. */
-  const [taxTotal, setTaxTotal] = useState(0);
-  /** True while polling Firestore for the webhook to flip status to 'paid'. */
-  const [confirmingPayment, setConfirmingPayment] = useState(false);
-
-  // ── Wallet ──────────────────────────────────────────────────────────────────
-  const { wallet } = useWallet(!!auth.currentUser);
-  const [useWalletBalance, setUseWalletBalance] = useState(false);
-
-  // --- Auth guard -------------------------------------------------------------
-
+  const currentOrder = currentOrderQuery.data ?? null;
+  const currentOrderReady = dossier.focused && currentOrderQuery.isSuccess && !currentOrderQuery.isFetching && !currentOrderQuery.isError &&
+    !!uid && !!currentOrder && currentOrder.id === knownReceipt?.transactionId && (!existingTransactionId || currentOrder.id === existingTransactionId) && currentOrder.buyerId === uid;
+  const existingProgress = currentOrderReady ? shippingOrderProgress(currentOrder, uid) : null;
+  const continueExistingOrder = () => {
+    if (!currentOrderReady || !currentOrder || !existingProgress) return;
+    try {dossier.capture();} catch {return;}
+    router.push(newShippingEnabled && existingProgress.destination === 'payment'
+      ? {pathname: '/payment/[transactionId]', params: {transactionId: currentOrder.id}}
+      : {pathname: '/orders/[id]', params: {id: currentOrder.id}});
+  };
   useEffect(() => {
-    // Garde-fou deep link : le shipping est désactivé, on renvoie au checkout.
-    if (!SHIPPING_ENABLED) {
-      router.replace('/checkout');
-      return;
+    // Continue only after this visit received an authoritative reservation and
+    // reread its order. A saved receipt alone does not authorize payment.
+    if (existingTransactionId || !uid || !receipt || !dossier.focused || working || currentOrderQuery.isFetching ||
+        currentOrderQuery.isError || !currentOrder || currentOrder.id !== receipt.transactionId) return;
+    const navigationKey = JSON.stringify([uid, generation, receipt.transactionId, dossier.focusRevision]);
+    if (routedReservation.current === navigationKey) return;
+    try { dossier.capture(); } catch { return; }
+    const next = shippingOrderProgress(currentOrder, uid);
+    if (!next) return;
+    routedReservation.current = navigationKey;
+    if (newShippingEnabled && next.destination === 'payment') {
+      router.replace({pathname: '/payment/[transactionId]', params: {transactionId: currentOrder.id}});
+    } else {
+      router.replace({pathname: '/orders/[id]', params: {id: currentOrder.id}});
     }
-    if (!auth.currentUser) {
-      router.replace('/(tabs)');
-    }
-  }, [router]);
-
-  // --- Negotiated price (from accepted offer) --------------------------------
-
-  const finalPrice = article
-    ? (negotiatedPrice ? parseFloat(negotiatedPrice) : article.price)
-    : 0;
-
-  // Use seller's location from the article if it looks like a postal code
-  const sellerPostalCode =
-    (article?.location && CA_POSTAL_RE.test(article.location.trim())
-      ? article.location.trim().replace(/\s/g, '').toUpperCase()
-      : null)
-    || DEFAULT_SELLER_POSTAL_CODE;
-
-  const handleAddressChange = useCallback(
-    <K extends keyof AddressFormValues>(field: K, value: AddressFormValues[K]) => {
-      setAddressForm((prev) => ({ ...prev, [field]: value }));
-    },
-    [],
-  );
-
-  const handleSelectEstimate = useCallback(
-    (estimate: ShippingEstimate) => {
-      setSelectedEstimate(estimate);
-      const parsedDays = parseInt(estimate.deliveryDays, 10);
-      track('shipping_rate_selected', {
-        carrier: estimate.carrier,
-        service: estimate.serviceName,
-        amount_cents: Math.round(estimate.amount * 100),
-        delivery_days: Number.isFinite(parsedDays) ? parsedDays : undefined,
-        is_fallback_rate: isFallbackRate(estimate.rateId),
-        rate_index: estimates.findIndex((e) => e.rateId === estimate.rateId),
-      });
-    },
-    [estimates],
-  );
-
-  // --- Navigate to hand-delivery (meetup) checkout ---------------------------
-
-  const goToMeetup = useCallback(() => {
-    if (!article) return;
-    router.replace({
-      pathname: '/checkout/meetup' as any,
-      params: { articleId: article.id },
-    });
-  }, [article, router]);
-
-  // --- Load article ----------------------------------------------------------
-
+  }, [uid, generation, existingTransactionId, receipt, dossier, working,
+    currentOrderQuery.isFetching, currentOrderQuery.isError, currentOrder, router]);
+  const cancelledWithProof = !!pendingAttempt && ShippingPurchaseService.hasCommittedCancellation(currentOrder, pendingAttempt);
+  const articleSource = JSON.stringify(article ? [article.id, article.sellerId, article.isActive, article.isSold, article.isShipping,
+    article.title, article.description, article.price, article.images, article.category, article.categoryIds, article.condition,
+    article.size, article.brand, article.brandStatus, article.colors, article.materials, article.packageSize, article.shopId,
+    article.hasKnownDefects, article.defectsDescription, article.hasAlterations, article.alterationsDescription] : null);
+  const source = JSON.stringify([uid, generation, articleId, chatId, offerMessageId, agreementInvalid, articleSource, addressForm, addressKind, addressAccepted]);
+  const action = useLabelLifecycleContext(source, uid);
+  const [previousActionFrame, setPreviousActionFrame] = useState(action.frame);
+  if (previousActionFrame !== action.frame) { setPreviousActionFrame(action.frame); setWorking(null); }
+  const currentQuote = quoteState?.source === source && quoteState.focus === dossier.focusRevision ? quoteState.quote : null;
+  const remainingMs = currentQuote && quoteState ? Math.max(0, currentQuote.validUntil - currentQuote.serverTime -
+    Math.max(0, quoteClock - quoteState.receivedAt)) : 0;
+  const quoteExpired = !!currentQuote && remainingMs <= 0;
   useEffect(() => {
-    (async () => {
-      try {
-        const snap = await getDoc(doc(firestore, 'articles', articleId as string));
-        if (snap.exists()) setArticle({ id: snap.id, ...snap.data() } as Article);
-      } catch (e) {
-        if (__DEV__) console.error('Error loading article:', e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [articleId]);
+    if (!currentQuote || !quoteState || !dossier.focused || quoteExpired) return;
+    const left = currentQuote.validUntil - currentQuote.serverTime - Math.max(0, monotonicNow() - quoteState.receivedAt);
+    const timer = setTimeout(() => setQuoteClock(monotonicNow()), Math.max(0, Math.ceil(left)));
+    return () => clearTimeout(timer);
+  }, [currentQuote, quoteState, dossier.focused, quoteClock, quoteExpired]);
+  const quoteStillLive = () => !!currentQuote && !!quoteState && currentQuote.validUntil - currentQuote.serverTime >
+    Math.max(0, monotonicNow() - quoteState.receivedAt);
+  const selectedRate = currentQuote?.rates.find(rate => rate.rateId === selectedRateId) ?? null;
+  const currentAcceptanceKey = currentQuote && selectedRate
+    ? JSON.stringify([source, dossier.focusRevision, currentQuote.quoteId, selectedRate.rateId, selectedRate.totalAmount, currentQuote.purchasePolicy,
+      currentQuote.pricingVersion, currentQuote.taxSnapshot, ...(currentQuote.transport ? [currentQuote.transport] : [])]) : null;
+  const reservationContext = useLabelLifecycleContext(currentAcceptanceKey ?? 'shipping-quote-unselected', uid);
+  const accepted = !!currentQuote?.transport && !quoteExpired && currentAcceptanceKey !== null && acceptedKey === currentAcceptanceKey;
+  const shippingDestination = destination(addressForm);
+  const canRequestQuote = !existingTransactionId && newShippingEnabled && !!uid && !!article && article.sellerId !== uid &&
+    article.isActive === true && article.isShipping === true && !article.isSold && !!shippingDestination && !!addressKind && addressAccepted &&
+    attemptQuery.isSuccess && !pendingAttempt && !knownReceipt && !working && !agreementInvalid;
 
-  // --- Shipping estimates ----------------------------------------------------
-
-  const fetchShippingEstimates = useCallback(async () => {
-    const pc = addressForm.postalCode.replace(/\s/g, '');
-    if (!article || pc.length < 6) return;
+  const changeAddress = <K extends keyof AddressFormValues>(field: K, value: AddressFormValues[K]) => {
+    try { inputGuard(); dossier.capture(); } catch { return; }
+    advanceInput();
+    setAddressForm(previous => ({ ...previous, [field]: value }));
+    setAddressKind(null); setAddressAccepted(false);
+    setQuoteState(null); setSelectedRateId(null); setAcceptedKey(null); setNotice('');
+  };
+  const selectAddressSuggestion = (suggestion: AddressSuggestion): boolean => {
+    try {inputGuard(); dossier.capture();} catch {return false;}
+    if (suggestion.province.trim().toUpperCase() !== 'QC') return false;
+    const next = {...addressForm, address: suggestion.street, city: suggestion.city, province: suggestion.province, postalCode: suggestion.postalCode};
+    advanceInput(); setAddressForm(next); setAddressKind(null); setAddressAccepted(false);
+    setQuoteState(null); setSelectedRateId(null); setAcceptedKey(null); setNotice('');
+    setEditingAddress(!destination(next));
+    return true;
+  };
+  const changeAddressDeclaration = (kind: OrdinaryShippingAddressKind | null, accepted: boolean) => {
+    try {inputGuard(); dossier.capture();} catch {return;}
+    advanceInput(); setAddressKind(kind); setAddressAccepted(accepted);
+    setQuoteState(null); setSelectedRateId(null); setAcceptedKey(null); setNotice('');
+  };
+  const selectRate = (rate: ShippingPurchaseRate) => {
+    try { inputGuard(); action.capture(); } catch { return; }
+    if (!quoteStillLive() || !currentQuote?.rates.some(item => item === rate)) return;
+    advanceInput(); setSelectedRateId(rate.rateId); setAcceptedKey(null);
+  };
+  const requestQuote = async () => {
+    if (!uid || !canRequestQuote || !shippingDestination || !addressKind || !addressAccepted) return;
+    try {inputGuard();} catch {return;}
+    let operation;
+    try { operation = action.start(); } catch { return; }
+    if (!operation) return;
+    const epoch = inputEpoch.current;
+    const assertCurrent = () => { action.assertCurrent(operation); inputGuard(); if (inputEpoch.current !== epoch) throw staleTradeOperation(); };
+    setWorking('quote'); setQuoteState(null); setSelectedRateId(null); setAcceptedKey(null); setNotice('');
     try {
-      setLoadingEstimates(true);
-      const result = await httpsCallable(functions, 'getShippingEstimate')({
-        fromAddress: { postalCode: sellerPostalCode },
-        toAddress: {
-          postalCode: addressForm.postalCode,
-          city: addressForm.city,
-          province: addressForm.province,
-          name: addressForm.fullName,
-        },
-        weight: article.weight || 0.5,
-        dimensions: article.dimensions || { length: 30, width: 25, height: 10 },
-      });
-      const data = result.data as { success: boolean; rates: ShippingEstimate[] };
-      if (data.success && data.rates?.length > 0) {
-        setEstimates(data.rates);
-        setSelectedEstimate(data.rates[0]);
-        track('shipping_estimates_loaded', {
-          article_id: article.id,
-          rates_count: data.rates.length,
-          is_fallback: false,
-          first_rate_cents: Math.round((data.rates[0]?.amount ?? 0) * 100),
-          postal_code_fsa: pc.slice(0, 3).toUpperCase(),
-        });
+      const prior = await attemptQuery.refetch(); assertCurrent();
+      if (prior.isError) throw prior.error;
+      if (prior.data) { setNotice('Retrouvons votre réservation avant de poursuivre.'); return; }
+      const shippingUseDeclaration = await ordinaryShippingAddressDeclaration(shippingDestination, addressKind); assertCurrent();
+      const response = await ShippingPurchaseService.quote(uid, articleId, {...shippingDestination, shippingUseDeclaration}, assertCurrent,
+        offerMessageId ? {chatId, offerMessageId} : undefined);
+      assertCurrent();
+      const receivedAt = monotonicNow(); setQuoteClock(receivedAt);
+      setQuoteState({ quote: response, source, focus: dossier.focusRevision, receivedAt });
+    } catch (error) {
+      if (!action.isCurrent(operation) || inputEpoch.current !== epoch) return;
+      const launchMessage = shippingLaunchErrorMessage(error);
+      if (launchMessage) setNotice(launchMessage);
+      else if (!showAdmissionError(error, { isCurrent: () => action.isCurrent(operation) && inputEpoch.current === epoch, retry: () => { void requestQuote(); } })) {
+        Alert.alert('Devis indisponible', error instanceof Error ? error.message : 'Impossible de vérifier ce devis. Votre saisie est conservée.');
       }
-    } catch (e) {
-      if (__DEV__) console.error('Error fetching shipping estimates:', e);
-      setEstimates(FALLBACK_ESTIMATES);
-      setSelectedEstimate(FALLBACK_ESTIMATES[0]);
-      track('shipping_estimates_loaded', {
-        article_id: article.id,
-        rates_count: FALLBACK_ESTIMATES.length,
-        is_fallback: true,
-        first_rate_cents: Math.round((FALLBACK_ESTIMATES[0]?.amount ?? 0) * 100),
-        postal_code_fsa: pc.slice(0, 3).toUpperCase(),
-      });
-    } finally {
-      setLoadingEstimates(false);
-    }
-  }, [article, sellerPostalCode, addressForm.postalCode, addressForm.city, addressForm.province, addressForm.fullName]);
-
-  useEffect(() => {
-    if (addressForm.postalCode.replace(/\s/g, '').length >= 6) {
-      (async () => {
-        await fetchShippingEstimates();
-      })();
-    }
-  }, [addressForm.postalCode, fetchShippingEstimates]);
-
-  // --- Service fee -----------------------------------------------------------
-
-  useEffect(() => {
-    if (!finalPrice) return;
-    httpsCallable(functions, 'getServiceFee')({ articlePrice: finalPrice, articleId: article?.id })
-      .then((r) => {
-        const d = r.data as { serviceFee: number; taxTotal?: number };
-        setServiceFee(d.serviceFee || 0);
-        setTaxTotal(typeof d.taxTotal === 'number' ? d.taxTotal : 0);
-      })
-      .catch(() => {
-        setServiceFee(Math.max(2.00, Math.round((finalPrice * 0.05 + 1.50) * 100) / 100));
-        setTaxTotal(0);
-      });
-  }, [finalPrice, article?.id]);
-
-  // --- Derived ---------------------------------------------------------------
-
-  const totalAmount = finalPrice
-    ? finalPrice + (selectedEstimate?.amount || 0) + serviceFee + taxTotal
-    : 0;
-
-  /** Total in cents for wallet comparison (backend amounts are in cents). */
-  const totalAmountCents = Math.round(totalAmount * 100);
-
-  /** Wallet balance available (in cents). */
-  const walletBalanceCents = wallet?.hasWallet ? wallet.balance : 0;
-
-  /** Whether wallet can cover the full amount. */
-  const walletCoversAll = useWalletBalance && walletBalanceCents >= totalAmountCents;
-
-  /** Amount (in dollars) that must be paid by card when using partial wallet. */
-  const cardAmountDollars = useWalletBalance
-    ? Math.max(0, (totalAmountCents - walletBalanceCents) / 100)
-    : totalAmount;
-
-  /** Wallet amount that will be used (in cents), capped at total. */
-  const walletAmountCents = useWalletBalance
-    ? Math.min(walletBalanceCents, totalAmountCents)
-    : 0;
-
-  /** Postal code is required and must match the Canadian format. */
-  const postalCodeValid = CA_POSTAL_RE.test(addressForm.postalCode.trim());
-
-  const canPay = !!(
-    addressForm.fullName && addressForm.address && addressForm.city
-    && addressForm.province && postalCodeValid && selectedEstimate
-  );
-
-  // --- Payment ---------------------------------------------------------------
-
-  const handlePay = useCallback(async () => {
-    if (!article || !selectedEstimate || submitting) return;
-    const currentUser = auth.currentUser;
-    if (!currentUser) { Alert.alert('Erreur', 'Vous devez être connecté pour acheter.'); return; }
-    if (!canPay) { Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires.'); return; }
-
-    track('payment_submitted', {
-      screen: 'checkout',
-      article_id: article.id,
-      final_price_cents: Math.round(finalPrice * 100),
-      shipping_cents: Math.round((selectedEstimate.amount || 0) * 100),
-      service_fee_cents: Math.round(serviceFee * 100),
-      tax_cents: Math.round(taxTotal * 100),
-      total_cents: totalAmountCents,
-      uses_wallet: useWalletBalance,
-      wallet_covers_all: walletCoversAll,
-      card_amount_cents: Math.round(cardAmountDollars * 100),
-      is_fallback_rate: isFallbackRate(selectedEstimate.rateId),
-      has_negotiated_price: negotiatedPrice != null,
-    });
-
-    // ── ShipEngine indisponible (rate fallback_*) ──────────────────────────
-    // Un tarif de repli ne permet pas d'acheter une vraie étiquette : on
-    // bloque le paiement carte et on oriente vers la remise en main propre.
-    if (isFallbackRate(selectedEstimate.rateId)) {
-      const canMeetup = article.isHandDelivery !== false;
-      const buttons = [
-        {
-          text: CHECKOUT_COPY.shippingDownCtaPrimary,
-          onPress: () => {
-            track('checkout_blocked', {
-              article_id: article.id,
-              guard_type: 'fallback_rate',
-              cta_chosen: 'retry_rates',
-            });
-            fetchShippingEstimates();
-          },
-        },
-        ...(canMeetup
-          ? [{
-              text: CHECKOUT_COPY.shippingDownCtaSecondary,
-              onPress: () => {
-                track('checkout_blocked', {
-                  article_id: article.id,
-                  guard_type: 'fallback_rate',
-                  cta_chosen: 'switch_meetup',
-                });
-                track('checkout_delivery_selected', {
-                  article_id: article.id,
-                  delivery_type: 'meetup',
-                  via: 'shipping_unavailable',
-                  price_cents: Math.round(finalPrice * 100),
-                });
-                goToMeetup();
-              },
-            }]
-          : []),
-      ];
-      Alert.alert(CHECKOUT_COPY.shippingDownTitle, CHECKOUT_COPY.shippingDownBody, buttons);
-      return;
-    }
-
-    let createdTransactionId: string | null = null;
-
+    } finally { if (action.isCurrent(operation)) setWorking(null); action.finish(operation); }
+  };
+  const reserve = async () => {
+    if (!uid || !accepted || !currentQuote || !selectedRate || pendingAttempt || !canRequestQuote) return;
+    try {inputGuard();} catch {return;}
+    if (!quoteStillLive()) { setQuoteClock(monotonicNow()); setAcceptedKey(null); setNotice('Ce devis est expiré pour une nouvelle réservation. Refaites le devis puis acceptez son nouveau total.'); return; }
+    let operation;
+    try { operation = reservationContext.start(); } catch { return; }
+    if (!operation) return;
+    const epoch = inputEpoch.current;
+    const assertCurrent = () => { reservationContext.assertCurrent(operation); inputGuard(); if (inputEpoch.current !== epoch) throw staleTradeOperation(); };
+    setWorking('reserve'); setNotice('');
     try {
-      setSubmitting(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      // Check if users are blocked before proceeding
-      const blocked = await ModerationService.areUsersBlocked(currentUser.uid, article.sellerId);
-      if (blocked) {
-        track('payment_init_failed', { failure_type: 'blocked_users' });
-        Alert.alert('Action impossible', 'Vous ne pouvez pas acheter cet article.');
-        return;
+      const response = await TransactionService.reserveShippingPurchase(uid, articleId, currentQuote.destination, {
+        deliveryType: 'shipping', quoteId: currentQuote.quoteId, rateId: selectedRate.rateId, expectedTotal: selectedRate.totalAmount,
+        purchasePolicyAccepted: true, expectedPurchasePolicyVersion: currentQuote.purchasePolicy.policyVersion,
+        expectedPurchasePolicyHash: currentQuote.purchasePolicy.hash, purchasePolicy: currentQuote.purchasePolicy,
+        ...(currentQuote.transport ? {expectedTransportTermsHash: currentQuote.transport.termsHash} : {}),
+      }, assertCurrent);
+      assertCurrent(); setReceipt(response);
+      await attemptQuery.refetch(); assertCurrent();
+    } catch (error) {
+      if (!reservationContext.isCurrent(operation) || inputEpoch.current !== epoch) return;
+      const reread = await attemptQuery.refetch();
+      if (!reservationContext.isCurrent(operation) || inputEpoch.current !== epoch) return;
+      const errorNavigation = dossier.capture();
+      setQuoteState(null); setSelectedRateId(null); setAcceptedKey(null);
+      if (reread.isError || reread.data) setNotice(isShippingQuoteExpiredError(error)
+        ? 'Le devis a expiré. Actualisez le suivi pour connaître l’état de votre réservation.'
+        : 'La réservation n’est pas encore confirmée. Votre demande est conservée.');
+      else if (isShippingQuoteExpiredError(error)) setNotice('Ce devis a expiré. Actualisez les tarifs avant de continuer.');
+      else if (shippingLaunchErrorMessage(error)) setNotice(shippingLaunchErrorMessage(error)!);
+      else if (!showAdmissionError(error, { isCurrent: () => dossier.isCurrent(errorNavigation) && inputEpoch.current === epoch })) {
+        setNotice(error instanceof Error ? error.message : 'La réservation n’a pas été confirmée. Votre saisie est conservée. Réessayez dans un instant.');
       }
-
-      const shippingAddress: ShippingAddress = {
-        name: addressForm.fullName,
-        street: addressForm.apartment
-          ? `${addressForm.address}, ${addressForm.apartment}`
-          : addressForm.address,
-        city: addressForm.city,
-        province: addressForm.province,
-        postalCode: addressForm.postalCode,
-        country: 'CA',
-      };
-
-      const chat = await ChatService.createOrGetChat(currentUser.uid, article.sellerId, article.id);
-      const transactionId = await TransactionService.createShippingTransaction(
-        article.id, currentUser.uid, article.sellerId, finalPrice,
-        selectedEstimate.amount, shippingAddress, selectedEstimate.rateId, chat.id, serviceFee,
-      );
-      createdTransactionId = transactionId;
-
-      // ── Full wallet payment ─────────────────────────────────────────────
-      if (walletCoversAll) {
-        await WalletService.payWithWallet(transactionId);
-        track('wallet_payment_completed', {
-          screen: 'checkout',
-          transaction_id: transactionId,
-          total_cents: totalAmountCents,
-        });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        queryClient.invalidateQueries({ queryKey: homeKeys.all });
-        router.replace({
-          pathname: '/checkout/success' as any,
-          params: {
-            transactionId,
-            deliveryType: 'shipping',
-            articleTitle: article.title || '',
-            amount: String(finalPrice),
-            shippingCost: String(selectedEstimate.amount || 0),
-            serviceFee: String(serviceFee),
-            totalAmount: String(totalAmount),
-            chatId: chat.id,
-          },
-        });
-        return;
-      }
-
-      // ── Stripe checkout (optionally with partial wallet) ────────────────
-      const checkoutParams: Record<string, unknown> = { transactionId };
-      if (useWalletBalance && walletAmountCents > 0) {
-        checkoutParams.walletAmount = walletAmountCents;
-      }
-
-      const result = await httpsCallable(functions, 'createStripeCheckout')(checkoutParams);
-      const data = result.data as {
-        success: boolean;
-        clientSecret: string;
-        feeBreakdown?: { buyerTotal?: number };
-      };
-      if (!data.success || !data.clientSecret) throw new Error('Impossible de créer la session de paiement');
-
-      setPendingTransactionId(transactionId);
-      setPendingChatId(chat.id);
-      const buyerTotal =
-        typeof data.feeBreakdown?.buyerTotal === 'number' ? data.feeBreakdown.buyerTotal : null;
-      setServerBuyerTotal(buyerTotal);
-      setClientSecret(data.clientSecret);
-      setShowStripePayment(true);
-      track('payment_sheet_presented', {
-        source: 'checkout',
-        context_id: transactionId,
-        server_buyer_total_cents: Math.round((buyerTotal ?? totalAmount) * 100),
-        wallet_amount_cents: walletAmountCents > 0 ? walletAmountCents : undefined,
-        is_retry: false,
-      });
-    } catch (error: unknown) {
-      if (__DEV__) console.error('Error initiating payment:', error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-
-      // If the transaction was created but Stripe checkout failed,
-      // cancel it so the article is not left blocked in pending_payment.
-      if (createdTransactionId) {
-        try {
-          await TransactionService.updateTransactionStatus(createdTransactionId, 'cancelled');
-        } catch (cancelError) {
-          if (__DEV__) console.error('Error cancelling orphan transaction:', cancelError);
-        }
-      }
-
-      // Map the callable error to the right title/message: a rate-limit
-      // (resource-exhausted) must NOT read as "Article indisponible" (F129).
-      // `failed-precondition` keeps the server message ("Cet article a déjà été
-      // vendu"). Only a genuine article-unavailable error ejects the buyer back.
-      const code = getCallableErrorCode(error);
-      const articleUnavailable =
-        code === 'failed-precondition' &&
-        /vendu|indisponible|disponible/i.test(
-          error instanceof Error ? error.message : '',
-        );
-      track('payment_init_failed', {
-        transaction_id: createdTransactionId ?? undefined,
-        failure_type: isRateExpiredError(error)
-          ? 'rate_expired'
-          : code === 'resource-exhausted'
-            ? 'rate_limited'
-            : articleUnavailable
-              ? 'article_unavailable'
-              : 'other',
-        error_code: code ?? undefined,
-      });
-
-      // ── Tarif de livraison expiré (re-tarification serveur) ──────────────
-      // Le serveur a invalidé le rateId : on propose de réactualiser
-      // l'estimation pour obtenir un tarif à jour avant de repayer.
-      if (isRateExpiredError(error)) {
-        Alert.alert(
-          CHECKOUT_COPY.rateExpiredTitle,
-          CHECKOUT_COPY.rateExpiredBody,
-          [
-            { text: CHECKOUT_COPY.rateExpiredCtaSecondary, style: 'cancel' },
-            { text: CHECKOUT_COPY.rateExpiredCtaPrimary, onPress: fetchShippingEstimates },
-          ],
-        );
-        return;
-      }
-
-      const { title, message } = mapCallableError(error, {
-        title: 'Paiement impossible',
-        message: "Impossible d'initier le paiement. Veuillez réessayer.",
-      });
-      Alert.alert(
-        articleUnavailable ? 'Article indisponible' : title,
-        message,
-        articleUnavailable
-          ? [{ text: 'OK', onPress: () => router.back() }]
-          : [{ text: 'OK' }],
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }, [article, selectedEstimate, submitting, canPay, addressForm, serviceFee, finalPrice, router, walletCoversAll, useWalletBalance, walletAmountCents, totalAmount, queryClient, fetchShippingEstimates, goToMeetup]);
-
-  const retryStripePayment = useCallback(async () => {
-    if (!pendingTransactionId) return;
-    track('payment_retried', {
-      transaction_id: pendingTransactionId,
-      uses_wallet: useWalletBalance,
-    });
+    } finally { if (reservationContext.isCurrent(operation)) setWorking(null); reservationContext.finish(operation); }
+  };
+  const verifyPrevious = async () => {
+    if (existingTransactionId || !uid || !pendingAttempt) return;
+    let operation;
+    try { operation = dossier.start(); } catch { return; }
+    if (!operation) return;
+    const assertCurrent = () => dossier.assertCurrent(operation);
+    setWorking('verify'); setNotice('');
     try {
-      setSubmitting(true);
-      const result = await httpsCallable(functions, 'createStripeCheckout')({ transactionId: pendingTransactionId });
-      const data = result.data as {
-        success: boolean;
-        clientSecret: string;
-        feeBreakdown?: { buyerTotal?: number };
-      };
-      if (!data.success || !data.clientSecret) throw new Error('Impossible de relancer le paiement');
-      const buyerTotal =
-        typeof data.feeBreakdown?.buyerTotal === 'number' ? data.feeBreakdown.buyerTotal : null;
-      setServerBuyerTotal(buyerTotal);
-      setClientSecret(data.clientSecret);
-      setShowStripePayment(true);
-      track('payment_sheet_presented', {
-        source: 'checkout',
-        context_id: pendingTransactionId,
-        server_buyer_total_cents: Math.round((buyerTotal ?? totalAmount) * 100),
-        is_retry: true,
-      });
-    } catch (error: unknown) {
-      if (__DEV__) console.error('Error retrying payment:', error);
-      if (isRateExpiredError(error)) {
-        Alert.alert(
-          CHECKOUT_COPY.rateExpiredTitle,
-          CHECKOUT_COPY.rateExpiredBody,
-          [
-            { text: CHECKOUT_COPY.rateExpiredCtaSecondary, style: 'cancel' },
-            { text: CHECKOUT_COPY.rateExpiredCtaPrimary, onPress: fetchShippingEstimates },
-          ],
-        );
-        return;
+      const response = await TransactionService.reserveShippingPurchase(uid, pendingAttempt.articleId, pendingAttempt.destination,
+        pendingAttempt.input, assertCurrent, true);
+      assertCurrent(); setReceipt(response);
+      await attemptQuery.refetch(); assertCurrent();
+    } catch (error) {
+      if (!dossier.isCurrent(operation)) return;
+      const reread = await attemptQuery.refetch();
+      if (!dossier.isCurrent(operation)) return;
+      if (!showAdmissionError(error, { isCurrent: () => dossier.isCurrent(operation), retry: () => { void verifyPrevious(); } })) {
+        setNotice(reread.isError || reread.data ? 'Impossible de confirmer la réservation pour le moment. Votre demande est conservée.'
+          : error instanceof Error ? error.message : 'La réservation n’a pas été confirmée. Demandez un nouveau devis si vous souhaitez poursuivre.');
       }
-      const msg = error instanceof Error ? error.message : 'Impossible de relancer le paiement.';
-      Alert.alert('Erreur', msg);
-    } finally {
-      setSubmitting(false);
-    }
-  }, [pendingTransactionId, fetchShippingEstimates, useWalletBalance, totalAmount]);
+    } finally { if (dossier.isCurrent(operation)) setWorking(null); dossier.finish(operation); }
+  };
+  useEffect(() => {
+    if (existingTransactionId || !uid || !dossier.focused || !pendingAttempt || knownReceipt || working || attemptQuery.isFetching) return;
+    const recoveryKey = JSON.stringify([uid, generation, articleId, dossier.focusRevision, pendingAttempt.destination, pendingAttempt.input]);
+    if (recoveredReservation.current === recoveryKey) return;
+    recoveredReservation.current = recoveryKey;
+    // Reuse only the already accepted, persisted quote/rate/total. This
+    // idempotent reservation recovery never starts a payment or a new quote.
+    void verifyPrevious();
+  }, [uid, generation, articleId, existingTransactionId, dossier.focusRevision, dossier.focused, pendingAttempt, knownReceipt, working, attemptQuery.isFetching, verifyPrevious]);
+  const startNewPurchase = async () => {
+    if (existingTransactionId || !uid || !pendingAttempt?.receipt || !cancelledWithProof || !newShippingEnabled || currentOrderQuery.isFetching || working) return;
+    let operation;
+    try { operation = dossier.start(); } catch { return; }
+    if (!operation) return;
+    const assertCurrent = () => dossier.assertCurrent(operation);
+    setWorking('restart'); setNotice('');
+    try {
+      await ShippingPurchaseService.startNewAfterCancellation(uid, articleId, pendingAttempt.receipt.transactionId, assertCurrent,
+        async () => {
+          const order = await TransactionService.getTransaction(pendingAttempt.receipt!.transactionId);
+          assertCurrent(); return order;
+        });
+      assertCurrent();
+      setReceipt(null); setQuoteState(null); setSelectedRateId(null); setAcceptedKey(null);
+      const reread = await attemptQuery.refetch(); assertCurrent();
+      if (reread.isError || reread.data) throw new Error('Impossible de confirmer l’annulation pour le moment. Actualisez son suivi avant de continuer.');
+      await articleQuery.refetch(); assertCurrent();
+      setNotice('Votre annulation est confirmée. Vous pouvez demander un nouveau devis.');
+    } catch (error) {
+      if (dossier.isCurrent(operation)) setNotice(error instanceof Error ? error.message : 'Impossible de confirmer l’annulation pour le moment. Votre demande est conservée.');
+    } finally { if (dossier.isCurrent(operation)) setWorking(null); dossier.finish(operation); }
+  };
 
-  const cancelPendingTransaction = useCallback(async () => {
-    if (pendingTransactionId) {
-      let success = true;
-      try {
-        await TransactionService.updateTransactionStatus(pendingTransactionId, 'cancelled');
-      } catch (cancelError) {
-        success = false;
-        if (__DEV__) console.error('Error cancelling transaction:', cancelError);
-      }
-      track('order_cancel_submitted', {
-        transaction_id: pendingTransactionId,
-        role: 'buyer',
-        source: 'checkout_failure',
-        status_at_cancel: 'pending_payment',
-        total_cents: totalAmountCents,
-        success,
-      });
-    }
-    router.back();
-  }, [pendingTransactionId, router, totalAmountCents]);
+  if (!uid) return <Redirect href="/(tabs)" />;
+  if (!articleId && !existingTransactionId) return <Redirect href="/checkout" />;
+  const header = <ScreenHeader title="Livraison et réservation" onBack={() => router.back()} />;
+  const servicing = <>
+    <Button variant="secondary" onPress={() => router.push('/my-orders')}>Mes commandes existantes</Button>
+    <Button variant="ghost" onPress={() => router.push('/settings/help')}>Contacter notre équipe</Button>
+  </>;
+  if (existingTransactionId) return <View style={styles.container}>{header}<View style={styles.content}>
+    {existingQuery.isPending ? <Text style={styles.body}>Lecture de la commande existante…</Text> : existingQuery.isError ? <>
+      <Text style={styles.notice}>Impossible de vérifier cette commande.</Text><Button onPress={() => { void existingQuery.refetch(); }}>Réessayer</Button>
+    </> : <><Text style={styles.title}>Commande retrouvée</Text>
+      {currentOrderQuery.isError ? <><Text style={styles.notice}>Impossible d’actualiser la commande.</Text><Button onPress={() => {try {dossier.capture(); void currentOrderQuery.refetch();} catch {/* Inactive. */}}}>Réessayer</Button></>
+        : !currentOrderReady ? <Text style={styles.body}>Actualisation de la commande…</Text> : null}
+      {existingProgress ? <Button onPress={continueExistingOrder}>{newShippingEnabled && existingProgress.destination === 'payment' ? 'Continuer vers le paiement' : 'Suivre ma commande'}</Button> : null}</>}
+    {servicing}</View></View>;
+  if (knownReceipt) return <View style={styles.container}>{header}<View style={styles.content}>
+    <Text style={styles.title}>{currentOrder?.status === 'cancelled' ? 'Commande annulée' : receipt?.replay === false ? 'Article réservé — paiement en attente' : 'Réservation retrouvée'}</Text>
+    <Text style={styles.body}>{receipt?.replay === false ? 'Réservation enregistrée, paiement en attente.' : 'Consultez la commande pour connaître l’état du paiement et de la livraison.'}</Text>
+    {pendingAttempt ? <Text style={styles.body}>Total accepté : {formatPriceWithCurrency(pendingAttempt.input.expectedTotal)}</Text> : null}
+    {existingProgress ? <Button disabled={!!working} onPress={continueExistingOrder}>{newShippingEnabled && existingProgress.destination === 'payment' ? 'Continuer vers le paiement' : 'Suivre ma commande'}</Button> : null}
+    {currentOrderQuery.isPending ? <Text style={styles.body}>Lecture de l’état actuel de la commande…</Text> : null}
+    {currentOrderQuery.isError ? <><Text style={styles.notice}>L’état actuel de la commande n’a pas pu être vérifié. Aucun nouveau devis n’est permis.</Text>
+      <Button variant="ghost" onPress={() => { void currentOrderQuery.refetch(); }}>Relire la commande</Button></> : null}
+    {currentOrder?.status === 'cancelled' ? <Text style={styles.body}>{cancelledWithProof
+      ? 'Le reçu de l’annulation est enregistré. Un nouvel achat nécessite un nouveau devis et une nouvelle acceptation.'
+      : 'L’annulation n’est pas encore confirmée. Consultez la commande avant un nouvel achat.'}</Text> : null}
+    {cancelledWithProof && newShippingEnabled ? <Button disabled={!!working || currentOrderQuery.isFetching || currentOrderQuery.isError}
+      loading={working === 'restart'} onPress={() => { void startNewPurchase(); }}>Commencer un nouvel achat</Button> : null}
+    {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+    {servicing}
+  </View></View>;
+  if (attemptQuery.isPending) return <View style={styles.container}>{header}<ShippingCheckoutSkeleton /></View>;
+  if (attemptQuery.isError) return <View style={styles.container}>{header}<View style={styles.content}>
+    <Text style={styles.notice}>Impossible de retrouver votre réservation. Votre saisie est conservée.</Text>
+    <Button onPress={() => { void attemptQuery.refetch(); }}>Réessayer</Button>{servicing}
+  </View></View>;
+  if (pendingAttempt) return <View style={styles.container}>{header}<View style={styles.content}>
+    <Text style={styles.title}>Reprendre votre réservation</Text>
+    <Text style={styles.body}>Retrouvons votre réservation avant de poursuivre le paiement.</Text>
+    <Text style={styles.body}>{pendingAttempt.destination.name} · {pendingAttempt.destination.street} · {pendingAttempt.destination.city} · {pendingAttempt.destination.province} · {pendingAttempt.destination.postalCode}</Text>
+    <Text style={styles.body}>Total accepté : {formatPriceWithCurrency(pendingAttempt.input.expectedTotal)}</Text>
+    {pendingAttempt.input.purchasePolicy ? <>
+      <Text style={styles.body}>Protection : {pendingAttempt.input.purchasePolicy.parameters.deliveryProtectionMs / 86400000} jours après la livraison. Délai d’expédition : {pendingAttempt.input.purchasePolicy.parameters.nonShipmentMs / 86400000} jours après le paiement.</Text>
+    </> : null}
+    {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+    <Button loading={working === 'verify'} disabled={!!working} onPress={() => { void verifyPrevious(); }}>Actualiser</Button>
+    {servicing}
+  </View></View>;
+  if (!newShippingEnabled) return <Redirect href={{ pathname: '/checkout', params: { articleId } }} />;
+  if (articleQuery.isPending) return <View style={styles.container}>{header}<ShippingCheckoutSkeleton /></View>;
 
-  const navigateToSuccess = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: homeKeys.all });
-    router.replace({
-      pathname: '/checkout/success' as any,
-      params: {
-        transactionId: pendingTransactionId || '',
-        deliveryType: 'shipping',
-        articleTitle: article?.title || '',
-        amount: String(finalPrice),
-        shippingCost: String(selectedEstimate?.amount || 0),
-        serviceFee: String(serviceFee),
-        totalAmount: String(totalAmount),
-        chatId: pendingChatId || '',
-      },
-    });
-  }, [queryClient, router, pendingTransactionId, article, finalPrice, selectedEstimate, serviceFee, totalAmount, pendingChatId]);
-
-  const handlePaymentResult = useCallback(async (result: StripePaymentResult) => {
-    setShowStripePayment(false);
-    setClientSecret(null);
-    setServerBuyerTotal(null);
-
-    if (!result.success) {
-      // User explicitly dismissed the sheet — keep the transaction payable for
-      // ~1h (no new tx) and tell the buyer they can resume (audit F102).
-      if (result.error === 'cancelled') {
-        Alert.alert(
-          'Paiement annulé',
-          'Votre commande reste réservée pendant environ 1 heure. Reprenez le paiement quand vous voulez, ou annulez pour libérer l\'article.',
-          [
-            { text: 'Reprendre', onPress: retryStripePayment },
-            { text: 'Annuler la commande', style: 'destructive', onPress: cancelPendingTransaction },
-          ],
-        );
-        return;
-      }
-
-      // Real failure — classify (carte refusée / 3DS abandonné / réseau) and
-      // offer a retry on the SAME transaction (no new tx) rather than cancelling.
-      const classified = classifyStripePaymentError(result);
-      Alert.alert(
-        classified.title,
-        classified.message,
-        [
-          { text: 'Réessayer', onPress: retryStripePayment },
-          { text: 'Annuler la commande', style: 'destructive', onPress: cancelPendingTransaction },
-        ],
-      );
-      return;
-    }
-
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    // The Payment Sheet succeeded on Stripe's side, but the transaction is
-    // only marked 'paid' once the stripeWebhook fires server-side. Poll the
-    // transaction status before showing the confirmation screen so we never
-    // claim "Paiement confirmé" while the order is still pending_payment.
-    if (!pendingTransactionId) {
-      navigateToSuccess();
-      return;
-    }
-
-    setConfirmingPayment(true);
-    const startedAt = Date.now();
-    while (Date.now() - startedAt < PAYMENT_CONFIRM_TIMEOUT_MS) {
-      try {
-        const trans = await TransactionService.getTransaction(pendingTransactionId);
-        if (trans && isPaidStatus(trans.status)) {
-          setConfirmingPayment(false);
-          track('payment_confirmation_polled', {
-            transaction_id: pendingTransactionId,
-            outcome: 'confirmed',
-            poll_duration_ms: Date.now() - startedAt,
-          });
-          navigateToSuccess();
-          return;
-        }
-      } catch (e) {
-        if (__DEV__) console.error('Error polling transaction status:', e);
-      }
-      await new Promise((r) => setTimeout(r, PAYMENT_CONFIRM_POLL_MS));
-    }
-
-    // Webhook is lagging — proceed to the confirmation screen anyway (the
-    // payment did succeed; the order detail will reflect the final status).
-    setConfirmingPayment(false);
-    track('payment_confirmation_polled', {
-      transaction_id: pendingTransactionId,
-      outcome: 'timeout',
-      poll_duration_ms: Date.now() - startedAt,
-    });
-    navigateToSuccess();
-  }, [pendingTransactionId, retryStripePayment, cancelPendingTransaction, navigateToSuccess]);
-
-  // --- Render ----------------------------------------------------------------
-
-  // Shipping désactivé : ne rien rendre (la redirection est gérée plus haut).
-  if (!SHIPPING_ENABLED) {
-    return null;
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ScreenHeader title="Paiement" onBack={() => router.back()} />
-        <ShippingCheckoutSkeleton />
-      </View>
-    );
-  }
-
-  if (!article) {
-    return (
-      <View style={styles.container}>
-        <ScreenHeader title="Paiement" onBack={() => router.back()} />
-        <View style={styles.guardContainer}>
-          <Text style={styles.errorText}>Article introuvable</Text>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backBtnText}>Retour</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  if (article.isSold) {
-    return (
-      <View style={styles.container}>
-        <ScreenHeader title="Paiement" onBack={() => router.back()} />
-        <View style={styles.guardContainer}>
-          <Ionicons name="bag-check-outline" size={40} color={colors.muted} />
-          <Text style={styles.guardTitle}>Cet article n&apos;est plus disponible</Text>
-          <Text style={styles.guardSubtitle}>Il a déjà été vendu.</Text>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backBtnText}>Retour</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  if (auth.currentUser && auth.currentUser.uid === article.sellerId) {
-    return (
-      <View style={styles.container}>
-        <ScreenHeader title="Paiement" onBack={() => router.back()} />
-        <View style={styles.guardContainer}>
-          <Ionicons name="alert-circle-outline" size={40} color={colors.muted} />
-          <Text style={styles.guardTitle}>Vous ne pouvez pas acheter votre propre article</Text>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backBtnText}>Retour</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <ScreenHeader title="Paiement" onBack={() => router.back()} />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={insets.top + 56}
-      >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <ShippingAddressForm
-          values={addressForm}
-          onChangeField={handleAddressChange}
-          postalCodeError={addressForm.postalCode.trim().length > 0 && !postalCodeValid}
-        />
-        <ShippingEstimateList
-          estimates={estimates}
-          selectedEstimate={selectedEstimate}
-          onSelect={handleSelectEstimate}
-          loading={loadingEstimates}
-          postalCodeLength={addressForm.postalCode.length}
-        />
-        <PriceBreakdown
-          articlePrice={finalPrice}
-          selectedEstimate={selectedEstimate}
-          serviceFee={serviceFee}
-          totalAmount={serverBuyerTotal ?? totalAmount}
-          taxTotal={taxTotal}
-        />
-
-        {/* Wallet section */}
-        {wallet?.hasWallet && wallet.balance > 0 && (
-          <View style={styles.walletSection}>
-            <Text style={styles.walletSectionTitle}>PORTE-MONNAIE</Text>
-            <View style={styles.walletCard}>
-              <View style={styles.walletRow}>
-                <View style={styles.walletRowLeft}>
-                  <Ionicons name="wallet-outline" size={20} color={colors.primary} />
-                  <View>
-                    <Text style={styles.walletLabel}>Utiliser mon porte-monnaie</Text>
-                    <Text style={styles.walletBalance}>
-                      Solde : {(wallet.balance / 100).toFixed(2).replace('.', ',')} $
-                    </Text>
-                  </View>
-                </View>
-                <Switch
-                  value={useWalletBalance}
-                  onValueChange={(enabled) => {
-                    setUseWalletBalance(enabled);
-                    track('wallet_payment_toggled', {
-                      screen: 'checkout',
-                      enabled,
-                      wallet_balance_cents: walletBalanceCents,
-                      total_cents: totalAmountCents,
-                      covers_all: walletBalanceCents >= totalAmountCents,
-                    });
-                  }}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={colors.white}
-                />
-              </View>
-              {useWalletBalance && !walletCoversAll && (
-                <Text style={styles.walletRemainder}>
-                  Reste a payer par carte : {cardAmountDollars.toFixed(2).replace('.', ',')} $
-                </Text>
-              )}
-            </View>
-          </View>
-        )}
-      </ScrollView>
-
-      <PayButton
-        totalAmount={walletCoversAll ? 0 : cardAmountDollars}
-        canPay={canPay}
-        submitting={submitting}
-        onPress={handlePay}
-        bottomInset={insets.bottom}
-        walletCoversAll={walletCoversAll}
-        useWallet={useWalletBalance}
-        disabled={showStripePayment}
-      />
-
-      {clientSecret && (
-        <StripePayment
-          clientSecret={clientSecret}
-          visible={showStripePayment}
-          onResult={handlePaymentResult}
-          analyticsSource="checkout"
-          analyticsContextId={pendingTransactionId ?? undefined}
-          analyticsAmountCents={Math.round(cardAmountDollars * 100)}
-        />
-      )}
-      </KeyboardAvoidingView>
-
-      {confirmingPayment && (
-        <View style={styles.confirmOverlay}>
-          <ActivityIndicator size="large" color={colors.rust} />
-          <Text style={styles.confirmTitle}>Confirmation du paiement…</Text>
-          <Text style={styles.confirmSubtitle}>
-            Ne fermez pas l&apos;application, nous finalisons votre commande.
-          </Text>
-        </View>
-      )}
-    </View>
-  );
+  return <View style={styles.container}>{header}<KeyboardAvoidingView style={styles.flex}
+    behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top + spacing.xl}>
+    <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {articleQuery.isError ? <><Text style={styles.notice}>Impossible de relire cet article.</Text><Button onPress={() => { void articleQuery.refetch(); }}>Relire l’article</Button></>
+        : !article ? <Text style={styles.notice}>Article introuvable.</Text> : <Text style={styles.title}>{typeof currentQuote?.item.title === 'string' ? currentQuote.item.title : article.title}</Text>}
+      {article && (article.isSold || article.isActive !== true || article.isShipping !== true) ? <Text style={styles.notice}>Cet article n’est pas disponible pour une nouvelle réservation expédiée.</Text> : null}
+      {article?.sellerId === uid ? <Text style={styles.notice}>Vous ne pouvez pas acheter votre propre article.</Text> : null}
+      {agreementInvalid ? <Text style={styles.notice}>Revenez à l’offre acceptée dans votre conversation pour commander à ce prix.</Text>
+        : offerMessageId ? <Text style={styles.body}>{currentQuote?.offer ? `Offre acceptée : ${formatPriceWithCurrency(currentQuote.offer.amount)}` : 'Le devis reprendra le prix de votre offre acceptée.'}</Text> : null}
+      {!editingAddress && shippingDestination ? <View style={styles.addressCard}>
+        <View style={styles.addressHeader}><Text style={styles.title}>Livrer à</Text><Pressable accessibilityRole="button" accessibilityLabel="Modifier l’adresse de livraison" style={styles.modify}
+          onPress={() => {try {inputGuard(); dossier.capture(); setEditingAddress(true);} catch {/* Inactive. */}}}><Text style={styles.modifyText}>Modifier</Text></Pressable></View>
+        <Text style={styles.body}>{addressForm.fullName}</Text><Text style={styles.body}>{addressForm.address}{addressForm.apartment ? `, ${addressForm.apartment}` : ''}</Text>
+        <Text style={styles.body}>{addressForm.city}, {addressForm.province} {addressForm.postalCode}</Text>
+      </View> : <><ShippingAddressForm values={addressForm} onChangeField={changeAddress} onSelectAddress={selectAddressSuggestion}
+        scopeKey={JSON.stringify([uid, generation, articleId, chatId, offerMessageId, dossier.focusRevision])} disabled={!!working || !dossier.focused}
+        destinationProvinceError={!!addressForm.province && addressForm.province.trim().toUpperCase() !== 'QC'}
+        postalCodeError={!!addressForm.postalCode.trim() && (!CA_POSTAL.test(addressForm.postalCode.trim().toUpperCase()) ||
+          (addressForm.province === 'QC' && !QC_POSTAL.test(addressForm.postalCode.trim().toUpperCase())))} />
+        {shippingDestination ? <Button variant="ghost" disabled={!!working} onPress={() => {try {inputGuard(); dossier.capture(); setEditingAddress(false);} catch {/* Inactive. */}}}>Utiliser cette adresse</Button> : null}</>}
+      <OrdinaryShippingAddressChoice kind={addressKind} accepted={addressAccepted} disabled={!!working}
+        onKind={kind => changeAddressDeclaration(kind, false)} onAccepted={() => {if (addressKind) changeAddressDeclaration(addressKind, !addressAccepted);}}/>
+      <Button disabled={!canRequestQuote} loading={working === 'quote'} onPress={() => { void requestQuote(); }}>{quoteExpired ? 'Actualiser les tarifs' : 'Voir les tarifs de livraison'}</Button>
+      {currentQuote ? <View>
+        <Text style={styles.caption}>{quoteExpired ? 'Tarif expiré. Actualisez les tarifs avant de continuer.' : `Tarif proposé jusqu’à ${new Date(currentQuote.validUntil).toLocaleTimeString('fr-CA', {hour: '2-digit', minute: '2-digit', timeZone: 'America/Toronto'})}, heure du Québec.`}</Text>
+      </View> : null}
+      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+      {currentQuote || working === 'quote' ? <ShippingEstimateList rates={currentQuote?.rates ?? []} selectedRateId={selectedRateId} onSelect={selectRate} loading={working === 'quote'} disabled={!!working || quoteExpired} /> : null}
+      {selectedRate && currentQuote ? <><PriceBreakdown rate={selectedRate} taxSnapshot={currentQuote.taxSnapshot} />
+        {currentQuote.transport && currentAcceptanceKey ? <ShippingPurchaseConditions quote={currentQuote} rate={selectedRate} sourceKey={currentAcceptanceKey}
+          disabled={!!working || !dossier.focused} assertCurrent={() => {inputGuard(); reservationContext.capture();}}
+          onSupport={() => router.push('/settings/help')}/> : <Text accessibilityRole="alert" style={styles.notice}>Les conditions de livraison ne sont pas disponibles. Actualisez les tarifs pour continuer.</Text>}
+        <Checkbox checked={accepted} disabled={!!working || quoteExpired || !currentQuote.transport}
+        accessibilityLabel={`J’accepte le total de ${formatPriceWithCurrency(selectedRate.totalAmount)} et les conditions de l’achat`}
+        onToggle={() => {
+          try { inputGuard(); action.capture(); } catch { return; }
+          if (!currentQuote.transport) return;
+          if (!quoteStillLive()) { setQuoteClock(monotonicNow()); setAcceptedKey(null); return; }
+          advanceInput(); setAcceptedKey(accepted ? null : currentAcceptanceKey);
+        }}><Text style={styles.body}>J’accepte le total et les conditions de l’achat.</Text></Checkbox></> : null}
+      {article && article.isHandDelivery !== false ? <Button variant="ghost" disabled={!!working}
+        onPress={() => router.replace({ pathname: '/checkout/meetup', params: { articleId } })}>Proposer une remise en main propre</Button> : null}
+    </ScrollView>
+    {selectedRate ? <PayButton totalAmount={selectedRate.totalAmount} accepted={accepted} submitting={working === 'reserve'}
+      disabled={!canRequestQuote || quoteExpired || !currentQuote?.transport} onPress={() => { void reserve(); }} /> : null}
+  </KeyboardAvoidingView></View>;
 }
-
-// =============================================================================
-// STYLES
-// =============================================================================
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.surfaceWarm },
-  flex: { flex: 1 },
-  centered: { justifyContent: 'center', alignItems: 'center' },
-  confirmOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: colors.surfaceWarm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    gap: spacing.sm,
-  },
-  confirmTitle: {
-    fontFamily: fonts.displayMedium,
-    fontSize: 18,
-    color: colors.charcoal,
-    textAlign: 'center',
-    marginTop: spacing.md,
-  },
-  confirmSubtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    color: colors.muted,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  errorText: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted },
-  guardContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    gap: 12,
-  },
-  guardTitle: {
-    fontFamily: fonts.displayMedium,
-    fontSize: 18,
-    color: colors.charcoal,
-    textAlign: 'center',
-  },
-  guardSubtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  backBtn: {
-    marginTop: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: colors.charcoal,
-    borderRadius: radius.md,
-  },
-  backBtnText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    letterSpacing: 1.5,
-    color: colors.cream,
-    textTransform: 'uppercase',
-  },
-  scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 },
-
-  // ── Wallet section ─────────────────────────────────────────────────────────
-
-  walletSection: {
-    marginTop: spacing.lg,
-  },
-  walletSectionTitle: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    letterSpacing: 1.8,
-    color: colors.muted,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-  },
-  walletCard: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    padding: spacing.md,
-  },
-  walletRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  walletRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  walletLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    color: colors.charcoal,
-  },
-  walletBalance: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    color: colors.muted,
-    marginTop: 2,
-  },
-  walletRemainder: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    color: colors.primary,
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
+  container: { flex: 1, backgroundColor: colors.background }, flex: { flex: 1 },
+  content: { padding: spacing.lg, gap: spacing.md }, title: { ...typography.h3, color: colors.foreground },
+  body: { ...typography.body, color: colors.foregroundSecondary }, caption: { ...typography.caption, color: colors.muted },
+  notice: { ...typography.body, color: colors.danger },
+  addressCard: {padding: spacing.md, borderRadius: radius.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.surface, gap: spacing.xs},
+  addressHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md},
+  modify: {minHeight: sizing.minTouchTarget, justifyContent: 'center', paddingHorizontal: spacing.sm}, modifyText: {...typography.bodySmall, color: colors.primary},
 });

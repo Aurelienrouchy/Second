@@ -17,10 +17,18 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
+import { Button, ScreenHeader } from '@/components/ui';
+import { useAuthenticatedSession } from '@/hooks/useAuth';
+import { useShippingPurchaseContext } from '@/hooks/useShippingPurchaseContext';
+import { getAuthSessionGeneration } from '@/store/authStore';
+import { TransactionService } from '@/services/transactionService';
+import { hasConfirmedPurchasePayment } from '@/services/manualPaymentService';
 
-import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { colors, fonts, spacing, radius, typography } from '@/constants/theme';
 import { formatPrice, formatPriceWithCurrency } from '@/utils/formatPrice';
-import { TransactionDeliveryType } from '@/types';
+import {readScopedQuery} from '@/utils/readScopedQuery';
+import type { Transaction, TransactionDeliveryType } from '@/types';
 import { track } from '@/lib/analytics';
 
 // =============================================================================
@@ -40,21 +48,50 @@ export default function CheckoutSuccessScreen() {
   const totalAmount = params.totalAmount as string | undefined;
   const spotName = params.spotName as string | undefined;
   const chatId = params.chatId as string | undefined;
-  const transactionId = params.transactionId as string;
+  const transactionId = typeof params.transactionId === 'string' ? params.transactionId : '';
 
   const isMeetup = deliveryType === 'meetup';
+  const { uid } = useAuthenticatedSession();
+  const generation = getAuthSessionGeneration();
+  const proofContext = useShippingPurchaseContext(transactionId, uid);
+  const confirmationQuery = useQuery<Transaction>({
+    queryKey: ['shipping-confirmation', uid, generation, transactionId, proofContext.focusRevision],
+    enabled: !isMeetup && !!uid && !!transactionId && proofContext.focused, staleTime: 0, gcTime: 0, retry: false,
+    refetchInterval: query => proofContext.focused && query.state.data?.status === 'pending_payment' &&
+      query.state.dataUpdateCount + query.state.errorUpdateCount < 8 ? 2000 : false,
+    queryFn: ({signal}) => readScopedQuery(signal, () => {
+      const operation = proofContext.capture(); return () => proofContext.assertCurrent(operation);
+    }, async current => {
+      const order = await TransactionService.getTransaction(transactionId, {expectedUid: uid!, assertCurrent: current});
+      current();
+      if (!order || order.id !== transactionId || order.buyerId !== uid) throw new Error('Commande inaccessible.');
+      return order;
+    }),
+  });
+  const confirmedOrder = proofContext.focused && confirmationQuery.isSuccess && !confirmationQuery.isFetching && !confirmationQuery.isError && confirmationQuery.data && uid &&
+    hasConfirmedPurchasePayment(confirmationQuery.data, uid) ? confirmationQuery.data : null;
+  const routedOrder = useRef<string | null>(null);
+  useEffect(() => {
+    if (isMeetup || !uid || !confirmedOrder) return;
+    const navigationKey = JSON.stringify([uid, generation, confirmedOrder.id, proofContext.focusRevision]);
+    if (routedOrder.current === navigationKey) return;
+    try { proofContext.capture(); } catch { return; }
+    routedOrder.current = navigationKey;
+    router.replace({pathname: '/orders/[id]', params: {id: confirmedOrder.id}});
+  }, [uid, generation, confirmedOrder, isMeetup, proofContext, router]);
 
   const viewedRef = useRef(false);
   useEffect(() => {
+    if (!isMeetup && !confirmedOrder) return;
     if (viewedRef.current) return;
     viewedRef.current = true;
     track('order_confirmation_viewed', {
       delivery_type: deliveryType,
       transaction_id: transactionId || undefined,
-      total_cents: totalAmount != null ? Math.round(parseFloat(totalAmount) * 100) : undefined,
+      total_cents: confirmedOrder ? Math.round(confirmedOrder.totalAmount * 100) : totalAmount != null ? Math.round(parseFloat(totalAmount) * 100) : undefined,
       has_chat_id: !!chatId,
     });
-  }, [deliveryType, transactionId, totalAmount, chatId]);
+  }, [deliveryType, transactionId, totalAmount, chatId, isMeetup, confirmedOrder]);
 
   // =============================================================================
   // HANDLERS
@@ -69,7 +106,11 @@ export default function CheckoutSuccessScreen() {
   };
 
   const handleViewOrder = () => {
-    // TODO: create /order/[id] screen for detailed order view
+    if (!isMeetup && confirmationQuery.data?.buyerId === uid) {
+      try { proofContext.capture(); } catch { return; }
+      router.replace({ pathname: '/orders/[id]', params: { id: transactionId } });
+      return;
+    }
     if (chatId && isMeetup) {
       router.replace(`/chat/${chatId}`);
     } else {
@@ -84,6 +125,25 @@ export default function CheckoutSuccessScreen() {
   // =============================================================================
   // RENDER
   // =============================================================================
+
+  if (!isMeetup) return <View style={styles.container}>
+    <ScreenHeader title="Suivi du paiement" onBack={() => router.back()} />
+    <View style={styles.shippingContent}>
+      <Text style={styles.title}>{confirmedOrder ? 'Paiement enregistré' : confirmationQuery.isError ? 'Suivi indisponible' : 'Paiement en cours'}</Text>
+      <Text style={styles.shippingBody}>{confirmedOrder
+        ? 'Ouverture du suivi de votre commande…'
+        : confirmationQuery.isError ? 'Impossible de retrouver le paiement pour le moment. Actualisez son suivi.'
+        : 'Nous attendons la confirmation de votre paiement. Votre commande reste accessible.'}</Text>
+      {confirmedOrder && <Text style={styles.shippingBody}>Total de la commande : {formatPriceWithCurrency(confirmedOrder.totalAmount)}</Text>}
+      {confirmationQuery.data && <Button onPress={handleViewOrder}>Consulter cette commande</Button>}
+      {uid && transactionId && !confirmedOrder && <Button variant="secondary" disabled={confirmationQuery.isFetching} onPress={() => {
+        try {proofContext.capture();} catch {return;}
+        void confirmationQuery.refetch();
+      }}>Actualiser</Button>}
+      <Button variant="secondary" onPress={() => router.replace('/my-orders')}>Mes commandes</Button>
+      <Button variant="ghost" onPress={() => router.push('/settings/help')}>Contacter l’équipe</Button>
+    </View>
+  </View>;
 
   return (
     <View style={styles.container} testID="checkout-success-screen">
@@ -199,6 +259,8 @@ export default function CheckoutSuccessScreen() {
 // =============================================================================
 
 const styles = StyleSheet.create({
+  shippingContent: { flex: 1, padding: spacing.lg, gap: spacing.md, justifyContent: 'center' },
+  shippingBody: { ...typography.bodySmall, color: colors.foregroundSecondary },
   container: {
     flex: 1,
     backgroundColor: colors.surfaceWarm,

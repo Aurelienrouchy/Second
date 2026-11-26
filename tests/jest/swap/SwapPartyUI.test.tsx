@@ -1,3 +1,12 @@
+import {renderWithQuery as render} from '@/tests/jest/helpers/queryRender';
+import {auth} from '@/config/firebaseConfig';
+jest.mock('@/store/authStore', () => ({ getAuthSessionGeneration: () => 1,
+  useAuthStore: Object.assign((selector: (state: { user: unknown; authenticatedUid: string | null }) => unknown) => selector({ user: mockUser, authenticatedUid: mockUser?.id ?? null }), {
+    getState: () => ({ user: mockUser, authenticatedUid: mockUser?.id ?? null }),
+  }),
+}));
+jest.mock('expo-crypto', () => ({ randomUUID: () => 'test-media-id' }));
+jest.mock('expo-linear-gradient', () => ({ LinearGradient: require('react-native').View }));
 /**
  * Composants UI Swap Zone / détail d'échange — comportements MÉTIER ciblés.
  *
@@ -7,7 +16,7 @@
  */
 
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Alert, BackHandler } from 'react-native';
 import { router } from 'expo-router';
 
@@ -20,13 +29,15 @@ jest.mock('@/components/ui', () => {
   const { Text: RNText } = require('react-native');
   const Text = (props: Record<string, unknown>) => React.createElement(RNText, props);
   const Caption = (props: Record<string, unknown>) => React.createElement(RNText, props);
-  return { Text, Caption };
+  return {
+  Button: jest.requireActual('@/components/ui/Button').Button, Checkbox: jest.requireActual('@/components/ui/Checkbox').Checkbox,
+ Text, Caption };
 });
 
-// Import direct (et non via le barrel @/features/swap-party) pour ne pas tirer
+// Import direct (et non via le barrel @/features/swap) pour ne pas tirer
 // AddItemSheet et sa dépendance bottom-sheet dans un test isolé de composant.
-import { MultiSelectBar } from '@/features/swap-party/components/MultiSelectBar';
-import { SwapStatusView } from '@/features/swap/components/SwapStatusView';
+import { MultiSelectBar } from '@/features/swap/components/party/MultiSelectBar';
+import { SwapStatusView } from '@/features/swap/components/detail/SwapStatusView';
 import type { Article, SwapPartyItemExtended, SwapItemInfo, SwapStatus } from '@/types';
 
 describe('<MultiSelectBar /> — sélection multiple', () => {
@@ -43,11 +54,11 @@ describe('<MultiSelectBar /> — sélection multiple', () => {
   it('affiche le nombre d’articles et continue seulement si autorisé', () => {
     const onPropose = jest.fn();
     const { rerender } = render(<MultiSelectBar selectedCount={1} canPropose onCancel={jest.fn()} onPropose={onPropose} />);
-    expect(screen.getByText('1 article')).toBeOnTheScreen();
+    expect(screen.getByText('1 / 20')).toBeOnTheScreen();
     fireEvent.press(screen.getByText('Continuer'));
     expect(onPropose).toHaveBeenCalledTimes(1);
     rerender(<MultiSelectBar selectedCount={3} canPropose={false} onCancel={jest.fn()} onPropose={onPropose} />);
-    expect(screen.getByText('3 articles')).toBeOnTheScreen();
+    expect(screen.getByText('3 / 20')).toBeOnTheScreen();
     fireEvent.press(screen.getByText('Continuer'));
     expect(onPropose).toHaveBeenCalledTimes(1);
   });
@@ -71,7 +82,7 @@ describe('<SwapStatusView /> — libellés de statut + résumé', () => {
     ['cancelled', 'Échange annulé'],
     ['shipping', 'Échange en cours'],
     ['completed', 'Échange terminé'],
-    ['disputed', 'Litige ouvert'],
+    ['disputed', 'Un problème est en cours d’examen'],
     ['payment_pending', 'Paiement historique en attente'],
   ])('mappe le statut %s vers le libellé "%s"', (status: SwapStatus, label: string) => {
     render(<SwapStatusView status={status} {...baseProps} />);
@@ -90,12 +101,13 @@ describe('<SwapStatusView /> — libellés de statut + résumé', () => {
   it('présente les deux côtés de l’échange avec une perspective explicite', () => {
     render(<SwapStatusView status="accepted" {...baseProps} />);
     expect(screen.getByText('Vous recevez')).toBeOnTheScreen();
-    expect(screen.getByText('Vous donnez')).toBeOnTheScreen();
-    expect(screen.getByText('Alice')).toBeOnTheScreen();
+    expect(screen.getByText('Vous proposez')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Vous recevez, 40 $')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Vous proposez, 50 $')).toBeOnTheScreen();
   });
   it('garde les articles consultables pour un échange terminal', () => {
     render(<SwapStatusView status="declined" {...baseProps} />);
-    expect(screen.getByText('Cette proposition a été refusée.')).toBeOnTheScreen();
+    expect(screen.getByText('Proposition refusée')).toBeOnTheScreen();
     expect(screen.getByText('Robe noire')).toBeOnTheScreen();
     expect(screen.getByText('Veste')).toBeOnTheScreen();
   });
@@ -112,9 +124,16 @@ let mockArticlesResult = { data: [] as Article[], isLoading: false, isError: fal
 const mockAddItem = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockRemoveItem = jest.fn((..._args: unknown[]) => Promise.resolve());
 
-jest.mock('@/hooks/useAuth', () => ({ useUser: () => mockUser }));
+jest.mock('@/hooks/useAuth', () => ({
+  useAuthenticatedUid: () => require('@/config/firebaseConfig').auth.currentUser?.uid ?? null,
+  useAuthenticatedIdentity: () => { const user = require('@/hooks/useAuth').useUser(); return user?.id === require('@/config/firebaseConfig').auth.currentUser?.uid ? user : null; },
+  useAuthenticatedSession: () => ({ uid: require('@/config/firebaseConfig').auth.currentUser?.uid ?? null, identity: require('@/hooks/useAuth').useAuthenticatedIdentity() }),
+  useAuthGuardSession: () => ({ normalUser: require('@/hooks/useAuth').useUser(), identity: require('@/hooks/useAuth').useAuthenticatedIdentity(), isAuthLoading: false }),
+ useUser: () => mockUser }));
 jest.mock('@/hooks/useAuthRequired', () => ({ useRequireAuth: () => ({ requireAuth: mockRequireAuth }) }));
 jest.mock('@/lib/analytics', () => ({ track: jest.fn() }));
+const mockEligibility = {version: 'a'.repeat(64), statementVersion: 'current', statements: {personal: 'Affaires personnelles', professional: 'Professionnel'}, activityDeclaration: {kind: 'personal', statementVersion: 'current'}, quebecResidenceStatementVersion: '2026-10-17.v1', quebecResidenceStatement: 'Résidence au Québec', swapLaunch: {allowed: true, reasons: [], policyVersion: '2026-10-17.v1'}};
+jest.mock('@/services/eligibilityService', () => ({EligibilityService: {getMine: jest.fn(async () => mockEligibility)}}));
 jest.mock('@/services/articlesService', () => ({ ArticlesService: { getUserArticles: jest.fn() } }));
 jest.mock('@/services/swapService', () => ({
   GENERALIST_ZONE_ID: 'generalist', getSwapParty: jest.fn(), getPartyItemsExtended: jest.fn(),
@@ -122,8 +141,9 @@ jest.mock('@/services/swapService', () => ({
   removeItemFromParty: (...args: unknown[]) => mockRemoveItem(...args),
 }));
 jest.mock('@tanstack/react-query', () => ({
-  useQuery: ({ queryKey }: { queryKey: string[] }) => queryKey[0] === 'swap-parties' ? mockPartyResult : mockArticlesResult,
-  useQueryClient: () => ({ invalidateQueries: mockInvalidate, getQueryData: () => mockPartyResult.data, setQueryData: mockSetCache }),
+  ...jest.requireActual('@tanstack/react-query'),
+  useQuery: ({ queryKey }: { queryKey: string[] }) => ['eligibility', 'swap-launch-confirmation'].includes(queryKey[0]) ? {data: mockEligibility, isSuccess: true, isLoading: false, isError: false, isFetching: false} : queryKey[0] === 'swap-parties' ? mockPartyResult : mockArticlesResult,
+  useQueryClient: () => Object.assign(jest.requireActual('@tanstack/react-query').useQueryClient(), { invalidateQueries: mockInvalidate, getQueryData: () => mockPartyResult.data, setQueryData: mockSetCache }),
 }));
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: require('react-native').View,
@@ -132,16 +152,16 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@shopify/flash-list', () => {
   const React = require('react');
   const { View } = require('react-native');
-  return { FlashList: ({ data, renderItem, ListHeaderComponent, ListEmptyComponent }: {
+  return { FlashList: ({ data, renderItem, ListHeaderComponent, ListEmptyComponent, ListFooterComponent }: {
     data: unknown[]; renderItem: (props: { item: unknown }) => React.ReactNode;
-    ListHeaderComponent: React.ReactNode; ListEmptyComponent: React.ReactNode;
-  }) => React.createElement(View, {}, ListHeaderComponent, data.length ? data.map((item, index) => React.createElement(View, { key: index }, renderItem({ item }))) : ListEmptyComponent) };
+    ListHeaderComponent: React.ReactNode; ListEmptyComponent: React.ReactNode; ListFooterComponent: React.ReactNode;
+  }) => React.createElement(View, {}, ListHeaderComponent, data.length ? data.map((item, index) => React.createElement(View, { key: index }, renderItem({ item }))) : ListEmptyComponent, ListFooterComponent) };
 });
 jest.mock('@/features/search', () => ({ FilterChipsRow: () => null, CONDITION_ITEMS: [], SORT_ITEMS: [] }));
 jest.mock('@/components/CategoryBottomSheet', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/SelectionBottomSheet', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/SizeSelectionSheet', () => ({ __esModule: true, default: () => null }));
-jest.mock('@/components/search/BrandSelectionSheet', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/BrandSelectionSheet', () => ({ __esModule: true, default: () => null }));
 jest.mock('@gorhom/bottom-sheet', () => {
   const React = require('react');
   const { View, Pressable } = require('react-native');
@@ -158,10 +178,10 @@ jest.mock('@gorhom/bottom-sheet', () => {
 });
 
 import SwapZoneScreen from '@/app/swap-zone';
-import AddItemSheet from '@/features/swap-party/components/AddItemSheet';
-import { PartyItemCard } from '@/features/swap-party/components/PartyItemCard';
-import { MyArticlesSection } from '@/features/swap-party/components/MyArticlesSection';
-import { PartyEmptyGrid } from '@/features/swap-party/components/PartyEmptyGrid';
+import AddItemSheet from '@/features/swap/components/party/AddItemSheet';
+import { PartyItemCard } from '@/features/swap/components/party/PartyItemCard';
+import { MyArticlesSection } from '@/features/swap/components/party/MyArticlesSection';
+import { PartyEmptyGrid } from '@/features/swap/components/party/PartyEmptyGrid';
 
 const catalogueItem = (id: string, sellerId = 'alice'): SwapPartyItemExtended => ({
   id, partyId: 'generalist', articleId: id, sellerId, sellerName: sellerId,
@@ -176,7 +196,7 @@ const ownArticle: Article = {
 };
 
 function resetCatalogue(items = [catalogueItem('a'), catalogueItem('b'), catalogueItem('c', 'bob')]) {
-  mockUser = { id: 'me', displayName: 'Camille' };
+  mockUser = { id: 'me', displayName: 'Camille' }; Object.defineProperty(auth, 'currentUser', {value: {uid: 'me'}, writable: true, configurable: true});
   mockPartyResult = { data: { party: { id: 'generalist', name: 'Swap Zone' }, items }, isLoading: false, isError: false, refetch: mockRefetchParty };
   mockArticlesResult = { data: [ownArticle], isLoading: false, isError: false, refetch: mockRefetchArticles };
   mockRequireAuth.mockReset(); mockAddItem.mockReset(); mockRemoveItem.mockReset();
@@ -186,11 +206,12 @@ function resetCatalogue(items = [catalogueItem('a'), catalogueItem('b'), catalog
 describe('Espace échanges — catalogue et navigation', () => {
   beforeEach(() => resetCatalogue());
   it('sépare vos articles de ceux à découvrir et masque les marques absentes', () => {
+    resetCatalogue([catalogueItem('own', 'me'), catalogueItem('a'), catalogueItem('b'), catalogueItem('c', 'bob')]);
     render(<SwapZoneScreen />);
-    expect(screen.getByText('Espace échanges')).toBeOnTheScreen();
+    expect(screen.getByText('LE TROC.')).toBeOnTheScreen();
     expect(screen.getByText('Vos articles')).toBeOnTheScreen();
-    expect(screen.getByText('Les articles à découvrir')).toBeOnTheScreen();
-    expect(screen.getAllByText('À échanger')).toHaveLength(3);
+    expect(screen.getByRole('button', { name: 'Sélectionner' })).toBeOnTheScreen();
+    expect(screen.getAllByTestId(/^troc-item-/)).toHaveLength(3);
     expect(screen.queryByText('BRAND')).toBeNull();
     expect(screen.queryByText('MARQUE')).toBeNull();
     fireEvent.press(screen.getByText('Mes échanges'));
@@ -232,7 +253,7 @@ describe('Espace échanges — catalogue et navigation', () => {
     fireEvent(screen.getByRole('button', { name: /^Article a/ }), 'longPress');
     expect(screen.getByRole('checkbox', { name: /^Article c/ })).toBeDisabled();
     fireEvent.press(screen.getByRole('checkbox', { name: /^Article b/ }));
-    expect(screen.getByText('2 articles')).toBeOnTheScreen();
+    expect(screen.getByText('2 / 20')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Retour' }));
     expect(screen.queryByText('Votre sélection')).toBeNull();
     expect(router.back).not.toHaveBeenCalled();
@@ -248,16 +269,27 @@ describe('Espace échanges — catalogue et navigation', () => {
     expect(screen.queryByText('Votre sélection')).toBeNull();
     hardwareBack.mockRestore();
   });
+  it('l’action Sélectionner attend le premier choix puis verrouille le membre', () => {
+    render(<SwapZoneScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Sélectionner' }));
+    expect(screen.getByRole('button', { name: 'Continuer' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /^Article c/ })).toBeEnabled();
+    fireEvent.press(screen.getByRole('checkbox', { name: /^Article a/ }));
+    expect(screen.getByRole('checkbox', { name: /^Article c/ })).toBeDisabled();
+    fireEvent.press(screen.getByRole('checkbox', { name: /^Article b/ }));
+    fireEvent.press(screen.getByRole('button', { name: 'Continuer' }));
+    expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/propose-swap', params: expect.objectContaining({ receiverId: 'alice' }) }));
+  });
   it('la sélection envoie uniquement les articles de la personne choisie', () => {
     render(<SwapZoneScreen />);
     fireEvent(screen.getByRole('button', { name: /^Article a/ }), 'longPress');
     fireEvent.press(screen.getByRole('checkbox', { name: /^Article b/ }));
     fireEvent.press(screen.getByText('Continuer'));
     const destination = jest.mocked(router.push).mock.calls[0][0];
-    if (typeof destination !== 'object' || !destination.params || !('receiverItems' in destination.params) || typeof destination.params.receiverItems !== 'string') {
+    if (typeof destination !== 'object' || !destination.params || !('receiverArticleIds' in destination.params) || typeof destination.params.receiverArticleIds !== 'string') {
       throw new Error('La proposition doit transmettre les articles sélectionnés.');
     }
-    expect(JSON.parse(destination.params.receiverItems).map((item: { articleId: string }) => item.articleId).sort()).toEqual(['a', 'b']);
+    expect(JSON.parse(destination.params.receiverArticleIds).sort()).toEqual(['a', 'b']);
   });
   it('retirer un article demande confirmation et Annuler ne mute rien', () => {
     resetCatalogue([catalogueItem('own', 'me')]);
@@ -265,7 +297,7 @@ describe('Espace échanges — catalogue et navigation', () => {
     render(<SwapZoneScreen />);
     expect(screen.queryByText('Article own')).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Afficher 1 article' }));
-    const remove = screen.getByRole('button', { name: 'Retirer Article own de l’Espace échanges' });
+    const remove = screen.getByRole('button', { name: 'Retirer Article own du Troc' });
     fireEvent.press(remove); fireEvent.press(remove);
     expect(alert).toHaveBeenCalledTimes(1);
     act(() => { alert.mock.calls[0][2]?.find((button) => button.text === 'Annuler')?.onPress?.(); });
@@ -274,10 +306,12 @@ describe('Espace échanges — catalogue et navigation', () => {
     expect(alert).toHaveBeenCalledTimes(2);
     alert.mockRestore();
   });
-  it('monte le dépôt à la demande et le retire après fermeture', () => {
+  it('monte le dépôt après relecture de l’admission et le retire après fermeture', async () => {
     render(<SwapZoneScreen />);
     expect(screen.queryByTestId('deposit-sheet')).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Ajouter des articles' }));
+    fireEvent.press(screen.getByTestId('troc-add-piece'));
+    expect(screen.queryByTestId('deposit-sheet')).toBeNull();
+    await waitFor(() => expect(screen.getByTestId('deposit-sheet')).toBeOnTheScreen());
     expect(screen.getByTestId('deposit-sheet')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Fermer l’ajout d’articles' }));
     expect(screen.queryByTestId('deposit-sheet')).toBeNull();
@@ -301,7 +335,7 @@ describe('Ajout d’articles — états et confirmation', () => {
     const onAdd = jest.fn();
     render(<AddItemSheet articles={[ownArticle, { ...ownArticle, id: 'already', title: 'Déjà déposé' }]} userItems={[catalogueItem('already', 'me')]} onAddItems={onAdd} />);
     expect(screen.queryByText('Déjà déposé')).toBeNull();
-    const submit = screen.getByRole('button', { name: 'Ajouter à l’espace échanges' });
+    const submit = screen.getByRole('button', { name: 'Ajouter au Troc' });
     expect(submit).toBeDisabled();
     fireEvent.press(screen.getByRole('checkbox', { name: 'Veste de Camille' }));
     act(() => { fireEvent.press(submit); fireEvent.press(submit); });
@@ -310,7 +344,8 @@ describe('Ajout d’articles — états et confirmation', () => {
   });
   it('une carte sans marque affiche uniquement les données connues', () => {
     render(<PartyItemCard item={catalogueItem('plain')} tone="dark" isSelected={false} isMultiSelectMode={false} onPress={jest.fn()} onLongPress={jest.fn()} />);
-    expect(screen.getByText('À échanger')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Article plain, valeur 30 $' })).toBeOnTheScreen();
+    expect(screen.queryByText(/Valeur indicative/)).toBeNull();
     expect(screen.queryByText('BRAND')).toBeNull();
     expect(screen.queryByText('U')).toBeNull();
   });
@@ -329,7 +364,7 @@ describe('Vos articles — catalogue compact', () => {
     fireEvent.press(show);
     const hide = screen.getByRole('button', { name: 'Masquer 50 articles', expanded: true });
     expect(screen.getByText('Article own-49')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Retirer Article own-0 de l’Espace échanges' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Retirer Article own-0 du Troc' }));
     expect(remove).toHaveBeenCalledWith('own-0');
     fireEvent.press(hide);
     expect(screen.queryByText('Article own-49')).toBeNull();

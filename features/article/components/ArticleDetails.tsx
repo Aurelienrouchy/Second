@@ -10,12 +10,13 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import SimilarProducts from '@/components/SimilarProducts';
+import SimilarProducts from './SimilarProducts';
 import { Avatar } from '@/components/ui';
 import { SHIPPING_ENABLED } from '@/config/featureFlags';
 import { colors } from '@/constants/theme';
 import { formatDisplayName } from '@/utils/formatName';
 import { formatPrice } from '@/utils/formatPrice';
+import { articleHygieneRequirement, articleHygieneInputFromStored, evaluateArticleHygieneInput } from '@/functions/src/shared/articleHygiene';
 
 import type { Article } from '@/types';
 
@@ -45,12 +46,18 @@ function ArticleDetailsComponent({
   sellerRating,
   onViewProfile,
 }: ArticleDetailsProps) {
+  const hygieneRequirement = articleHygieneRequirement(article.categoryIds);
+  const hygiene = evaluateArticleHygieneInput(article.categoryIds, article.condition,
+    articleHygieneInputFromStored(article.categoryIds, article.sellerId, article.hygieneDeclaration));
+  const brandLabel = article.brandStatus === 'unbranded' ? 'Sans marque'
+    : article.brandStatus === 'unknown' ? 'Marque non identifiée'
+      : article.brand;
   return (
     <View style={styles.infoBlock}>
       {/* Brand + Category */}
       <Animated.View entering={FadeInDown.duration(350).delay(80)}>
         <Text style={styles.brandCategory}>
-          {article.brand ? `${article.brand} · ` : ''}{categoryLabel}
+          {brandLabel ? `${brandLabel} · ` : ''}{categoryLabel}
         </Text>
       </Animated.View>
 
@@ -104,6 +111,37 @@ function ArticleDetailsComponent({
         </Animated.View>
       ) : null}
 
+      {hygieneRequirement !== 'none' && hygieneRequirement !== 'invalid' && (
+        <View>
+          <Text style={styles.sectionLabel}>Déclaration du vendeur — hygiène</Text>
+          <Text style={styles.description}>
+            {hygiene.declaration?.kind === 'underwear' ? 'Le vendeur déclare que ce sous-vêtement n’a jamais été porté.'
+              : hygiene.declaration?.kind === 'cosmetic' ? 'Le vendeur déclare que ce cosmétique est neuf et encore scellé.'
+                : hygiene.declaration?.kind === 'not_applicable' ? 'Le vendeur déclare que cet article est d’une autre nature, sans sous-vêtement ou cosmétique.'
+                  : 'La déclaration d’hygiène du vendeur reste à compléter avant une nouvelle vente.'}
+          </Text>
+        </View>
+      )}
+      {typeof article.hasKnownDefects === 'boolean' && <View>
+        <Text style={styles.sectionLabel}>Défauts déclarés</Text>
+        <Text style={styles.description}>
+          {article.hasKnownDefects === true
+            ? article.defectsDescription || 'Le vendeur signale des défauts, sans précision.'
+            : article.hasKnownDefects === false ? 'Aucun défaut connu déclaré par le vendeur.'
+              : 'Les défauts n’ont pas été déclarés.'}
+        </Text>
+      </View>}
+      {article.hasAlterations !== undefined && <View>
+        <Text style={styles.sectionLabel}>Retouches déclarées</Text>
+        <Text style={styles.description}>
+          {article.hasAlterations === true
+            ? article.alterationsDescription || 'Le vendeur signale des retouches, sans précision.'
+            : article.hasAlterations === false ? 'Aucune retouche connue déclarée par le vendeur.'
+              : article.hasAlterations === null ? 'Le vendeur ne sait pas si l’article a été retouché.'
+                : 'Les retouches n’ont pas été déclarées.'}
+        </Text>
+      </View>}
+
       {/* Delivery options cards */}
       {((SHIPPING_ENABLED && article.isShipping) || article.isHandDelivery) && (
         <Animated.View entering={FadeInDown.duration(350).delay(320)} style={styles.deliveryRow}>
@@ -113,7 +151,7 @@ function ArticleDetailsComponent({
               <View style={styles.deliveryCardContent}>
                 <Text style={styles.deliveryCardTitle}>Livraison</Text>
                 <Text style={styles.deliveryCardSub}>
-                  {shippingCost ? formatPrice(shippingCost) : 'À partir de 8,50 $'}
+                  {shippingCost ? formatPrice(shippingCost) : 'Tarif calculé à l’achat'}
                 </Text>
               </View>
             </View>

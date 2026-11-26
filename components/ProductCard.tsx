@@ -36,6 +36,7 @@ import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { useIsFavorite, useToggleFavorite, type FavoriteSource } from '@/hooks/useFavorites';
 import { fixStorageUrl } from '@/utils/fixStorageUrl';
 import { formatPrice } from '@/utils/formatPrice';
+import { articleAvailability, type ArticleInventoryAvailability } from '@/utils/articleAvailability';
 
 import { CARD_WIDTH, COMPACT_CARD_WIDTH } from './ProductCard.constants';
 
@@ -56,6 +57,7 @@ export interface ProductCardProduct {
   condition?: string;
   likes?: number;
   isSold?: boolean;
+  inventoryAvailability?: ArticleInventoryAvailability;
 }
 
 export interface ProductCardProps {
@@ -311,7 +313,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           {/* Sold overlay */}
           {product.isSold && (
             <View style={styles.soldOverlay}>
-              <Text style={styles.soldText}>VENDU</Text>
+              <Text style={styles.soldText}>{articleAvailability(product) === 'reserved' ? 'RÉSERVÉ' : articleAvailability(product) === 'sold' ? 'VENDU' : 'INDISPONIBLE'}</Text>
             </View>
           )}
         </View>
@@ -549,6 +551,8 @@ export default memo(ProductCard, (prevProps, nextProps) => {
     prevProps.product.condition === nextProps.product.condition &&
     prevProps.product.likes === nextProps.product.likes &&
     prevProps.product.isSold === nextProps.product.isSold &&
+    prevProps.product.inventoryAvailability?.protocol === nextProps.product.inventoryAvailability?.protocol &&
+    prevProps.product.inventoryAvailability?.state === nextProps.product.inventoryAvailability?.state &&
     prevProps.isLoading === nextProps.isLoading &&
     prevProps.compact === nextProps.compact &&
     prevProps.fillWidth === nextProps.fillWidth

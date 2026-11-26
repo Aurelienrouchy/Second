@@ -17,6 +17,74 @@ export interface ArticleSize {
   system: SizeSystem;
 }
 
+/** Same < 1e-7 cents tolerance as the canonical purchase calculation. This
+ * validates only: callers persist the declared value, never round it to fit. */
+export function isValidArticlePrice(value: unknown): value is number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0.01 || value > 10000) return false;
+  const cents = Math.round(value * 100);
+  return Number.isSafeInteger(cents) && Math.abs(value * 100 - cents) < 1e-7;
+}
+
+/** Missing fields on an old article mean undeclared, never "no known defect". */
+export interface ArticleDefectDisclosure {
+  hasKnownDefects: boolean;
+  defectsDescription: string | null;
+}
+
+/** null is an explicit "unknown" choice; an absent legacy field is undeclared. */
+export interface ArticleAlterationDisclosure {
+  hasAlterations: boolean | null;
+  alterationsDescription: string | null;
+}
+
+/** Same HTML cleaning as article text, with no truncation of a disclosure. */
+function disclosureText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.replace(/<\/?[a-zA-Z][^>]*>/g, '').trim();
+  return text.length > 0 && text.length <= 2000 ? text : null;
+}
+
+export function parseArticleDefectDisclosure(raw: Record<string, unknown>): ArticleDefectDisclosure | null {
+  if (typeof raw.hasKnownDefects !== 'boolean' || !Object.prototype.hasOwnProperty.call(raw, 'defectsDescription')) return null;
+  if (raw.hasKnownDefects === false) {
+    return raw.defectsDescription === null ? { hasKnownDefects: false, defectsDescription: null } : null;
+  }
+  const text = disclosureText(raw.defectsDescription);
+  return text ? { hasKnownDefects: true, defectsDescription: text } : null;
+}
+
+export function parseArticleAlterationDisclosure(raw: Record<string, unknown>): ArticleAlterationDisclosure | null {
+  if (!Object.prototype.hasOwnProperty.call(raw, 'hasAlterations')
+      || !Object.prototype.hasOwnProperty.call(raw, 'alterationsDescription')
+      || (typeof raw.hasAlterations !== 'boolean' && raw.hasAlterations !== null)) return null;
+  if (raw.hasAlterations !== true) {
+    return raw.alterationsDescription === null
+      ? { hasAlterations: raw.hasAlterations, alterationsDescription: null }
+      : null;
+  }
+  const text = disclosureText(raw.alterationsDescription);
+  return text ? { hasAlterations: true, alterationsDescription: text } : null;
+}
+
+/** Seller declaration; an absent status on a legacy article stays undeclared. */
+export const ARTICLE_BRAND_STATUSES = ['known', 'unbranded', 'unknown'] as const;
+export type ArticleBrandStatus = typeof ARTICLE_BRAND_STATUSES[number];
+
+/** Absence on a legacy listing is compatible, never proof of human review.
+ * Unknown explicit statuses fail closed until an operator examines them. */
+export function isArticleModerationRestricted(article: { moderationStatus?: unknown }): boolean {
+  return article.moderationStatus != null && article.moderationStatus !== 'approved';
+}
+
+/** New-publication requirement based on the declared category. Accessories
+ * and non-clothing categories never need a fabricated "Unique" size. */
+export function articleRequiresSize(categoryIds: readonly string[]): boolean {
+  const categoryId = categoryIds.at(-1) ?? '';
+  if (/(?:^|_)(?:accessories|bags|jewelry)(?:_|$)/.test(categoryId)) return false;
+  return /^(?:women|men)_(?:clothing|shoes)(?:_|$)/.test(categoryId)
+    || /^kids_(?:girls|boys)(?:_|$)/.test(categoryId);
+}
+
 const VALID_SYSTEMS: readonly SizeSystem[] = ['US', 'EU'];
 const MAX_SIZE_VALUE_LENGTH = 50;
 
@@ -62,3 +130,24 @@ export function sanitizeArticleSize(
   // number / undefined / anything else → nothing to write.
   return undefined;
 }
+
+/**
+ * Statuts pour lesquels une transaction est encore « en cours » sur l'article.
+ * Tant qu'il en existe une, `isSold` est un VERROU (une réservation), pas une
+ * vente conclue.
+ */
+export const ARTICLE_BLOCKING_TX_STATUSES = [
+  'pending_payment',
+  'meetup_pending',
+  'meetup_confirmed',
+  'paid',
+  'label_created',
+  'shipped',
+  'delivered',
+  'return_requested',
+  'delivery_failed',
+  'lost',
+  'disputed',
+  'refund_in_progress',
+  'refund_action_required',
+];

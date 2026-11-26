@@ -25,19 +25,20 @@ import {
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { ScreenHeader, Text } from '@/components/ui';
+import { ScreenHeader, Text, Button } from '@/components/ui';
+import { useAccountErasureRecovery } from '@/hooks/useAccountErasureRecovery';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { colors, radius, spacing, typography } from '@/constants/theme';
 import { useAuthActions } from '@/hooks/useAuth';
 import {
   GuestState,
-  ProfileHeader,
+  MyProfileHeader,
   ProfileMenu,
 } from '@/features/profile';
 import type { MenuItem } from '@/features/profile';
 import { useAuthRequired } from '@/hooks/useAuthRequired';
-import { useWallet } from '@/hooks/useWallet';
-import { UserStatsService } from '@/services/userStatsService';
+import { useWallet } from '@/features/wallet/hooks/useWallet';
+import { UserStatsService } from '@/features/profile/services/userStatsService';
 import { formatCents } from '@/utils/formatPrice';
 import { PAYMENTS_ENABLED } from '@/config/featureFlags';
 
@@ -50,6 +51,7 @@ export default function ProfileScreen() {
   const { user, requireAuth, showAuthSheet } = useAuthRequired();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const erasureRecovery = useAccountErasureRecovery();
 
   const { data: stats } = useQuery({
     queryKey: ['users', 'stats', user?.id] as const,
@@ -226,7 +228,7 @@ export default function ProfileScreen() {
         {/* Profile Header Zone */}
         <View style={[styles.profileHeaderZone, !user && styles.profileHeaderZoneGuest]}>
           {user ? (
-            <ProfileHeader
+            <MyProfileHeader
               profileImage={user.profileImage}
               displayName={user.displayName}
               username={user.username}
@@ -243,6 +245,12 @@ export default function ProfileScreen() {
             <GuestState onConnect={handleConnect} />
           )}
         </View>
+
+        {!user && erasureRecovery.ready && erasureRecovery.attempt?.phase === 'submitted' && (
+          <View style={styles.erasureTracking}>
+            <Button variant="secondary" onPress={() => router.push('/account-deletion' as never)}>Suivre une demande de suppression</Button>
+          </View>
+        )}
 
         {/* Menu Section */}
         <ProfileMenu items={menuItems} onItemPress={handleMenuItemPress} />
@@ -278,6 +286,7 @@ export default function ProfileScreen() {
 // =============================================================================
 
 const styles = StyleSheet.create({
+  erasureTracking: {padding: spacing.md},
   container: {
     flex: 1,
     backgroundColor: colors.background,

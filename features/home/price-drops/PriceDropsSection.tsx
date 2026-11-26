@@ -25,7 +25,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors, spacing, typography, radius, animations, sizing } from '@/constants/theme';
-import { SectionHeader } from '@/components/home/SectionHeader';
+import { SectionHeader } from '@/features/home/components/SectionHeader';
 import { track } from '@/lib/analytics';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
 import { useRequireAuth } from '@/hooks/useAuthRequired';

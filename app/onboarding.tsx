@@ -10,10 +10,10 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@/utils/environmentStorage';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -38,6 +38,7 @@ import { ONBOARDING_COMPLETED_KEY, ONBOARDING_PREFERENCES_KEY } from '@/constant
 
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebaseConfig';
+import { getAuthSessionGeneration, useAuthStore } from '@/store/authStore';
 
 import {
   onboardingStyles as styles,
@@ -77,6 +78,20 @@ export default function OnboardingScreen() {
   const [sizesBottom, setSizesBottom] = useState<string[]>([]);
   const [sizesShoes, setSizesShoes] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false);
+  const visit = useRef({focused: false, revision: 0});
+  useFocusEffect(useCallback(() => {
+    visit.current = {focused: true, revision: visit.current.revision + 1};
+    return () => {visit.current = {focused: false, revision: visit.current.revision + 1};};
+  }, []));
+  const captureSave = useCallback(() => {
+    if (savingRef.current || !visit.current.focused) return null;
+    savingRef.current = true;
+    setIsSaving(true);
+    const revision = visit.current.revision, generation = getAuthSessionGeneration(), uid = user?.id;
+    return () => visit.current.focused && visit.current.revision === revision && getAuthSessionGeneration() === generation &&
+      useAuthStore.getState().user?.id === uid;
+  }, [user?.id]);
 
   const isKid = sex === 'enfant';
   const isEU = sizeSystem === 'EU';
@@ -101,6 +116,7 @@ export default function OnboardingScreen() {
     value: string,
     category: 'top' | 'bottom' | 'shoes',
   ) => {
+    if (savingRef.current) return;
     const selected = !current.includes(value);
     setter(selected ? [...current, value] : current.filter(x => x !== value));
     track('onboarding_preference_changed', {
@@ -112,6 +128,7 @@ export default function OnboardingScreen() {
   }, []);
 
   const handleSizeSystemChange = useCallback((newSystem: SizeSystem) => {
+    if (savingRef.current) return;
     if (newSystem === sizeSystem) return;
     const hasSelections = sizesTop.length > 0 || sizesBottom.length > 0 || sizesShoes.length > 0;
     const fromSystem = sizeSystem;
@@ -157,6 +174,7 @@ export default function OnboardingScreen() {
   }, [sizeSystem, sizesTop.length, sizesBottom.length, sizesShoes.length]);
 
   const handleSexChange = useCallback((newSex: OnboardingPreferences['sex']) => {
+    if (savingRef.current) return;
     const willDeselect = sex === newSex;
     const sizesReset =
       (sex === 'enfant' && newSex !== 'enfant') || (sex !== 'enfant' && newSex === 'enfant');
@@ -176,21 +194,30 @@ export default function OnboardingScreen() {
   }, [sex]);
 
   const handleSkip = useCallback(async (step: 'welcome' | 'form') => {
+    const isCurrent = captureSave();
+    if (!isCurrent) return;
     track('onboarding_skipped', {
       step,
       sex_selected: !!sex,
       sizes_selected_count: sizesTop.length + sizesBottom.length + sizesShoes.length,
     });
-    await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
-    router.replace('/(tabs)');
-  }, [sex, sizesTop.length, sizesBottom.length, sizesShoes.length]);
+    try {
+      await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+      if (isCurrent()) router.replace('/(tabs)');
+    } catch {
+      if (isCurrent()) Alert.alert('Enregistrement impossible', 'Réessayez pour terminer cette étape.');
+    } finally {
+      savingRef.current = false;
+      if (visit.current.focused) setIsSaving(false);
+    }
+  }, [sex, sizesTop.length, sizesBottom.length, sizesShoes.length, captureSave]);
 
   const handleValidate = useCallback(async () => {
     // hasAnything guarantees a sex selection; the early return keeps the
     // backend contract (sex is a required, validated field) honoured.
-    if (!hasAnything || !sex || isSaving) return;
-
-    setIsSaving(true);
+    if (!hasAnything || !sex) return;
+    const isCurrent = captureSave();
+    if (!isCurrent) return;
     track('onboarding_completed', {
       sex_value: sex,
       sizes_top_count: sizesTop.length,
@@ -208,7 +235,9 @@ export default function OnboardingScreen() {
 
       // Save to AsyncStorage for immediate use
       await AsyncStorage.setItem(ONBOARDING_PREFERENCES_KEY, JSON.stringify(preferences));
+      if (!isCurrent()) return;
       await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+      if (!isCurrent()) return;
 
       // Save to Firebase
       const savePrefs = httpsCallable(functions, 'saveOnboardingPreferences');
@@ -233,6 +262,7 @@ export default function OnboardingScreen() {
         let attemptNumber = 1;
         let saved = await persist();
         while (!saved) {
+          if (!isCurrent()) return;
           const retry = await new Promise<boolean>(resolve => {
             Alert.alert(
               'Échec de l’enregistrement',
@@ -243,6 +273,7 @@ export default function OnboardingScreen() {
               ]
             );
           });
+          if (!isCurrent()) return;
           track('onboarding_save_failed', { retry_chosen: retry, attempt_number: attemptNumber });
           if (!retry) break;
           attemptNumber += 1;
@@ -254,17 +285,18 @@ export default function OnboardingScreen() {
           if (__DEV__) console.error('Error saving onboarding preferences to Firebase:', err);
         });
       }
-
+      if (!isCurrent()) return;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/(tabs)');
     } catch (err) {
-      if (__DEV__) console.error('Error saving onboarding preferences:', err);
-      // Still navigate even if save fails
-      router.replace('/(tabs)');
+      if (!isCurrent()) return;
+      if (__DEV__) console.warn('Error saving onboarding preferences:', err);
+      Alert.alert('Enregistrement impossible', 'Vos choix sont conservés sur cet écran. Réessayez pour continuer.');
     } finally {
-      setIsSaving(false);
+      savingRef.current = false;
+      if (visit.current.focused) setIsSaving(false);
     }
-  }, [hasAnything, isSaving, sex, sizeSystem, sizesTop, sizesBottom, sizesShoes, user]);
+  }, [hasAnything, sex, sizeSystem, sizesTop, sizesBottom, sizesShoes, user, captureSave]);
 
   // Android hardware back on the form screen returns to the welcome step
   // (instead of leaving onboarding) and preserves the current selections.
@@ -272,6 +304,7 @@ export default function OnboardingScreen() {
     useCallback(() => {
       if (Platform.OS !== 'android' || showWelcome) return;
       const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (savingRef.current) return true;
         setShowWelcome(true);
         return true;
       });
@@ -314,12 +347,13 @@ export default function OnboardingScreen() {
           >
             <Button
               fullWidth
+              disabled={isSaving}
               onPress={() => setShowWelcome(false)}
               testID="onboarding-continue"
             >
               CONTINUER
             </Button>
-            <Pressable onPress={() => handleSkip('welcome')} style={styles.skipButton} testID="onboarding-skip">
+            <Pressable disabled={isSaving} onPress={() => {void handleSkip('welcome');}} style={styles.skipButton} testID="onboarding-skip">
               <Text style={styles.skipText}>Passer</Text>
             </Pressable>
           </Animated.View>
@@ -336,12 +370,13 @@ export default function OnboardingScreen() {
         <View style={styles.header}>
           <Pressable
             onPress={() => setShowWelcome(true)}
+            disabled={isSaving}
             style={styles.backButton}
             hitSlop={12}
           >
             <Ionicons name="chevron-back" size={22} color={colors.charcoal} />
           </Pressable>
-          <Pressable onPress={() => handleSkip('form')} style={styles.skipButton} hitSlop={12} testID="onboarding-skip-form">
+          <Pressable disabled={isSaving} onPress={() => {void handleSkip('form');}} style={styles.skipButton} hitSlop={12} testID="onboarding-skip-form">
             <Text style={styles.skipText}>Passer</Text>
           </Pressable>
         </View>

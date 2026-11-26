@@ -1,0 +1,450 @@
+{
+  "protocol": "phase1_additive_bootstrap_v1",
+  "projects": {
+    "dev": "seconde-dev",
+    "prod": "seconde-b47a6"
+  },
+  "scope": "phase1_local_agreements_and_catalogue",
+  "productionReady": false,
+  "versionedFunctions": [
+    {
+      "name": "createArticleV2",
+      "original": "createArticle",
+      "module": "./callable/products"
+    },
+    {
+      "name": "updateArticleV2",
+      "original": "updateArticle",
+      "module": "./callable/products"
+    },
+    {
+      "name": "toggleArticleSoldV2",
+      "original": "toggleArticleSold",
+      "module": "./callable/products"
+    },
+    {
+      "name": "incrementProductViewV2",
+      "original": "incrementProductView",
+      "module": "./callable/products"
+    },
+    {
+      "name": "toggleProductLikeV2",
+      "original": "toggleProductLike",
+      "module": "./callable/products"
+    },
+    {
+      "name": "markSavedSearchViewedV2",
+      "original": "markSavedSearchViewed",
+      "module": "./callable/products"
+    },
+    {
+      "name": "recordSignupConsentV2",
+      "original": "recordSignupConsent",
+      "module": "./callable/consent"
+    },
+    {
+      "name": "setMarketingConsentV2",
+      "original": "setMarketingConsent",
+      "module": "./callable/consent"
+    },
+    {
+      "name": "declareSellerActivityV2",
+      "original": "declareSellerActivity",
+      "module": "./callable/eligibility"
+    },
+    {
+      "name": "sendMeetupProposalV2",
+      "original": "sendMeetupProposal",
+      "module": "./callable/offers"
+    },
+    {
+      "name": "rejectMeetupProposalV2",
+      "original": "rejectMeetupProposal",
+      "module": "./callable/offers"
+    },
+    {
+      "name": "acceptMeetupOfferV2",
+      "original": "acceptMeetupOffer",
+      "module": "./callable/payments"
+    },
+    {
+      "name": "confirmMeetupTransactionV2",
+      "original": "confirmMeetupTransaction",
+      "module": "./callable/payments"
+    },
+    {
+      "name": "completeMeetupTransactionV2",
+      "original": "completeMeetupTransaction",
+      "module": "./callable/payments"
+    },
+    {
+      "name": "reportMeetupNoShowV2",
+      "original": "reportMeetupNoShow",
+      "module": "./callable/payments"
+    },
+    {
+      "name": "closeMeetupNoShowV2",
+      "original": "closeMeetupNoShow",
+      "module": "./callable/payments"
+    },
+    {
+      "name": "cancelPendingTransactionV2",
+      "original": "cancelPendingTransaction",
+      "module": "./callable/payments"
+    },
+    {
+      "name": "sellerCancelTransactionV2",
+      "original": "sellerCancelTransaction",
+      "module": "./callable/payments"
+    },
+    {
+      "name": "ensureGeneralistZoneV2",
+      "original": "ensureGeneralistZone",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "getActiveSwapPartyInfoV2",
+      "original": "getActiveSwapPartyInfo",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "proposeMultiSwapV2",
+      "original": "proposeMultiSwap",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "acceptSwapV2",
+      "original": "acceptSwap",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "declineSwapV2",
+      "original": "declineSwap",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "cancelSwapV2",
+      "original": "cancelSwap",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "confirmSwapReceptionV2",
+      "original": "confirmSwapReception",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "rateSwapV2",
+      "original": "rateSwap",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "addItemToPartySecureV2",
+      "original": "addItemToPartySecure",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "removeItemFromPartySecureV2",
+      "original": "removeItemFromPartySecure",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "createReviewV2",
+      "original": "createReview",
+      "module": "./callable/reviews"
+    },
+    {
+      "name": "deleteUserAccountV2",
+      "original": "deleteUserAccount",
+      "module": "./callable/users"
+    },
+    {
+      "name": "submitReportV2",
+      "original": "submitReport",
+      "module": "./callable/shopModeration"
+    },
+    {
+      "name": "triageReportV2",
+      "original": "triageReport",
+      "module": "./callable/shopModeration"
+    },
+    {
+      "name": "getPendingReportsV2",
+      "original": "getPendingReports",
+      "module": "./callable/shopModeration"
+    },
+    {
+      "name": "setSwapExchangeModeV2",
+      "original": "setSwapExchangeMode",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "uploadSwapPhotosV2",
+      "original": "uploadSwapPhotos",
+      "module": "./callable/swaps"
+    },
+    {
+      "name": "confirmSwapShippingV2",
+      "original": "confirmSwapShipping",
+      "module": "./callable/swaps"
+    }
+  ],
+  "sharedDependenciesToVerify": [
+    "getMyEligibility",
+    "checkUsernameAvailability",
+    "saveOnboardingPreferences",
+    "getUserPublicProfile",
+    "getUserReviews",
+    "readSupportRequests",
+    "commandSupportRequest",
+    "administerSupportRequest",
+    "secureMyAccount",
+    "accountAccessIntake",
+    "withdrawArticlePrivacy",
+    "readPrivateArticleEvidence",
+    "readPrivateArticleMedia",
+    "readPrivateProfileMedia",
+    "requestEligibilityReview",
+    "addEligibilityReviewDetails",
+    "getEligibilityReview",
+    "listMyEligibilityReviews",
+    "listAdminEligibilityReviews",
+    "getAdminEligibilityReview",
+    "flagEligibilityForReview",
+    "decideEligibilityReview",
+    "postChatSystemMessage",
+    "assignUsername",
+    "getTrendingBrands",
+    "getPriceDrops",
+    "getFeaturedSellers",
+    "getNewArrivals",
+    "getHomeFeed",
+    "toggleSellerLike",
+    "getLikedSellers",
+    "recordPriceDrop",
+    "visualSearch",
+    "getSimilarProducts",
+    "analyzeProductImage",
+    "generateStyleProfile",
+    "approveShop",
+    "rejectShop",
+    "suspendShop",
+    "getAutomatedDecisionLog",
+    "contestAutomatedDecision",
+    "getWalletInfo",
+    "manageAccountErasure",
+    "reportPrivacyIncident",
+    "getPrivacyIncidentsLog",
+    "escalatePrivacyIncidentToCAI",
+    "notifyAffectedUsers",
+    "getStripeAccountStatus",
+    "checkTrackingStatus",
+    "openSwapDispute",
+    "resolveSwapDispute"
+  ],
+  "unversionedFunctionsToPreserve": [
+    "createArticle",
+    "updateArticle",
+    "toggleArticleSold",
+    "incrementProductView",
+    "toggleProductLike",
+    "markSavedSearchViewed",
+    "recordSignupConsent",
+    "setMarketingConsent",
+    "declareSellerActivity",
+    "sendMeetupProposal",
+    "rejectMeetupProposal",
+    "acceptMeetupOffer",
+    "confirmMeetupTransaction",
+    "completeMeetupTransaction",
+    "reportMeetupNoShow",
+    "closeMeetupNoShow",
+    "cancelPendingTransaction",
+    "sellerCancelTransaction",
+    "ensureGeneralistZone",
+    "getActiveSwapPartyInfo",
+    "proposeMultiSwap",
+    "acceptSwap",
+    "declineSwap",
+    "cancelSwap",
+    "confirmSwapReception",
+    "rateSwap",
+    "addItemToPartySecure",
+    "removeItemFromPartySecure",
+    "createReview",
+    "deleteUserAccount",
+    "submitReport",
+    "triageReport",
+    "getPendingReports",
+    "setSwapExchangeMode",
+    "uploadSwapPhotos",
+    "confirmSwapShipping"
+  ],
+  "remainingBlockers": [
+    "Qualify complete selected callable/background source set and deploy to isolated Dev runtime; no financial secret access.",
+    "Complete SDK business lifecycle, trigger receipt delivery and native client verification against the intended environment.",
+    "Complete bounded real account-erasure implementation; preserve historical and financial safeguards.",
+    "Apply legacy compatibility partitions, close legacy acquisitions with observed propagation, then repeat production obligation counts before opening new production business admission."
+  ],
+  "oldNewDocumentCoexistenceVerified": false,
+  "legacyCoexistenceEndpoints": [
+    "acceptMeetupOffer",
+    "confirmMeetupTransaction",
+    "completeMeetupTransaction",
+    "reportMeetupNoShow",
+    "closeMeetupNoShow",
+    "cancelPendingTransaction",
+    "sellerCancelTransaction",
+    "acceptSwap",
+    "cancelSwap",
+    "declineSwap",
+    "confirmSwapReception",
+    "rateSwap",
+    "toggleArticleSold",
+    "updateArticle",
+    "sendMeetupProposal",
+    "rejectMeetupProposal",
+    "proposeMultiSwap",
+    "addItemToPartySecure",
+    "removeItemFromPartySecure",
+    "createReview",
+    "deleteUserAccount"
+  ],
+  "providerSecretsDeclaredButNotUsedByLocalBranch": [],
+  "legacyBackgroundActorsToVerify": [
+    "expireStaleProposedSwaps",
+    "expireStalePostAcceptanceSwaps",
+    "expireOrphanedTransactions",
+    "releaseHeldFunds",
+    "onSwapCreated",
+    "onSwapStatusUpdated",
+    "onArticleSold",
+    "onArticleInfoUpdated",
+    "updateUserStats",
+    "expireStaleOffers",
+    "expireStaleAcceptedOffers",
+    "retentionPurge"
+  ],
+  "partitionedBackgroundFunctions": [
+    "expirePhase1LocalProposals",
+    "expirePhase1LocalOffers"
+  ],
+  "compatibleBackgroundFunctionsToQualify": [
+    "onSwapCreated",
+    "onSwapStatusUpdated",
+    "onArticleSoftDeleted",
+    "onArticleSold",
+    "onArticleInfoUpdated",
+    "onUserProfileUpdated",
+    "updateSearchIndex",
+    "updateUserStats",
+    "updateShopArticlesCount",
+    "updateSellerArticlesCount",
+    "sendMessageNotification",
+    "sendOfferStatusNotification",
+    "onArticleFavorited",
+    "onArticlePriceDropped",
+    "generateEmbeddingOnCreate",
+    "generateEmbeddingOnUpdate",
+    "dispatchOperationalNoticeOnCreate",
+    "deliverOperationalNotices",
+    "checkExpoPushReceipts",
+    "continueAccountErasure",
+    "resumeAccountErasures",
+    "eraseLateAccountStorage"
+  ],
+  "ordinaryDevBackgroundFunctionsToFence": [
+    "expireStaleOffers",
+    "expireStaleAcceptedOffers",
+    "expireStaleProposedSwaps",
+    "expireStalePostAcceptanceSwaps"
+  ],
+  "isolatedRuntimeSecrets": {
+    "analyzeProductImage": [
+      "GEMINI_API_KEY"
+    ],
+    "generateStyleProfile": [
+      "GEMINI_API_KEY"
+    ],
+    "otherPhase1Functions": [],
+    "completeAccountErasureAppleWeb": [
+      "APPLE_ERASURE_SIGNING_KEY"
+    ]
+  },
+  "legacyAcquisitionCutover": {
+    "strategy": "close_unused_legacy_entrypoints_and_schedules",
+    "active": false,
+    "historicalServicingRequired": false,
+    "order": [
+      "qualify_new_dev_flows",
+      "deploy_final_new_prod_functions_draining",
+      "remove_public_invocation_from_unused_legacy_services",
+      "pause_obsolete_schedules_and_disable_obsolete_event_triggers",
+      "verify_closed_entrypoints_and_allow_admitted_invocations_to_finish",
+      "repeat_aggregate_obligations_until_stable_zero",
+      "qualify_new_prod_flows_then_open_control_by_compare_and_swap"
+    ]
+  },
+  "legacyMaintenanceBackgroundFunctions": [
+    "expireStaleProposedSwaps",
+    "expireStalePostAcceptanceSwaps",
+    "expireOrphanedTransactions",
+    "releaseHeldFunds",
+    "expireStaleOffers",
+    "expireStaleAcceptedOffers",
+    "retentionPurge"
+  ],
+  "devIsolatedSharedFunctions": [
+    {
+      "original": "getMyEligibility",
+      "name": "getMyEligibilityPhase1Dev"
+    },
+    {
+      "original": "getWalletInfo",
+      "name": "getWalletInfoPhase1Dev"
+    },
+    {
+      "original": "readSupportRequests",
+      "name": "readSupportRequestsPhase1Dev"
+    },
+    {
+      "original": "commandSupportRequest",
+      "name": "commandSupportRequestPhase1Dev"
+    },
+    {
+      "original": "administerSupportRequest",
+      "name": "administerSupportRequestPhase1Dev"
+    },
+    {
+      "original": "getStripeAccountStatus",
+      "name": "getStripeAccountStatusPhase1Dev",
+      "source": "getStripeAccountStatusPhase1"
+    },
+    {
+      "original": "checkTrackingStatus",
+      "name": "checkTrackingStatusPhase1Dev",
+      "source": "checkTrackingStatusPhase1"
+    },
+    {
+      "original": "openSwapDispute",
+      "name": "openSwapDisputePhase1Dev"
+    },
+    {
+      "original": "resolveSwapDispute",
+      "name": "resolveSwapDisputePhase1Dev"
+    }
+  ],
+  "accountErasureWebFunctions": [
+    "startAccountErasureAppleWeb",
+    "prepareAccountErasureAppleWeb",
+    "completeAccountErasureAppleWeb",
+    "accountErasureAppleWebCallback"
+  ],
+  "productionSourceOverrides": {
+    "getStripeAccountStatus": "getStripeAccountStatusPhase1",
+    "checkTrackingStatus": "checkTrackingStatusPhase1"
+  },
+  "runtimeAdmissionCutoffs": {
+    "dev": "2026-11-25T17:21:29.815Z",
+    "prod": "2026-11-25T20:45:02.729Z"
+  }
+}

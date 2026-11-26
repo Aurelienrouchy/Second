@@ -36,6 +36,13 @@ jest.mock('firebase/firestore', () => ({
   arrayRemove: jest.fn((...vals: unknown[]) => ({ __arrayRemove: vals })),
 }));
 
+const mockCallable = jest.fn((..._args: unknown[]) =>
+  Promise.resolve({ data: { ok: true, reportId: 'report-123', status: 'pending' } }),
+);
+jest.mock('firebase/functions', () => ({
+  httpsCallable: jest.fn((..._args: unknown[]) => mockCallable),
+}));
+
 import { auth } from '@/config/firebaseConfig';
 import { ModerationService } from '@/services/moderationService';
 
@@ -151,26 +158,189 @@ describe('ModerationService.areUsersBlocked', () => {
 });
 
 describe('ModerationService.createReport', () => {
-  it('persiste un signalement pending et renvoie l’id du document', async () => {
+  function callableName(): string {
+    const { httpsCallable } = jest.requireMock('firebase/functions') as {
+      httpsCallable: jest.Mock;
+    };
+    return httpsCallable.mock.calls[0][1] as string;
+  }
+
+  it('passe par la callable serveur et renvoie l’id du signalement', async () => {
     const id = await ModerationService.createReport(
-      'me',
-      'Moi',
-      'message',
-      'msg-1',
-      'harassment',
-      'contenu abusif',
-      'owner-1',
+      'me', 'Moi', 'message', 'msg-1', 'harassment', 'contenu abusif', 'owner-1',
     );
 
     expect(id).toBe('report-123');
-    const [, payload] = mockAddDoc.mock.calls[0] as [unknown, Record<string, unknown>];
-    expect(payload).toMatchObject({
-      reporterId: 'me',
+    expect(callableName()).toBe('submitReport');
+    // Aucune écriture cliente directe : c'est le rail serveur qui valide,
+    // limite le débit et impose « un signalement par personne et par cible ».
+    expect(mockAddDoc).not.toHaveBeenCalled();
+
+    const payload = mockCallable.mock.calls[0][0] as Record<string, unknown>;
+    expect(payload).toEqual({
       targetType: 'message',
       targetId: 'msg-1',
       reason: 'harassment',
-      status: 'pending',
-      createdAt: 'SERVER_TS',
+      description: 'contenu abusif',
+      targetOwnerId: 'owner-1',
     });
+  });
+
+  it('traduit le doublon en information, pas en erreur technique', async () => {
+    mockCallable.mockRejectedValueOnce(
+      Object.assign(new Error('nope'), { code: 'functions/already-exists' }),
+    );
+    await expect(
+      ModerationService.createReport('me', 'Moi', 'user', 'bob', 'harassment'),
+    ).rejects.toThrow(/déjà signalé/);
+  });
+});
+
+// ─── Non-régression : aucun `undefined` ne part vers Firestore ───────────────
+//
+// Le SDK Web rejette SYNCHRONEMENT toute valeur `undefined` tant que
+// `ignoreUndefinedProperties` n'est pas activé — et `config/firebaseConfig.ts`
+// ne l'active pas. Or `createReport` écrivait les clés `targetOwnerId` et
+// `description` en dur : elles étaient donc PRÉSENTES avec la valeur
+// `undefined` dès que l'appelant omettait ces paramètres optionnels.
+//
+// Ce n'est pas théorique : deux des trois points d'entrée n'ont aucun moyen de
+// fournir `targetOwnerId` — `useChatModeration.ts` et `app/user/[id].tsx`
+// appellent `open()` à trois arguments. Tout signalement d'utilisateur
+// échouait donc, à tous les coups, sur une alerte « Erreur ».
+describe('ModerationService.createReport — aucun undefined vers Firestore', () => {
+  const collectUndefinedKeys = (payload: Record<string, unknown>): string[] =>
+    Object.entries(payload)
+      .filter(([, value]) => value === undefined)
+      .map(([key]) => key);
+
+  const lastPayload = (): Record<string, unknown> =>
+    mockCallable.mock.calls[0][0] as Record<string, unknown>;
+
+  it('signalement depuis le chat (ni description ni targetOwnerId) : payload sans undefined', async () => {
+    await ModerationService.createReport('me', 'Moi', 'user', 'bob', 'harassment');
+
+    const payload = lastPayload();
+    expect(collectUndefinedKeys(payload)).toEqual([]);
+    // La clé absente vaut mieux que la clé à undefined : la callable refuse la
+    // seconde, exactement comme le SDK la refusait avant elle.
+    expect('targetOwnerId' in payload).toBe(false);
+    expect('description' in payload).toBe(false);
+  });
+
+  it('signalement d’utilisateur sans détails : targetOwnerId conservé, description omise', async () => {
+    await ModerationService.createReport(
+      'me',
+      'Moi',
+      'user',
+      'reported-member',
+      'harassment',
+      undefined,
+      'reported-member',
+    );
+
+    const payload = lastPayload();
+    expect(collectUndefinedKeys(payload)).toEqual([]);
+    expect(payload.targetOwnerId).toBe('reported-member');
+    expect('description' in payload).toBe(false);
+  });
+
+  it('les deux champs optionnels renseignés sont bien transmis', async () => {
+    await ModerationService.createReport(
+      'me',
+      'Moi',
+      'user',
+      'reported-member',
+      'harassment',
+      'messages insistants',
+      'reported-member',
+    );
+
+    const payload = lastPayload();
+    expect(collectUndefinedKeys(payload)).toEqual([]);
+    expect(payload.description).toBe('messages insistants');
+    expect(payload.targetOwnerId).toBe('reported-member');
+  });
+
+  it('refuse un signalement d’article sans aperçu avant tout appel serveur', async () => {
+    await expect(ModerationService.createReport('me', 'Moi', 'article', 'art-1', 'counterfeit'))
+      .rejects.toThrow('Examinez l’aperçu actuel de l’article');
+    expect(mockCallable).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Non-régression : le déblocage doit être total ──────────────────────────
+//
+// `blockUser` pose `blockedAt: new Date().toISOString()` dans l'objet passé à
+// `arrayUnion`. Deux blocages successifs de la MÊME personne produisent donc
+// deux objets DIFFÉRENTS (horodatages distincts) : `arrayUnion` ne les
+// déduplique pas et les empile. Aucun des deux points d'entrée ne vérifie
+// l'état préalable (`useChatModeration.ts:35`, `app/user/[id].tsx:371`), le
+// double blocage est donc atteignable depuis l'app.
+//
+// `unblockUser` ne retirait alors QUE la première entrée trouvée par `.find()`.
+// Résultat : `blockedUserIds` (lu par les règles) ne contient plus l'UID — le
+// message est ACCEPTÉ — mais `blockedUsers` en garde une, et le trigger
+// serveur `sendMessageNotification`, qui lit les DEUX formes, SUPPRIME le
+// message. La personne croit avoir débloqué ; tous les messages reçus sont
+// détruits en silence, définitivement.
+describe('ModerationService.unblockUser — déblocage total', () => {
+  it('retire TOUTES les entrées de blockedUsers après un double blocage', async () => {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        blockedUsers: [
+          { userId: 'bob', userName: 'Bob', blockedAt: '2026-01-01T00:00:00.000Z' },
+          { userId: 'carole', userName: 'Carole', blockedAt: '2026-01-02T00:00:00.000Z' },
+          { userId: 'bob', userName: 'Bob', blockedAt: '2026-03-04T00:00:00.000Z' },
+        ],
+        blockedUserIds: ['bob', 'carole'],
+      }),
+    });
+
+    await ModerationService.unblockUser('me', 'bob');
+
+    const [, payload] = mockUpdateDoc.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect(payload.blockedUserIds).toEqual({ __arrayRemove: ['bob'] });
+
+    const removed = payload.blockedUsers as { __arrayRemove: Array<{ userId: string }> };
+    // Les DEUX entrées « bob » doivent partir, pas seulement la première.
+    expect(removed.__arrayRemove).toHaveLength(2);
+    expect(removed.__arrayRemove.every((u) => u.userId === 'bob')).toBe(true);
+    // Carole n'est pas concernée.
+    expect(removed.__arrayRemove.some((u) => u.userId === 'carole')).toBe(false);
+  });
+
+  it('document partiellement migré (aucune entrée objet) : l’UID plat est tout de même retiré', async () => {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({ blockedUserIds: ['bob'] }),
+    });
+
+    await ModerationService.unblockUser('me', 'bob');
+
+    const [, payload] = mockUpdateDoc.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect(payload.blockedUserIds).toEqual({ __arrayRemove: ['bob'] });
+    expect('blockedUsers' in payload).toBe(false);
+  });
+});
+
+describe('ModerationService.getBlockedUsers — pas de doublon affiché', () => {
+  it('un double blocage n’affiche la personne qu’une fois, à sa date initiale', async () => {
+    mockGetDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        blockedUsers: [
+          { userId: 'bob', userName: 'Bob', blockedAt: '2026-03-04T00:00:00.000Z' },
+          { userId: 'carole', userName: 'Carole', blockedAt: '2026-01-02T00:00:00.000Z' },
+          { userId: 'bob', userName: 'Bob', blockedAt: '2026-01-01T00:00:00.000Z' },
+        ],
+      }),
+    });
+
+    const list = await ModerationService.getBlockedUsers('me');
+
+    expect(list.map((u) => u.blockedUserId)).toEqual(['bob', 'carole']);
+    expect(list[0].blockedAt.toISOString()).toBe('2026-01-01T00:00:00.000Z');
   });
 });

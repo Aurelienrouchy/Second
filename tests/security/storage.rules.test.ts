@@ -31,28 +31,33 @@ describe('storage rules', () => {
     });
   });
 
-  it('allows authenticated user to upload image/jpeg 1MB to /articles/...', async () => {
+  it('allows the owner to stage image/jpeg 1MB before server publication', async () => {
     const env = await getTestEnv();
     const storage = env.authenticatedContext(ALICE).storage();
-    const r = ref(storage, 'articles/article-1/cover.jpg');
+    const r = ref(storage, 'drafts/alice/draft-1/cover.jpg');
     await assertSucceeds(
       uploadBytes(r, makeBytes(1024 * 1024), { contentType: 'image/jpeg' }),
     );
   });
 
-  it('denies authenticated user uploading application/pdf to /articles/...', async () => {
+  it('rejects SVG active content even for the article owner', async () => {
+    const storage = (await getTestEnv()).authenticatedContext(ALICE).storage();
+    await assertFails(uploadBytes(ref(storage, 'drafts/alice/draft-1/image.svg'), makeBytes(100), { contentType: 'image/svg+xml' }));
+  });
+
+  it('denies the owner staging application/pdf', async () => {
     const env = await getTestEnv();
     const storage = env.authenticatedContext(ALICE).storage();
-    const r = ref(storage, 'articles/article-1/doc.pdf');
+    const r = ref(storage, 'drafts/alice/draft-1/doc.pdf');
     await assertFails(
       uploadBytes(r, makeBytes(1024 * 1024), { contentType: 'application/pdf' }),
     );
   });
 
-  it('denies authenticated user uploading 11MB image to /articles/...', async () => {
+  it('denies the owner staging an 11MB image', async () => {
     const env = await getTestEnv();
     const storage = env.authenticatedContext(ALICE).storage();
-    const r = ref(storage, 'articles/article-1/large.jpg');
+    const r = ref(storage, 'drafts/alice/draft-1/large.jpg');
     await assertFails(
       uploadBytes(r, makeBytes(11 * 1024 * 1024), { contentType: 'image/jpeg' }),
     );
@@ -98,13 +103,18 @@ describe('storage rules', () => {
     );
   });
 
-  it('denies another account overwriting or deleting article media', async () => {
+  it('reserves published article creation, replacement and deletion to the server', async () => {
     const env = await getTestEnv();
-    const owner = ref(env.authenticatedContext(ALICE).storage(), 'articles/article-1/cover.jpg');
-    await assertSucceeds(uploadBytes(owner, makeBytes(10), { contentType: 'image/jpeg' }));
-    const outsider = ref(env.authenticatedContext('mallory').storage(), owner.fullPath);
-    await assertFails(uploadBytes(outsider, makeBytes(10), { contentType: 'image/jpeg' }));
-    await assertFails(deleteObject(outsider));
+    const path = 'articles/article-1/cover.jpg';
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await uploadBytes(ref(ctx.storage(), path), makeBytes(10), { contentType: 'image/jpeg' });
+    });
+    for (const uid of [ALICE, 'mallory']) {
+      const storage = env.authenticatedContext(uid).storage();
+      await assertFails(uploadBytes(ref(storage, 'articles/article-1/new.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
+      await assertFails(uploadBytes(ref(storage, path), makeBytes(10), { contentType: 'image/jpeg' }));
+      await assertFails(deleteObject(ref(storage, path)));
+    }
   });
 
   it('denies article media edits while reserved/sold, even to the owner', async () => {
@@ -130,15 +140,20 @@ describe('storage rules', () => {
     });
 
   it.each(['cancelled', 'refunded', 'completed', 'meetup_completed'])
-    ('allows owner media edits once its linked transaction is explicitly %s and isSold is false', async (status) => {
+    ('keeps published media server-only after a linked transaction is %s', async (status) => {
       const env = await getTestEnv();
+      const path = 'articles/article-1/retained.jpg';
       await env.withSecurityRulesDisabled(async (ctx) => {
         await setDoc(doc(ctx.firestore(), 'articles', 'article-1'), { sellerId: ALICE, isSold: false, activeTransactionId: 'agreement' });
         await setDoc(doc(ctx.firestore(), 'transactions', 'agreement'), { status, articleId: 'article-1' });
+        await uploadBytes(ref(ctx.storage(), path), makeBytes(10), { contentType: 'image/jpeg' });
       });
-      const owner = ref(env.authenticatedContext(ALICE).storage(), 'articles/article-1/new.jpg');
-      await assertSucceeds(uploadBytes(owner, makeBytes(10), { contentType: 'image/jpeg' }));
-      await assertSucceeds(deleteObject(owner));
+      const storage = env.authenticatedContext(ALICE).storage();
+      await assertFails(uploadBytes(ref(storage, 'articles/article-1/new.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
+      await assertFails(uploadBytes(ref(storage, path), makeBytes(10), { contentType: 'image/jpeg' }));
+      await assertFails(deleteObject(ref(storage, path)));
+      // An edit stages a fresh private original; only updateArticle promotes it.
+      await assertSucceeds(uploadBytes(ref(storage, `drafts/alice/edit-${status}/new.jpg`), makeBytes(10), { contentType: 'image/jpeg' }));
     });
 
   it('scopes prepublication staging and draft reads to the owner', async () => {
@@ -146,18 +161,29 @@ describe('storage rules', () => {
     const owner = env.authenticatedContext(ALICE).storage();
     const path = 'drafts/alice/draft-1/photo.jpg';
     await assertSucceeds(uploadBytes(ref(owner, path), makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertSucceeds(getBytes(ref(owner, path)));
+    await assertFails(uploadBytes(ref(owner, path), makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertFails(deleteObject(ref(owner, path)));
+    await assertFails(getBytes(ref(env.unauthenticatedContext().storage(), path)));
     await assertFails(getBytes(ref(env.authenticatedContext('mallory').storage(), path)));
+    await assertFails(uploadBytes(ref(env.authenticatedContext('mallory').storage(), 'drafts/alice/draft-1/forged.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
     await assertFails(uploadBytes(ref(env.authenticatedContext('mallory').storage(), 'products/alice/temp_1/photo.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
   });
 
-  it('binds chat reads/creates to participants and forbids overwrite/delete', async () => {
+  it('allows immutable participant chat uploads and requires the server reader for every read', async () => {
     const env = await getTestEnv();
-    const path = 'chat_images/chat-1/photo.jpg';
+    const path = 'chat_images/chat-1/alice/photo.jpg';
     const image = ref(env.authenticatedContext(ALICE).storage(), path);
     await assertSucceeds(uploadBytes(image, makeBytes(10), { contentType: 'image/jpeg' }));
-    await assertSucceeds(getBytes(ref(env.authenticatedContext('bob').storage(), path)));
+    // readChatMessageImage checks session, chat and moderation server-side.
+    await assertFails(getBytes(image));
+    await assertFails(getBytes(ref(env.authenticatedContext('bob').storage(), path)));
     const outsider = ref(env.authenticatedContext('mallory').storage(), path);
     await assertFails(getBytes(outsider));
+    await assertFails(getBytes(ref(env.unauthenticatedContext().storage(), path)));
+    await assertFails(uploadBytes(ref(env.authenticatedContext('mallory').storage(), 'chat_images/chat-1/forged.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertFails(uploadBytes(ref(env.authenticatedContext('bob').storage(), 'chat_images/chat-1/alice/forged.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
+    await assertFails(uploadBytes(ref(env.authenticatedContext(ALICE).storage(), 'chat_images/chat-1/old-path.jpg'), makeBytes(10), { contentType: 'image/jpeg' }));
     await assertFails(uploadBytes(outsider, makeBytes(10), { contentType: 'image/jpeg' }));
     await assertFails(uploadBytes(image, makeBytes(10), { contentType: 'image/jpeg' }));
     await assertFails(deleteObject(image));

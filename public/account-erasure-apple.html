@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://appleid.apple.com https://northamerica-northeast1-seconde-dev.cloudfunctions.net https://northamerica-northeast1-seconde-b47a6.cloudfunctions.net; frame-src https://appleid.apple.com; img-src 'self' data: https://appleid.cdn-apple.com; base-uri 'none'; form-action 'none'; object-src 'none'" />
+    <title>Autorisation Apple — Seconde</title>
+    <!-- Blocking, first-party bootstrap removes the fragment before any
+         asynchronous work or Apple SDK is loaded. No analytics or web app. -->
+    <script src="/account-erasure-apple.js"></script>
+    <style>
+      :root { color-scheme: light; --bg: #F5F0E8; --ink: #1A1814; --rust: #C4603A; --muted: #74809B; --border: #DFE9F2; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      main { max-width: 640px; margin: 0 auto; padding: 48px 24px; }
+      .brand { font-family: Georgia, serif; font-size: 24px; margin: 0 0 32px; }
+      h1 { font-family: Georgia, serif; font-weight: 500; font-size: 32px; line-height: 1.2; margin: 0 0 24px; }
+      p { margin: 0 0 24px; }
+      .notice { padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
+      button, .return { display: block; width: 100%; padding: 16px 24px; border: 1px solid var(--ink); border-radius: 8px; font: inherit; text-align: center; background: var(--ink); color: var(--bg); text-decoration: none; cursor: pointer; }
+      button:disabled { opacity: .5; cursor: default; }
+      button:focus-visible, a:focus-visible { outline: 3px solid var(--rust); outline-offset: 4px; }
+      .return { margin-top: 16px; background: transparent; color: var(--ink); }
+      .small { margin-top: 32px; font-size: 14px; }
+      [hidden] { display: none; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="brand">Seconde</p>
+      <h1>Confirmer l’autorisation Apple</h1>
+      <p>Utilisez le même compte Apple que celui lié à votre compte Seconde. Cette étape concerne la demande de suppression préparée dans l’application ; elle ne crée aucun nouveau compte.</p>
+      <p id="portal-status" class="notice" role="status" aria-live="polite">Vérification du lien sécurisé…</p>
+      <button id="portal-authorize" type="button" disabled>Autoriser Apple et continuer</button>
+      <a id="portal-return" class="return" hidden>Retourner au suivi dans Seconde</a>
+      <p class="small">Ce lien expire rapidement. Si la vérification échoue ou si vous fermez cette page, rouvrez la même demande dans l’application. Une autorisation reçue ne confirme pas à elle seule que tous les effacements sont terminés.</p>
+      <p class="small">Pour exercer vos droits ou signaler une difficulté : privacy@seconde.app.</p>
+      <noscript><p>JavaScript est nécessaire pour vérifier cette autorisation. Revenez à l’application pour suivre votre demande.</p></noscript>
+    </main>
+  </body>
+</html>

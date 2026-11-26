@@ -1,4 +1,5 @@
 import { HttpsError } from 'firebase-functions/v2/https';
+import { requireRuntimeProjectId } from './runtimeEnvironment';
 
 /**
  * featureFlags (server) — SERVER-AUTHORITATIVE feature flags for the financial
@@ -31,6 +32,13 @@ import { HttpsError } from 'firebase-functions/v2/https';
  */
 export function isShippingEnabled(): boolean {
   return (process.env.SHIPPING_ENABLED ?? '').trim().toLowerCase() === 'true';
+}
+
+/** Offering delivery on a dev listing does not authorize a payment, quote,
+ * shipment or label. All acquisition rails keep their existing own guards. */
+export function canOfferShipping(): boolean {
+  return isShippingEnabled() || process.env.FUNCTIONS_EMULATOR !== 'true' &&
+    process.env.SECONDE_ENV === 'development' && requireRuntimeProjectId() === 'seconde-dev';
 }
 
 /** New financial operations remain closed during the free local MVP.

@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "seconde-b47a6"
+    "default": "seconde-dev",
+    "dev": "seconde-dev",
+    "prod": "seconde-b47a6"
   }
 }

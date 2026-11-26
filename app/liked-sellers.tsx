@@ -33,7 +33,7 @@ import { colors, fonts, spacing, radius, animations, typography } from '@/consta
 
 // Hooks & Services
 import { useUser } from '@/hooks/useAuth';
-import { useSellerLikes } from '@/hooks/useSellerLikes';
+import { useSellerLikes } from '@/features/home/featured-sellers/useSellerLikes';
 import { queryKeys } from '@/lib/queryKeys';
 import { functions } from '@/config/firebaseConfig';
 import { useQueryClient } from '@tanstack/react-query';

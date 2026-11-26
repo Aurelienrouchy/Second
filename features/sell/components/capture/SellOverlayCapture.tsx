@@ -11,21 +11,24 @@
  *   onContinue  — hand captured photos to the parent for navigation
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { AppState, View, Text, StyleSheet, Alert, type LayoutChangeEvent } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { StatusBar } from 'expo-status-bar';
+import { useNavigation } from 'expo-router';
 
 import { BlurView } from 'expo-blur';
 import { track } from '@/lib/analytics';
 import { auth } from '@/config/firebaseConfig';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, spacing } from '@/constants/theme';
+import type { ImmersivePresentation } from '@/store/immersiveOverlayStore';
 
-import draftService, { createEmptyDraft, ArticleDraft } from '@/services/draftService';
-import CameraGuides from '@/components/sell/CameraGuides';
+// CameraView wrapped for Reanimated so we can fade in the feed once it is ready.
+import draftService, { createEmptyDraft, ArticleDraft, hasDraftProgress } from '@/features/sell/services/draftService';
+import CameraGuides from '@/features/sell/components/shared/CameraGuides';
 import { PermissionDenied } from './PermissionDenied';
 import { TopControls } from './TopControls';
 import { ThumbnailStrip } from './ThumbnailStrip';
@@ -42,27 +45,71 @@ const CAMERA_FADE_DURATION = 260;
 interface SellOverlayCaptureProps {
   onClose: () => void;
   onContinue: (photos: string[]) => void;
+  presentation?: ImmersivePresentation;
 }
 
-function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProps) {
+function SellOverlayCaptureInner({ onClose, onContinue, presentation }: SellOverlayCaptureProps) {
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
 
   const [photos, setPhotos] = useState<string[]>([]);
   const [permission, requestPermission] = useCameraPermissions();
-  const camera = useSellCamera(permission?.granted ?? false);
-  const { facing, torchActive, onReady: markCameraReady } = camera;
-  const [isCapturing, setIsCapturing] = useState(false);
+  const [foreground, setForeground] = useState(() => AppState.currentState === 'active');
+  const [focused, setFocused] = useState(() => navigation.isFocused());
+  const entranceFinished = presentation?.entranceFinished ?? true;
+  const visible = presentation?.visible ?? true;
+  const preparesInOverlay = !!presentation;
+  const active = (presentation?.active ?? true) && foreground && focused;
+  const cameraEnabled = (permission?.granted ?? false) && active;
+  const camera = useSellCamera(cameraEnabled);
+  const interactive = useRef(false);
+  useLayoutEffect(() => { interactive.current = visible && active; }, [visible, active]);
+  useEffect(() => {
+    const activity = AppState.addEventListener('change', state => setForeground(state === 'active'));
+    const focus = navigation.addListener('focus', () => setFocused(true));
+    const blur = navigation.addListener('blur', () => setFocused(false));
+    return () => { activity.remove(); focus(); blur(); };
+  }, [navigation]);
+  const { facing, torchActive, isCapturing, onReady: markCameraReady, flip: flipCamera,
+    toggleTorch: toggleCameraTorch, beginCapture, isCaptureCurrent, finishCapture } = camera;
+  const reportReady = presentation?.onReady;
+  const [controlsHeight, setControlsHeight] = useState(140);
+  const handleControlsLayout = useCallback((event: LayoutChangeEvent) => {
+    setControlsHeight(event.nativeEvent.layout.height);
+  }, []);
+  const topOverlayHeight = insets.top + 56;
+  const bottomControlsHeight = controlsHeight + insets.bottom + spacing.md;
   const draftRef = useRef<ArticleDraft | null>(null);
+  const draftHydratedRef = useRef(false);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+  useLayoutEffect(() => { draftHydratedRef.current = draftHydrated; }, [draftHydrated]);
+  const captureMounted = useRef(true);
+  const draftInitActive = useRef(true);
   const draftReadyRef = useRef<Promise<void>>(Promise.resolve());
   const photoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leavingRef = useRef(false);
+  const departureRevision = useRef(0);
+  const galleryPending = useRef(false);
+  const handlePrivacyOpen = useCallback(() => { departureRevision.current += 1; }, []);
+  useEffect(() => {
+    captureMounted.current = true;
+    return () => { captureMounted.current = false; departureRevision.current += 1; };
+  }, []);
+  useLayoutEffect(() => {
+    if (presentation?.active === false) {
+      draftInitActive.current = false;
+      departureRevision.current += 1;
+    }
+  }, [presentation?.active]);
 
   const persistPhotos = useCallback(async () => {
+    if (!draftHydratedRef.current || !captureMounted.current) return;
     if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current);
     draftService.assertCurrentOwner(photoOwnerUid);
     await draftReadyRef.current;
+    if (!captureMounted.current) return;
     draftService.assertCurrentOwner(photoOwnerUid);
     const draft = draftRef.current ?? await draftService.loadDraft() ?? createEmptyDraft();
     draftService.assertCurrentOwner(photoOwnerUid);
@@ -71,17 +118,21 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   }, [photos, photoOwnerUid]);
 
   const saveBeforeLeaving = useCallback(async (leave: () => void) => {
-    if (leavingRef.current) return;
+    if (leavingRef.current || !navigation.isFocused()) return;
+    const revision = departureRevision.current;
     leavingRef.current = true;
     try {
       await persistPhotos();
+      if (!captureMounted.current || revision !== departureRevision.current || !navigation.isFocused()) return;
       leave();
     } catch {
-      Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter pour conserver vos photos.');
+      if (captureMounted.current && revision === departureRevision.current && navigation.isFocused()) {
+        Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter pour conserver vos photos.');
+      }
     } finally {
       leavingRef.current = false;
     }
-  }, [persistPhotos]);
+  }, [persistPhotos, navigation]);
 
   // ── Camera fade-in ──
   // The native camera surface renders as a black rectangle until it is ready.
@@ -92,11 +143,11 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   const handleCameraReady = useCallback(() => {
     if (!markCameraReady()) return;
-    cameraOpacity.set(withTiming(1, {
+    cameraOpacity.set(preparesInOverlay ? 1 : withTiming(1, {
       duration: CAMERA_FADE_DURATION,
       easing: Easing.out(Easing.ease),
     }));
-  }, [cameraOpacity, markCameraReady]);
+  }, [cameraOpacity, markCameraReady, preparesInOverlay]);
 
   const cameraStyle = useAnimatedStyle(() => ({
     opacity: cameraOpacity.value,
@@ -106,7 +157,12 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   const hasPhotos = photos.length > 0;
   const showThumbStrip = hasPhotos || canTakeMore;
 
-  useEffect(() => { cameraOpacity.set(0); }, [camera.mountKey, cameraOpacity]);
+  useLayoutEffect(() => { cameraOpacity.set(0); }, [camera.mountKey, cameraOpacity]);
+  useEffect(() => {
+    // A denied permission or native error is a real fallback, not a camera-ready signal.
+    reportReady?.(active && (camera.ready || camera.error ||
+      !!permission && !permission.granted && permission.status !== 'undetermined'));
+  }, [active, camera.ready, camera.error, permission, reportReady]);
 
   // ── Thumb container height animation ──
   const thumbContainerHeight = useSharedValue(0);
@@ -133,10 +189,14 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   // ── Initialize draft & restore photos ──
   useEffect(() => {
+    if (!entranceFinished) return;
+    let current = true;
+    const isCurrent = () => current && captureMounted.current && draftInitActive.current;
     const initDraft = async () => {
       try {
         draftService.assertCurrentOwner(photoOwnerUid);
         const existingDraft = await draftService.loadDraft();
+        if (!isCurrent()) return;
         draftService.assertCurrentOwner(photoOwnerUid);
         if (existingDraft) {
           draftRef.current = existingDraft;
@@ -146,31 +206,36 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
         } else {
           const newDraft = createEmptyDraft();
           await draftService.saveDraft(newDraft);
+          if (!isCurrent()) return;
+          draftService.assertCurrentOwner(photoOwnerUid);
           draftRef.current = newDraft;
         }
+        setDraftHydrated(true);
       } catch (e) {
-        if (__DEV__) console.error('[SellOverlayCapture] Failed to init draft:', e);
+        if (isCurrent() && __DEV__) console.error('[SellOverlayCapture] Failed to init draft:', e);
       }
     };
     draftReadyRef.current = initDraft();
-  }, [photoOwnerUid]);
+    return () => { current = false; };
+  }, [photoOwnerUid, entranceFinished]);
 
   // Persist edits while staying on the screen; Continue/close flush immediately.
   useEffect(() => {
+    if (!entranceFinished || !draftHydrated || !active) return;
     photoSaveTimer.current = setTimeout(() => {
       persistPhotos().catch(() => {
         if (__DEV__) console.error('Failed to save draft photos');
       });
     }, 300);
     return () => { if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current); };
-  }, [persistPhotos]);
+  }, [persistPhotos, entranceFinished, draftHydrated, active]);
 
-  // Request permission on mount
+  // The native permission sheet must not interrupt the entering animation.
   useEffect(() => {
-    if (!permission?.granted && permission?.canAskAgain) {
+    if (entranceFinished && active && !permission?.granted && permission?.canAskAgain) {
       requestPermission();
     }
-  }, [permission, requestPermission]);
+  }, [permission, requestPermission, entranceFinished, active]);
 
   // Fire once when the OS resolves the camera permission to denied.
   const cameraDeniedTracked = useRef(false);
@@ -188,13 +253,17 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   // ── Handlers ──
 
   const handleCapture = useCallback(async () => {
-    if (!cameraRef.current || !camera.ready || isCapturing || !canTakeMore) return;
-    setIsCapturing(true);
+    if (!interactive.current || !draftHydratedRef.current) return;
+    const nativeCamera = cameraRef.current;
+    if (!nativeCamera || !canTakeMore) return;
+    const capture = beginCapture();
+    if (!capture) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({
+      const photo = await nativeCamera.takePictureAsync({
         quality: 0.7,
         skipProcessing: false,
       });
+      if (!isCaptureCurrent(capture)) return;
       if (photo?.uri) {
         let added = false;
         setPhotos((prev) => {
@@ -212,15 +281,25 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
         }
       }
     } catch (error) {
+      if (!isCaptureCurrent(capture)) return;
       if (__DEV__) console.error('Error taking photo:', error);
+      // A failed shot was silent in production.
+      Alert.alert('Photo impossible', "La photo n'a pas pu être prise. Réessayez.");
     } finally {
-      setIsCapturing(false);
+      finishCapture(capture);
     }
-  }, [isCapturing, canTakeMore, photos.length, camera.ready]);
+  }, [canTakeMore, photos.length, beginCapture, isCaptureCurrent, finishCapture]);
 
   const handleGalleryPress = useCallback(async () => {
+    if (!interactive.current || !draftHydratedRef.current || galleryPending.current) return;
     const remainingSlots = MAX_PHOTOS - photos.length;
     if (remainingSlots <= 0) return;
+    galleryPending.current = true;
+    const revision = departureRevision.current;
+    const isCurrent = () => {
+      try {draftService.assertCurrentOwner(photoOwnerUid);} catch {return false;}
+      return captureMounted.current && departureRevision.current === revision && navigation.isFocused();
+    };
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'] as const,
@@ -231,6 +310,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
         preferredAssetRepresentationMode:
           ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
+      if (!isCurrent()) return;
       if (!result.canceled && result.assets.length > 0) {
         const uris = result.assets.map((asset) => asset.uri);
         const added = uris.slice(0, remainingSlots);
@@ -254,11 +334,14 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
         });
       }
     } catch (error) {
+      if (!isCurrent()) return;
       if (__DEV__) console.error('Error picking images:', error);
-    }
-  }, [photos.length]);
+      Alert.alert('Import impossible', "Les photos n'ont pas pu être importées. Réessayez.");
+    } finally {galleryPending.current = false;}
+  }, [photos.length, navigation, photoOwnerUid]);
 
   const handleRemovePhoto = useCallback((index: number) => {
+    if (!interactive.current || !draftHydratedRef.current) return;
     setPhotos((prev) => prev.filter((_, i) => i !== index));
     track('sell_photo_removed', {
       screen: 'capture',
@@ -268,10 +351,22 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   }, [photos.length]);
 
   const handleClose = useCallback(() => {
-    if (photos.length > 0) {
+    if (!interactive.current) return;
+    if (!draftHydratedRef.current) {
+      draftInitActive.current = false;
+      departureRevision.current += 1;
+      onClose();
+      return;
+    }
+    // Same rule as the Android capture screen: real work — photos, uploaded
+    // images or an analysis — is kept and announced; an empty draft is
+    // deleted. The overlay ignored the draft entirely and never deleted it,
+    // leaving an empty draft that the next entry offered to resume.
+    const hasWork = photos.length > 0 || hasDraftProgress(draftRef.current);
+    if (hasWork) {
       Alert.alert(
         'Quitter ?',
-        'Vos photos sont sauvegardees en brouillon.',
+        'Votre brouillon sera sauvegardé. Vous pourrez le reprendre plus tard.',
         [
           {
             text: 'Annuler',
@@ -302,6 +397,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
   }, [photos.length, onClose, saveBeforeLeaving]);
 
   const handleContinue = useCallback(() => {
+    if (!interactive.current || !draftHydratedRef.current) return;
     if (photos.length === 0) {
       Alert.alert('Aucune photo', 'Ajoutez au moins une photo pour continuer.');
       return;
@@ -310,13 +406,8 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
     void saveBeforeLeaving(() => onContinue(photos));
   }, [photos, onContinue, saveBeforeLeaving]);
 
-  const toggleCameraFacing = camera.flip;
-  const toggleTorch = camera.toggleTorch;
-
-  // ── Overlay heights ──
-
-  const topOverlayHeight = insets.top + 56;
-  const bottomControlsHeight = 140 + insets.bottom;
+  const toggleCameraFacing = useCallback(() => { if (interactive.current) flipCamera(); }, [flipCamera]);
+  const toggleTorch = useCallback(() => { if (interactive.current) toggleCameraTorch(); }, [toggleCameraTorch]);
 
   // ── Permission loading ──
 
@@ -330,6 +421,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
     return (
       <View style={styles.container}>
         <PermissionDenied
+          onPrivacyOpen={handlePrivacyOpen}
           onGalleryPress={handleGalleryPress}
           photoCount={photos.length}
           onContinue={handleContinue}
@@ -362,20 +454,22 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      {visible && <StatusBar style="light" />}
       {/* Camera full-screen — feed visible edge to edge.
           Starts at opacity 0 over the DS backdrop, fades in on onCameraReady
           so the native black surface never animates in with the overlay. */}
-      <AnimatedCameraView
+      {cameraEnabled && <AnimatedCameraView
         key={camera.mountKey}
         ref={cameraRef}
         style={[StyleSheet.absoluteFill, cameraStyle]}
         facing={facing}
         enableTorch={facing === 'back' && torchActive}
+        active={cameraEnabled}
         onCameraReady={handleCameraReady}
         onMountError={camera.onMountError}
-      />
+      />}
 
+      {entranceFinished && <>
       {/* Top blur overlay */}
       <BlurView
         intensity={40}
@@ -387,7 +481,8 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
           photoCount={photos.length}
           maxPhotos={MAX_PHOTOS}
           torchActive={torchActive}
-          torchAvailable={facing === 'back' && camera.ready}
+          torchAvailable={camera.torchAvailable}
+          flipAvailable={camera.flipAvailable}
           onClose={handleClose}
           onFlipCamera={toggleCameraFacing}
           onToggleTorch={toggleTorch}
@@ -422,14 +517,16 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
                 photos={photos}
                 onRemovePhoto={handleRemovePhoto}
                 onGalleryPress={handleGalleryPress}
-                canAddMore={canTakeMore}
+                canAddMore={canTakeMore && draftHydrated}
               />
             )}
           </Animated.View>
 
           <View style={{ paddingBottom: insets.bottom + 16 }}>
             <CameraControlsRow
-              canTakeMore={canTakeMore && camera.ready}
+              onPrivacyOpen={handlePrivacyOpen}
+              onLayout={handleControlsLayout}
+              canTakeMore={canTakeMore && camera.ready && draftHydrated}
               isCapturing={isCapturing}
               hasPhotos={photos.length > 0}
               onCapture={handleCapture}
@@ -438,6 +535,7 @@ function SellOverlayCaptureInner({ onClose, onContinue }: SellOverlayCaptureProp
           </View>
         </BlurView>
       </Animated.View>
+      </>}
     </View>
   );
 }

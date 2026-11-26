@@ -1,3 +1,4 @@
+export type { ShippingPurchaseRate } from '@/types/shippingPurchase';
 /**
  * Checkout Shipping — shared types and constants
  */

@@ -23,7 +23,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { SectionHeader } from '@/components/home/SectionHeader';
+import { SectionHeader } from '@/features/home/components/SectionHeader';
 import { animations, colors, radius, spacing, typography } from '@/constants/theme';
 import { TrendingBrand, useTrendingBrands } from './useTrendingBrands';
 

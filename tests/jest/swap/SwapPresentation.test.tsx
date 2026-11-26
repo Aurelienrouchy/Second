@@ -1,16 +1,19 @@
+import { renderWithQuery as render } from '@/tests/jest/helpers/queryRender';
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { fireEvent, screen, within } from '@testing-library/react-native';
 
 jest.mock('@/components/ui', () => {
   const React = require('react');
   const { Text: RNText } = require('react-native');
-  return { Text: (props: Record<string, unknown>) => React.createElement(RNText, props) };
+  return {
+  Button: jest.requireActual('@/components/ui/Button').Button,
+ Text: (props: Record<string, unknown>) => React.createElement(RNText, props) };
 });
 
-import SwapItemCard from '@/components/swap/SwapItemCard';
-import SwapSummaryBox from '@/components/swap/SwapSummaryBox';
-import { SwapProposalView } from '@/features/swap/components/SwapProposalView';
-import { SwapStatusView } from '@/features/swap/components/SwapStatusView';
+import SwapItemCard from '@/features/swap/components/shared/SwapItemCard';
+import SwapSummaryBox from '@/features/swap/components/shared/SwapSummaryBox';
+import { SwapProposalView } from '@/features/swap/components/detail/SwapProposalView';
+import { SwapStatusView } from '@/features/swap/components/detail/SwapStatusView';
 import { getSwapStatusLabel } from '@/features/swap/presentation';
 import type { SwapItemInfo } from '@/types';
 
@@ -28,7 +31,7 @@ it.each(['mine', 'their'] as const)('permet de retirer un article du côté %s e
 
 it.each([true, false])('garde Vous donnez / Vous recevez pour chaque rôle (initiateur=%s)', isInitiator => {
   render(<SwapProposalView senderName="Alice" senderImage={undefined} message="Message proposé" senderItems={[theirItem]} myItems={[myItem]} cashTopUp={undefined} isInitiator={isInitiator} />);
-  expect(screen.getByText(isInitiator ? 'Proposition envoyée' : 'Proposition reçue')).toBeOnTheScreen();
+  expect(screen.getByText(isInitiator ? 'Proposition envoyée · En attente de réponse' : 'Proposition reçue')).toBeOnTheScreen();
   expect(within(screen.getByTestId('swap-given-items')).getByText('Mon manteau')).toBeOnTheScreen();
   expect(within(screen.getByTestId('swap-received-items')).getByText('Leur robe')).toBeOnTheScreen();
   expect(screen.queryByText('Alice propose')).toBeNull();
@@ -78,4 +81,13 @@ it.each(['proposal', 'status'] as const)('évite un point doublé après un nom 
   const rawCopy = React.Children.toArray(legacy.props.children).join('');
   expect(rawCopy).toContain('45,00\u00A0$\u00A0CA');
   expect(rawCopy).not.toContain('Lou M..');
+});
+
+it('agrège tous les articles de chaque côté dans une seule ligne de valeurs', () => {
+  render(<SwapProposalView senderName="Alice" senderImage={undefined} message={undefined} senderItems={[theirItem]} myItems={[myItem, { ...myItem, articleId: 'mine-two', title: 'Mon pull', price: 20 }]} cashTopUp={undefined} />);
+  expect(screen.getAllByText('Valeurs indicatives')).toHaveLength(1);
+  expect(screen.getByLabelText('Vous recevez, 30 $')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Vous proposez, 70 $')).toBeOnTheScreen();
+  expect(within(screen.getByTestId('swap-given-items')).getByText('Mon pull')).toBeOnTheScreen();
+  expect(screen.queryByText(/Valeur indiquée/)).toBeNull();
 });

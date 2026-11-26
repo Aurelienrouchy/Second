@@ -1,18 +1,19 @@
 /**
- * Scheduled cleanup of expired draft images from Firebase Storage
- * Firebase Functions v7 - using onSchedule
+ * Conservation quotidienne des images placées sous le préfixe de brouillon.
  *
- * Draft images are uploaded to `drafts/{draftId}/` during AI analysis.
- * If the user abandons the flow, these images are never cleaned up.
- * This function runs daily and deletes draft files older than 14 days.
+ * Le parcours de vente téléverse les photos sous `drafts/{uid}/{draftId}/`
+ * pendant l'analyse IA, et la publication réutilise ces URL telles quelles :
+ * les photos d'un article publié VIVENT sous `drafts/`. L'âge d'un fichier ne
+ * dit donc pas qu'il est abandonné. Une absence de référence dans les articles
+ * ne qualifie pas non plus la fin des obligations de conservation : commandes,
+ * conversations, litiges et demandes de confidentialité restent distincts.
+ * Aucune politique de suppression cross-service ni autorité juridique n'est
+ * qualifiée. La suppression automatique reste fermée pour tous les objets.
+ * Une lecture Firestore suivie d'un DELETE Storage ne serait pas atomique et
+ * ne permettrait pas, à elle seule, de lever cette conservation.
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
-import { storage } from '../config/firebase';
-import { publishedDraftPaths } from '../utils/articleMedia';
-
-/** Draft expiration: 14 days (matches client-side draftService.ts) */
-const DRAFT_EXPIRATION_MS = 14 * 24 * 60 * 60 * 1000;
 
 export const cleanupExpiredDrafts = onSchedule(
   {
@@ -20,44 +21,13 @@ export const cleanupExpiredDrafts = onSchedule(
     timeZone: 'America/Toronto',
     region: 'northamerica-northeast1',
     memory: '512MiB',
+    timeoutSeconds: 540,
   },
   async () => {
-    const bucket = storage.bucket();
-    const cutoff = Date.now() - DRAFT_EXPIRATION_MS;
-    let deleted = 0;
-    let errors = 0;
-
-    try {
-      // Fail closed if references cannot be read: no media is deleted then.
-      const publishedPaths = await publishedDraftPaths();
-      const [files] = await bucket.getFiles({ prefix: 'drafts/' });
-
-      logger.info(`Found ${files.length} files under drafts/`);
-
-      for (const file of files) {
-        try {
-          if (publishedPaths.has(file.name)) continue;
-          const [metadata] = await file.getMetadata();
-          const timeCreated = metadata.timeCreated;
-          const generation = metadata.generation;
-          if (!timeCreated || !generation) continue;
-          const created = new Date(timeCreated).getTime();
-
-          if (Number.isFinite(created) && created < cutoff) {
-            // The owner may have re-uploaded this path since getMetadata. Never
-            // delete a newer, freshly created generation based on the old age.
-            await file.delete({ ifGenerationMatch: generation });
-            deleted++;
-          }
-        } catch (fileError) {
-          errors++;
-          logger.warn(`Failed to process file ${file.name}:`, fileError);
-        }
-      }
-
-      logger.info(`Draft cleanup complete: ${deleted} expired files deleted, ${errors} errors`);
-    } catch (error) {
-      logger.error('Error during draft cleanup:', error);
-    }
+    logger.info('Draft images retained: disposal authority is unqualified', {
+      reason: 'cross_service_retention_authority_unqualified',
+      automaticDeletionAuthorized: false,
+      deleted: 0,
+    });
   }
 );

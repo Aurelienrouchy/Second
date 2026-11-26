@@ -27,7 +27,7 @@ const stripeMock: StripeMock = createStripeMock();
 holder.fs = fs;
 holder.stripeMock = stripeMock;
 
-vi.mock('../config/firebase', () => ({
+vi.mock('../config/firebase', () => ({ auth: { getUser: async (uid: string) => ({ uid, disabled: false, tokensValidAfterTime: new Date(0).toISOString(), customClaims: { admin: uid === 'admin' } }) },
   get db() {
     return holder.fs!.db;
   },
@@ -132,10 +132,10 @@ describe('walletWithdraw — dispute guard', () => {
     });
 
     await expect(
-      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+      callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+      callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } })
     ).rejects.toThrow('litige');
 
     // No money moved.
@@ -153,7 +153,7 @@ describe('walletWithdraw — dispute guard', () => {
       disputed: true,
     });
 
-    const result = await callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } });
+    const result = await callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } });
     expect(result.success).toBe(true);
     expect(fs.getDoc('wallets/seller1')!.balance).toBe(3000);
   });
@@ -171,7 +171,7 @@ describe('walletWithdraw — dispute guard', () => {
       deliveryType: 'meetup',
     });
 
-    const result = await callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } });
+    const result = await callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } });
     expect(result.success).toBe(true);
     expect(fs.getDoc('wallets/seller1')!.balance).toBe(3000);
   });
@@ -195,7 +195,7 @@ describe('walletWithdraw — dispute guard', () => {
     });
 
     await expect(
-      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+      callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(stripeMock.calls.transfersCreate.length).toBe(0);
   });
@@ -218,10 +218,10 @@ describe('walletWithdraw — restricted account guard (B4)', () => {
     });
 
     await expect(
-      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+      callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+      callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } })
     ).rejects.toThrow('restreint');
 
     // No money moved.
@@ -239,7 +239,7 @@ describe('walletWithdraw — restricted account guard (B4)', () => {
     });
 
     await expect(
-      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+      callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(stripeMock.calls.transfersCreate.length).toBe(0);
   });
@@ -247,7 +247,7 @@ describe('walletWithdraw — restricted account guard (B4)', () => {
   it('allows withdrawal for an active account with no restriction markers', async () => {
     seedSeller({ balance: 5000 });
     // seedSeller already sets stripeAccountStatus absent / not restricted.
-    const result = await callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } });
+    const result = await callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } });
     expect(result.success).toBe(true);
     expect(fs.getDoc('wallets/seller1')!.balance).toBe(3000);
   });
@@ -262,10 +262,10 @@ describe('walletWithdraw — sellerDebt guard', () => {
     seedSeller({ balance: 5000, sellerDebt: 1500 });
 
     await expect(
-      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+      callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } })
+      callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } })
     ).rejects.toThrow('solde dû');
 
     expect(stripeMock.calls.transfersCreate.length).toBe(0);
@@ -283,10 +283,10 @@ describe('walletWithdraw — heldBalance is non-withdrawable', () => {
 
     // Try to withdraw 5000 — only 1000 is actually withdrawable.
     await expect(
-      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 5000 } })
+      callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 5000 } })
     ).rejects.toMatchObject({ code: 'failed-precondition' });
     await expect(
-      callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 5000 } })
+      callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 5000 } })
     ).rejects.toThrow('Solde insuffisant');
 
     // heldBalance untouched, no transfer.
@@ -297,7 +297,7 @@ describe('walletWithdraw — heldBalance is non-withdrawable', () => {
   it('debits only `balance` and never touches heldBalance on a valid withdrawal', async () => {
     seedSeller({ balance: 5000, heldBalance: 3000 });
 
-    const result = await callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } });
+    const result = await callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } });
     expect(result.success).toBe(true);
 
     expect(fs.getDoc('wallets/seller1')!.balance).toBe(3000);
@@ -316,7 +316,7 @@ describe('walletWithdraw — idempotency keys present', () => {
   it('passes a deterministic idempotencyKey to transfers.create and payouts.create', async () => {
     seedSeller({ balance: 5000 });
 
-    await callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2000 } });
+    await callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2000 } });
 
     expect(stripeMock.calls.transfersCreate.length).toBe(1);
     expect(stripeMock.calls.payoutsCreate.length).toBe(1);
@@ -347,7 +347,7 @@ describe('withdrawal outcomes and phase gating', () => {
   it('blocks a new withdrawal before any debit or Stripe call when payments are closed', async () => {
     seedSeller();
     vi.stubEnv('PAYMENTS_ENABLED', 'false');
-    await expect(callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2500 } })).rejects.toMatchObject({ code: 'failed-precondition' });
+    await expect(callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2500 } })).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(fs.getDoc('wallets/seller1')!.balance).toBe(5000);
     expect(stripeMock.calls.transfersCreate).toHaveLength(0);
     expect(stripeMock.calls.payoutsCreate).toHaveLength(0);
@@ -359,7 +359,7 @@ describe('withdrawal outcomes and phase gating', () => {
     }); };
     if (stage === 'transfer') stripeMock.impl.transfersCreate = fail;
     else stripeMock.impl.payoutsCreate = fail;
-    await expect(callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2500 } })).rejects.toMatchObject({ code: 'internal' });
+    await expect(callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2500 } })).rejects.toMatchObject({ code: 'internal' });
     expect(fs.getDoc('wallets/seller1')!.balance).toBe(5000);
     const wr = fs.writeOps.find(op => op.path.startsWith('withdrawal_requests/') && op.data.status === 'processing')!;
     expect(fs.getDoc(wr.path)!.status).toBe('failed');
@@ -385,7 +385,7 @@ describe('withdrawal outcomes and phase gating', () => {
       return collection;
     });
     try {
-      await expect(callWithdraw({ auth: { uid: 'seller1' }, data: { amount: 2500 } })).rejects.toMatchObject({ code: 'unavailable' });
+      await expect(callWithdraw({ auth: { token: { auth_time: Math.floor(Date.now() / 1000) }, uid: 'seller1' }, data: { expectedUid: 'seller1', amount: 2500 } })).rejects.toMatchObject({ code: 'unavailable' });
       expect(fs.getDoc('wallets/seller1')!.balance).toBe(2500);
       expect(stripeMock.calls.transfersCreateReversal).toHaveLength(0);
       expect(stripeMock.calls.payoutsCreate).toHaveLength(1);

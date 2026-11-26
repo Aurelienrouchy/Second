@@ -8,6 +8,7 @@
 import { HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from '../config/firebase';
+import {withRateLimitScope,recordRateLimitWrite} from './rateLimitScope';
 
 interface RateLimitOptions {
   functionName: string;
@@ -36,7 +37,7 @@ export async function checkRateLimit(
   const docId = `${callerKey}_${options.functionName}`;
   const rateLimitRef = db.collection('rate_limits').doc(docId);
 
-  await db.runTransaction(async (tx) => {
+  await withRateLimitScope(rateLimitRef.path,()=>db.runTransaction(async (tx) => {
     const snap = await tx.get(rateLimitRef);
     const now = Date.now();
     const windowStart = now - options.windowMs;
@@ -62,24 +63,24 @@ export async function checkRateLimit(
             `Limite atteinte : maximum ${maxCalls} requetes par minute. Reessayez plus tard.`
           );
         }
-        tx.update(rateLimitRef, { count: FieldValue.increment(1) });
+        const value={count:FieldValue.increment(1)};recordRateLimitWrite('update',value);tx.update(rateLimitRef,value);
       } else {
         // Window expired, reset
-        tx.set(rateLimitRef, {
+        const value={
           callerKey,
           count: 1,
           windowStartedAt: FieldValue.serverTimestamp(),
-        });
+        };recordRateLimitWrite('set',value);tx.set(rateLimitRef,value);
       }
     } else {
       // First call ever
-      tx.set(rateLimitRef, {
+      const value={
         callerKey,
         count: 1,
         windowStartedAt: FieldValue.serverTimestamp(),
-      });
+      };recordRateLimitWrite('set',value);tx.set(rateLimitRef,value);
     }
-  });
+  }));
 }
 
 /**

@@ -2199,14 +2199,41 @@ export function estimateTokenCount(text: string): number {
  * Groups categories by top-level and shows only unique labels
  * ~500 tokens instead of ~37,000!
  */
+/** Libellé du parent direct d'une feuille (« Bijoux » pour « Bracelets »). */
+function parentLabelOf(cat: FlatCategory): string {
+  const parts = cat.fullLabel.split(' > ');
+  return parts.length > 1 ? parts[parts.length - 2] : parts[0];
+}
+
+/** Forme comparable d'un libellé : minuscules, sans accents. */
+function normalizeCategoryLabel(value: string): string {
+  return value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 export function generateCompactCategoryPrompt(): string {
   const sections: string[] = [];
 
   for (const topCat of TOP_LEVEL_CATEGORIES) {
-    const leafCategories = getLeafCategoriesForTopLevel(topCat.id);
-    // Get unique labels only (no IDs, no paths)
-    const uniqueLabels = [...new Set(leafCategories.map(cat => cat.label))];
-    sections.push(`${topCat.label}: ${uniqueLabels.join(', ')}`);
+    // « Tous » ne désigne aucun article : la feuille ne sert qu'à la
+    // navigation, et elle capturait des réponses du modèle.
+    const leafCategories = getLeafCategoriesForTopLevel(topCat.id).filter(
+      cat => cat.label !== 'Tous'
+    );
+
+    // Un même libellé vit sous plusieurs parents dans un même univers
+    // (« Bracelets » en bijouterie et en accessoires de sport). Donné nu, il
+    // envoyait le modèle sur la première feuille de l'arbre — un bracelet de
+    // bijouterie devenait un accessoire de sport, silencieusement. On le
+    // qualifie alors de son parent.
+    const labelCounts = new Map<string, number>();
+    for (const cat of leafCategories) {
+      labelCounts.set(cat.label, (labelCounts.get(cat.label) || 0) + 1);
+    }
+
+    const labels = leafCategories.map(cat =>
+      (labelCounts.get(cat.label) || 0) > 1 ? `${parentLabelOf(cat)} > ${cat.label}` : cat.label
+    );
+    sections.push(`${topCat.label}: ${[...new Set(labels)].join(', ')}`);
   }
 
   return sections.join('\n');
@@ -2219,8 +2246,14 @@ export function generateCompactCategoryPrompt(): string {
 export function findCategoryByLabelFuzzy(label: string, topLevelHint?: string): FlatCategory | undefined {
   if (!label) return undefined;
 
-  const normalized = label.toLowerCase().trim()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove accents
+  // Le prompt donne « Parent > Libellé » quand un libellé est ambigu dans son
+  // univers : c'est ce chemin qu'on apparie d'abord. Le reste de la cascade
+  // travaille ensuite sur le libellé seul.
+  const qualifiedPath = label.includes('>')
+    ? label.split('>').map(part => part.trim()).filter(Boolean)
+    : [];
+  const leafLabel = qualifiedPath.length > 0 ? qualifiedPath[qualifiedPath.length - 1] : label;
+  const normalized = normalizeCategoryLabel(leafLabel);
 
   // Determine candidates based on hint
   let candidates: FlatCategory[];
@@ -2228,6 +2261,14 @@ export function findCategoryByLabelFuzzy(label: string, topLevelHint?: string): 
     candidates = getLeafCategoriesForTopLevel(topLevelHint);
   } else {
     candidates = getLeafCategories();
+  }
+
+  if (qualifiedPath.length > 1) {
+    const tail = normalizeCategoryLabel(qualifiedPath.slice(-2).join(' > '));
+    const qualified = candidates.find(cat =>
+      normalizeCategoryLabel(cat.fullLabel).endsWith(tail)
+    );
+    if (qualified) return qualified;
   }
 
   // 1. Exact match on label

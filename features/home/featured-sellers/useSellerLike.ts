@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from 'react';
-import { useSellerLikes } from '@/hooks/useSellerLikes';
+import { useSellerLikes } from './useSellerLikes';
 import { useRequireAuth } from '@/hooks/useAuthRequired';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 

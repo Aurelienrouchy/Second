@@ -1,239 +1,96 @@
-/**
- * ShippingAddressForm
- * Renders the address input fields for checkout shipping.
- */
+import {useEffect, useRef, useState} from 'react';
+import {ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
+import {useQuery} from '@tanstack/react-query';
+import {useAuthenticatedUid} from '@/hooks/useAuth';
+import {useLabelLifecycleContext} from '@/hooks/useLabelLifecycleContext';
+import {getAuthSessionGeneration} from '@/store/authStore';
+import {searchCanadianAddresses, type AddressSuggestion} from '@/services/addressAutocompleteService';
+import {readScopedQuery} from '@/utils/readScopedQuery';
+import {colors, radius, sizing, spacing, typography} from '@/constants/theme';
+import type {AddressFormValues} from '../types';
 
-import React from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
-
-import { colors, fonts, radius } from '@/constants/theme';
-import type { AddressFormValues } from '../types';
-
-// =============================================================================
-// CANADIAN PROVINCES
-// =============================================================================
-
-const PROVINCES = [
-  { code: 'AB', label: 'Alberta' },
-  { code: 'BC', label: 'Colombie-Britannique' },
-  { code: 'MB', label: 'Manitoba' },
-  { code: 'NB', label: 'Nouveau-Brunswick' },
-  { code: 'NL', label: 'Terre-Neuve-et-Labrador' },
-  { code: 'NS', label: 'Nouvelle-Écosse' },
-  { code: 'NT', label: 'Territoires du Nord-Ouest' },
-  { code: 'NU', label: 'Nunavut' },
-  { code: 'ON', label: 'Ontario' },
-  { code: 'PE', label: 'Île-du-Prince-Édouard' },
-  { code: 'QC', label: 'Québec' },
-  { code: 'SK', label: 'Saskatchewan' },
-  { code: 'YT', label: 'Yukon' },
-] as const;
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-interface ShippingAddressFormProps {
+interface Props {
   values: AddressFormValues;
-  onChangeField: <K extends keyof AddressFormValues>(
-    field: K,
-    value: AddressFormValues[K],
-  ) => void;
-  /** When true, surfaces an inline error on the postal code field. */
+  scopeKey: string;
+  onChangeField: <K extends keyof AddressFormValues>(field: K, value: AddressFormValues[K]) => void;
+  onSelectAddress: (suggestion: AddressSuggestion) => boolean;
   postalCodeError?: boolean;
+  destinationProvinceError?: boolean;
+  disabled?: boolean;
 }
 
-// =============================================================================
-// COMPONENT
-// =============================================================================
-
-export const ShippingAddressForm = React.memo(function ShippingAddressForm({
-  values,
-  onChangeField,
-  postalCodeError = false,
-}: ShippingAddressFormProps) {
-  return (
-    <>
-      <Text style={styles.sectionTitle}>ADRESSE DE LIVRAISON</Text>
-      <View style={styles.formGroup}>
-        <View style={styles.formField}>
-          <Text style={styles.fieldLabel}>NOM COMPLET</Text>
-          <TextInput
-            style={styles.fieldInput}
-            value={values.fullName}
-            onChangeText={(v) => onChangeField('fullName', v)}
-            placeholder="Jean Dupont"
-            placeholderTextColor={colors.muted}
-            autoCapitalize="words"
-          />
-        </View>
-        <View style={styles.formField}>
-          <Text style={styles.fieldLabel}>ADRESSE</Text>
-          <TextInput
-            style={styles.fieldInput}
-            value={values.address}
-            onChangeText={(v) => onChangeField('address', v)}
-            placeholder="123 rue Exemple"
-            placeholderTextColor={colors.muted}
-          />
-        </View>
-        <View style={styles.formField}>
-          <Text style={styles.fieldLabel}>APPARTEMENT (OPTIONNEL)</Text>
-          <TextInput
-            style={styles.fieldInput}
-            value={values.apartment}
-            onChangeText={(v) => onChangeField('apartment', v)}
-            placeholder="Apt 2B"
-            placeholderTextColor={colors.muted}
-          />
-        </View>
-        <View style={styles.formFieldRow}>
-          <View style={[styles.formFieldHalf, styles.formFieldHalfLeft]}>
-            <Text style={styles.fieldLabel}>VILLE</Text>
-            <TextInput
-              style={styles.fieldInput}
-              value={values.city}
-              onChangeText={(v) => onChangeField('city', v)}
-              placeholderTextColor={colors.muted}
-            />
-          </View>
-          <View style={styles.formFieldHalf}>
-            <Text style={styles.fieldLabel}>PROVINCE</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.provinceChipsContainer}
-            >
-              {PROVINCES.map((p) => {
-                const selected = values.province === p.code;
-                return (
-                  <Pressable
-                    key={p.code}
-                    style={[
-                      styles.provinceChip,
-                      selected && styles.provinceChipSelected,
-                    ]}
-                    onPress={() => onChangeField('province', p.code)}
-                  >
-                    <Text
-                      style={[
-                        styles.provinceChipText,
-                        selected && styles.provinceChipTextSelected,
-                      ]}
-                    >
-                      {p.code}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-        <View style={[styles.formField, styles.formFieldLast]}>
-          <Text style={styles.fieldLabel}>CODE POSTAL</Text>
-          <TextInput
-            style={styles.fieldInput}
-            value={values.postalCode}
-            onChangeText={(v) => onChangeField('postalCode', v)}
-            placeholder="H2J 2K1"
-            placeholderTextColor={colors.muted}
-            autoCapitalize="characters"
-            maxLength={7}
-          />
-          {postalCodeError ? (
-            <Text style={styles.fieldError}>Format attendu : A1A 1A1</Text>
-          ) : null}
-        </View>
-      </View>
-    </>
-  );
-});
-
-// =============================================================================
-// STYLES
-// =============================================================================
+/** Suggestions fill this checkout only; they never save or validate an address. */
+export function ShippingAddressForm({values, scopeKey, onChangeField, onSelectAddress, postalCodeError = false, destinationProvinceError = false, disabled = false}: Props) {
+  const uid = useAuthenticatedUid();
+  const context = useLabelLifecycleContext(`checkout-address:${scopeKey}`, uid);
+  const ownerKey = JSON.stringify([uid, getAuthSessionGeneration(), scopeKey, context.focusRevision]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const revision = useRef(0);
+  const [search, setSearch] = useState({ownerKey: '', value: '', revision: 0});
+  useEffect(() => {
+    if (!searchOpen || disabled || !context.focused || values.address.trim().length < 3) return;
+    let operation: ReturnType<typeof context.capture>;
+    try {operation = context.capture();} catch {return;}
+    const timer = setTimeout(() => {
+      try {context.assertCurrent(operation); revision.current++; setSearch({ownerKey, value: values.address, revision: revision.current});} catch {/* Superseded search. */}
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [values.address, ownerKey, searchOpen, disabled, context.frame, context.focused, context.focusRevision]);
+  const currentSearch = !disabled && searchOpen && context.focused && search.ownerKey === ownerKey && search.value === values.address && search.value.trim().length >= 3;
+  const query = useQuery({
+    // The street itself stays out of keys and the global query-error logger.
+    queryKey: ['checkout-address-suggestions', uid, ownerKey, search.revision],
+    enabled: currentSearch, staleTime: 0, gcTime: 0, retry: false,
+    queryFn: ({signal}) => readScopedQuery(signal, () => {const operation = context.capture(); return () => context.assertCurrent(operation);},
+      async current => {const suggestions = await searchCanadianAddresses(search.value, signal); current(); return suggestions.filter(item => item.province.trim().toUpperCase() === 'QC');}),
+  });
+  const suggestions = currentSearch && query.isSuccess && !query.isFetching && !query.isError ? query.data : [];
+  const change = <K extends keyof AddressFormValues>(field: K, value: AddressFormValues[K]) => {
+    if (disabled) return;
+    try {context.capture(); setSearchOpen(field === 'address'); onChangeField(field, value);} catch {/* Old owner or focus. */}
+  };
+  const choose = (suggestion: AddressSuggestion) => {
+    if (!currentSearch || !query.isSuccess || query.isFetching || query.isError || !suggestions.includes(suggestion)) return;
+    try {context.capture(); if (onSelectAddress(suggestion)) {setSearchOpen(false); Keyboard.dismiss();}} catch {/* Old selection cannot change another address. */}
+  };
+  return <View style={styles.section}>
+    <Text accessibilityRole="header" style={styles.title}>Adresse de livraison</Text>
+    <View style={styles.field}>
+      <Text style={styles.label}>Rechercher une adresse</Text>
+      <TextInput accessibilityLabel="Rechercher une adresse" editable={!disabled} style={styles.input} value={values.address}
+        onFocus={() => {try {context.capture(); setSearchOpen(true);} catch {/* Inactive. */}}}
+        onChangeText={value => change('address', value)} placeholder="Numéro et nom de rue" placeholderTextColor={colors.muted} autoComplete="street-address" />
+      {currentSearch && query.isFetching ? <ActivityIndicator accessibilityLabel="Recherche d’adresses" color={colors.primary} /> : null}
+      {suggestions.length ? <View style={styles.suggestions}>{suggestions.map(suggestion => <Pressable key={suggestion.id} accessibilityRole="button" accessibilityLabel={suggestion.label}
+        style={styles.suggestion} onPress={() => choose(suggestion)}><Text style={styles.body}>{suggestion.label}</Text></Pressable>)}</View> : null}
+      {currentSearch && !query.isFetching && (query.isError || query.isSuccess && !suggestions.length)
+        ? <Text style={styles.caption}>{query.isError ? 'Recherche indisponible. Complétez les champs ci-dessous.' : 'Précisez la rue et la ville, ou complétez les champs ci-dessous.'}</Text> : null}
+    </View>
+    <View style={styles.field}><Text style={styles.label}>Nom complet</Text><TextInput accessibilityLabel="Nom complet" editable={!disabled} style={styles.input} value={values.fullName}
+      onFocus={() => setSearchOpen(false)} onChangeText={value => change('fullName', value)} placeholder="Prénom et nom" placeholderTextColor={colors.muted} autoCapitalize="words" autoComplete="name" /></View>
+    <View style={styles.field}><Text style={styles.label}>Appartement, bureau (facultatif)</Text><TextInput accessibilityLabel="Appartement ou bureau" editable={!disabled} style={styles.input} value={values.apartment}
+      onFocus={() => setSearchOpen(false)} onChangeText={value => change('apartment', value)} placeholder="Appartement 2" placeholderTextColor={colors.muted} /></View>
+    <View style={styles.field}><Text style={styles.label}>Ville</Text><TextInput accessibilityLabel="Ville" editable={!disabled} style={styles.input} value={values.city}
+      onFocus={() => setSearchOpen(false)} onChangeText={value => change('city', value)} placeholder="Ville" placeholderTextColor={colors.muted} autoCapitalize="words" /></View>
+    <View style={styles.row}>
+      <View style={styles.half}><Text style={styles.label}>Province</Text><Pressable accessibilityRole="radio" accessibilityLabel="Québec" accessibilityState={{checked: values.province === 'QC', disabled}}
+        disabled={disabled} onPress={() => change('province', 'QC')} style={[styles.province, values.province === 'QC' && styles.selected]}><Text style={styles.body}>Québec</Text></Pressable></View>
+      <View style={styles.half}><Text style={styles.label}>Code postal</Text><TextInput accessibilityLabel="Code postal" editable={!disabled} style={styles.input} value={values.postalCode}
+        onFocus={() => setSearchOpen(false)} onChangeText={value => change('postalCode', value)} placeholder="H2J 2K1" placeholderTextColor={colors.muted} autoCapitalize="characters" autoComplete="postal-code" maxLength={7} /></View>
+    </View>
+    {destinationProvinceError ? <Text accessibilityRole="alert" style={styles.error}>L’adresse actuelle est hors Québec. Indiquez une adresse de livraison au Québec.</Text> : null}
+    {postalCodeError ? <Text accessibilityRole="alert" style={styles.error}>Vérifiez le code postal de cette adresse au Québec.</Text> : null}
+  </View>;
+}
 
 const styles = StyleSheet.create({
-  sectionTitle: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    letterSpacing: 1.8,
-    color: colors.muted,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-  },
-  formGroup: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  formField: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  formFieldLast: {
-    borderBottomWidth: 0,
-  },
-  fieldError: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    color: colors.danger,
-    marginTop: 6,
-  },
-  formFieldRow: {
-    flexDirection: 'row',
-  },
-  formFieldHalf: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  formFieldHalfLeft: {
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  fieldLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 9,
-    letterSpacing: 1.5,
-    color: colors.muted,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  fieldInput: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    color: colors.charcoal,
-    padding: 0,
-  },
-  provinceChipsContainer: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingVertical: 2,
-  },
-  provinceChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radius.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceWarm,
-  },
-  provinceChipSelected: {
-    borderColor: colors.charcoal,
-    backgroundColor: colors.charcoal,
-  },
-  provinceChipText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    color: colors.muted,
-  },
-  provinceChipTextSelected: {
-    color: colors.cream,
-  },
+  section: {gap: spacing.md}, title: {...typography.h3, color: colors.foreground}, field: {gap: spacing.xs},
+  label: {...typography.bodySmall, color: colors.foregroundSecondary}, body: {...typography.body, color: colors.foreground},
+  caption: {...typography.caption, color: colors.muted}, error: {...typography.bodySmall, color: colors.danger},
+  input: {...typography.body, minHeight: sizing.minTouchTarget, color: colors.foreground, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm},
+  row: {flexDirection: 'row', gap: spacing.md}, half: {flex: 1, gap: spacing.xs},
+  province: {minHeight: sizing.minTouchTarget, justifyContent: 'center', paddingHorizontal: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong, borderRadius: radius.sm},
+  selected: {borderColor: colors.primary, backgroundColor: colors.primaryLight},
+  suggestions: {borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface},
+  suggestion: {minHeight: sizing.minTouchTarget, justifyContent: 'center', padding: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border},
 });

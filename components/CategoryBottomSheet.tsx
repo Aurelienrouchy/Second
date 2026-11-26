@@ -2,6 +2,7 @@ import { useCategoryNavigation } from '@/hooks/useCategoryNavigation';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
 import {
+    Keyboard,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -9,9 +10,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, typography } from '@/constants/theme';
 
 interface CategoryBottomSheetProps {
+  /** Opt-in visual identity; other consumers keep their existing presentation. */
+  appearance?: 'default' | 'troc';
   onSelect: (categoryIds: string[]) => void;
   selectedCategoryIds?: string[];
   suggestedCategoryId?: string;
@@ -25,9 +28,10 @@ export interface CategoryBottomSheetRef {
 }
 
 const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomSheetProps>(
-  ({ onSelect, selectedCategoryIds, suggestedCategoryId, darkMode = false }, ref) => {
+  ({ onSelect, selectedCategoryIds, suggestedCategoryId, darkMode = false, appearance = 'default' }, ref) => {
     const bottomSheetRef = useRef<BottomSheet>(null);
     const insets = useSafeAreaInsets();
+    const isTroc = appearance === 'troc' && !darkMode;
     const snapPoints = useMemo(() => ['85%'], []);
     // Dark palette overrides (Swap Zone). Light values come from the static styles.
     const headerIconColor = darkMode ? colors.cream : colors.charcoal;
@@ -47,6 +51,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
 
     useImperativeHandle(ref, () => ({
       show: () => {
+        Keyboard.dismiss();
         categoryNav.goToRoot();
         setMounted(true);
       },
@@ -83,6 +88,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
 
     return (
       <BottomSheet
+        accessible={false}
         ref={bottomSheetRef}
         index={0}
         snapPoints={snapPoints}
@@ -96,12 +102,15 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
         ]}
         backgroundStyle={[
           styles.sheetBackground,
+          isTroc && styles.trocSurface,
           darkMode && { backgroundColor: colors.deep },
         ]}
         enableDynamicSizing={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.headerButton}
+            accessibilityRole={isTroc ? 'button' : undefined}
+            accessibilityLabel={isTroc ? categoryNav.isAtRoot ? 'Fermer les catégories' : 'Retour aux catégories précédentes' : undefined}>
             <Ionicons
               name={categoryNav.isAtRoot ? 'close' : 'chevron-back'}
               size={22}
@@ -110,7 +119,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
           </TouchableOpacity>
 
           <View style={styles.titleContainer}>
-            <Text style={[styles.title, darkMode && { color: colors.cream }]}>
+            <Text style={[styles.title, darkMode && { color: colors.cream }, isTroc && styles.trocTitle]}>
               {categoryNav.isAtRoot ? 'Catégorie' : categoryNav.currentTitle}
             </Text>
             {breadcrumb && !categoryNav.isAtRoot && (
@@ -125,7 +134,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
 
           <View style={styles.headerButton}>
             {!categoryNav.isAtRoot && (
-              <TouchableOpacity onPress={handleSelectCurrent}>
+              <TouchableOpacity onPress={handleSelectCurrent} accessibilityRole={isTroc ? 'button' : undefined} accessibilityLabel={isTroc ? `Choisir ${categoryNav.currentTitle}` : undefined}>
                 <Text style={styles.selectButtonText}>Choisir</Text>
               </TouchableOpacity>
             )}
@@ -141,6 +150,8 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
             return (
               <TouchableOpacity
                 key={item.id}
+                accessibilityRole={isTroc ? 'button' : undefined}
+                accessibilityLabel={isTroc ? item.label : undefined}
                 style={[
                   styles.categoryItem,
                   darkMode && { borderBottomColor: colors.darkBorder },
@@ -176,6 +187,8 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
 );
 
 const styles = StyleSheet.create({
+  trocSurface: { backgroundColor: colors.background },
+  trocTitle: { ...typography.trocScreenTitle, color: colors.foreground },
   sheetBackground: {
     backgroundColor: colors.surface,
   },

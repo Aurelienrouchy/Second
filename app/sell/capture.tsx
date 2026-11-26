@@ -1,3 +1,5 @@
+import { serializeRouteParam } from '@/features/sell/utils/routeParams';
+import { useSellCamera } from '@/features/sell/hooks/useSellCamera';
 /**
  * Camera Capture Screen
  * Design System: Editorial Luxe -- Cream, Charcoal, Rust, Sage
@@ -14,6 +16,7 @@ import {
   Text,
   StyleSheet,
   Alert,
+  type LayoutChangeEvent,
 } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, Easing } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
@@ -24,13 +27,12 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { track } from '@/lib/analytics';
 import { auth } from '@/config/firebaseConfig';
-import { colors, fonts, radius } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { Skeleton } from '@/components/ui/Skeleton';
-import BlurOverlay from '@/components/sell/BlurOverlay';
-import CameraGuides from '@/components/sell/CameraGuides';
-import draftService, { ArticleDraft, createEmptyDraft } from '@/services/draftService';
+import BlurOverlay from '@/features/sell/components/shared/BlurOverlay';
+import CameraGuides from '@/features/sell/components/shared/CameraGuides';
+import draftService, { ArticleDraft, createEmptyDraft } from '@/features/sell/services/draftService';
 import {
-  useSellCamera,
   PermissionDenied,
   TopControls,
   ThumbnailStrip,
@@ -56,12 +58,18 @@ export default function CaptureScreen() {
   const [photos, setPhotos] = useState<string[]>(isResuming ? resumedPhotos : []);
   const [permission, requestPermission] = useCameraPermissions();
   const camera = useSellCamera(permission?.granted ?? false);
-  const { facing, torchActive, onReady: markCameraReady } = camera;
-  const [isCapturing, setIsCapturing] = useState(false);
+  const { facing, torchActive, isCapturing, onReady: markCameraReady } = camera;
+  const [controlsHeight, setControlsHeight] = useState(140);
+  const handleControlsLayout = useCallback((event: LayoutChangeEvent) => {
+    setControlsHeight(event.nativeEvent.layout.height);
+  }, []);
   const draftRef = useRef<ArticleDraft | null>(null);
   const draftReadyRef = useRef<Promise<void>>(Promise.resolve());
   const photoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leavingRef = useRef(false);
+  const departureRevision = useRef(0);
+  const galleryPending = useRef(false);
+  const handlePrivacyOpen = useCallback(() => { departureRevision.current += 1; }, []);
 
   const persistPhotos = useCallback(async () => {
     if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current);
@@ -75,17 +83,21 @@ export default function CaptureScreen() {
   }, [photos, photoOwnerUid]);
 
   const saveBeforeLeaving = useCallback(async (leave: () => void) => {
-    if (leavingRef.current) return;
+    if (leavingRef.current || !navigation.isFocused()) return;
+    const revision = departureRevision.current;
     leavingRef.current = true;
     try {
       await persistPhotos();
+      if (revision !== departureRevision.current || !navigation.isFocused()) return;
       leave();
     } catch {
-      Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter pour conserver vos photos.');
+      if (revision === departureRevision.current && navigation.isFocused()) {
+        Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter pour conserver vos photos.');
+      }
     } finally {
       leavingRef.current = false;
     }
-  }, [persistPhotos]);
+  }, [persistPhotos, navigation]);
 
   const canTakeMore = photos.length < MAX_PHOTOS;
   const hasPhotos = photos.length > 0;
@@ -153,9 +165,7 @@ export default function CaptureScreen() {
         draftService.assertCurrentOwner(photoOwnerUid);
         if (existingDraft) draftRef.current = existingDraft;
       } else {
-        const newDraft = createEmptyDraft();
-        await draftService.saveDraft(newDraft);
-        draftRef.current = newDraft;
+        draftRef.current = await draftService.startNewDraft();
       }
     };
     const ready = initDraft();
@@ -188,13 +198,16 @@ export default function CaptureScreen() {
 
   // Handlers
   const handleCapture = async () => {
-    if (!cameraRef.current || !camera.ready || isCapturing || !canTakeMore) return;
-    setIsCapturing(true);
+    const nativeCamera = cameraRef.current;
+    if (!nativeCamera || !canTakeMore) return;
+    const capture = camera.beginCapture();
+    if (!capture) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({
+      const photo = await nativeCamera.takePictureAsync({
         quality: 0.7,
         skipProcessing: false,
       });
+      if (!camera.isCaptureCurrent(capture)) return;
       if (photo?.uri) {
         let added = false;
         setPhotos((prev) => {
@@ -212,15 +225,25 @@ export default function CaptureScreen() {
         }
       }
     } catch (error) {
+      if (!camera.isCaptureCurrent(capture)) return;
       if (__DEV__) console.error('Error taking photo:', error);
+      // A failed shot was silent in production.
+      Alert.alert('Photo impossible', "La photo n'a pas pu être prise. Réessayez.");
     } finally {
-      setIsCapturing(false);
+      camera.finishCapture(capture);
     }
   };
 
   const handleGalleryPress = async () => {
+    if (galleryPending.current || !navigation.isFocused()) return;
     const remainingSlots = MAX_PHOTOS - photos.length;
     if (remainingSlots <= 0) return;
+    galleryPending.current = true;
+    const revision = departureRevision.current;
+    const isCurrent = () => {
+      try {draftService.assertCurrentOwner(photoOwnerUid);} catch {return false;}
+      return departureRevision.current === revision && navigation.isFocused();
+    };
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'] as const,
@@ -231,6 +254,7 @@ export default function CaptureScreen() {
         preferredAssetRepresentationMode:
           ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
+      if (!isCurrent()) return;
       if (!result.canceled && result.assets.length > 0) {
         const uris = result.assets.map((asset) => asset.uri);
         const added = uris.slice(0, remainingSlots);
@@ -254,8 +278,10 @@ export default function CaptureScreen() {
         });
       }
     } catch (error) {
+      if (!isCurrent()) return;
       if (__DEV__) console.error('Error picking images:', error);
-    }
+      Alert.alert('Import impossible', "Les photos n'ont pas pu être importées. Réessayez.");
+    } finally {galleryPending.current = false;}
   };
 
   const handleRemovePhoto = useCallback((index: number) => {
@@ -279,7 +305,7 @@ export default function CaptureScreen() {
     if (hasUploadedWork) {
       Alert.alert(
         'Quitter ?',
-        'Votre brouillon sera sauvegardé. Vous pourrez le reprendre plus tard.',
+        'Ton brouillon sera sauvegardé. Tu pourras le reprendre plus tard.',
         [
           {
             text: 'Annuler',
@@ -317,7 +343,7 @@ export default function CaptureScreen() {
     track('sell_step_completed', { step: 'capture', photo_count: photos.length });
     void saveBeforeLeaving(() => router.push({
       pathname: '/sell/photos-review',
-      params: { photos: JSON.stringify(photos) },
+      params: { photos: serializeRouteParam(photos) },
     }));
   };
 
@@ -326,7 +352,7 @@ export default function CaptureScreen() {
 
   // Overlay heights
   const topOverlayHeight = insets.top + 56;
-  const bottomOverlayHeight = 140 + insets.bottom;
+  const bottomOverlayHeight = controlsHeight + insets.bottom + spacing.md;
 
   // Permission states
   if (!permission) {
@@ -348,6 +374,7 @@ export default function CaptureScreen() {
     return (
       <View style={styles.container}>
         <PermissionDenied
+          onPrivacyOpen={handlePrivacyOpen}
           onGalleryPress={handleGalleryPress}
           photoCount={photos.length}
           onContinue={handleContinue}
@@ -361,7 +388,7 @@ export default function CaptureScreen() {
   // Camera guide messages
   const guideMessage =
     photos.length === 0
-      ? 'Cadrez votre article'
+      ? 'Cadre ton article'
       : photos.length === 1
         ? 'Ajoute un détail'
         : photos.length < MAX_PHOTOS
@@ -423,7 +450,8 @@ export default function CaptureScreen() {
         photoCount={photos.length}
         maxPhotos={MAX_PHOTOS}
         torchActive={torchActive}
-          torchAvailable={facing === 'back' && camera.ready}
+        torchAvailable={camera.torchAvailable}
+        flipAvailable={camera.flipAvailable}
         onClose={handleClose}
         onFlipCamera={toggleCameraFacing}
         onToggleTorch={toggleTorch}
@@ -437,6 +465,8 @@ export default function CaptureScreen() {
 
       <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
         <CameraControlsRow
+          onPrivacyOpen={handlePrivacyOpen}
+          onLayout={handleControlsLayout}
           canTakeMore={canTakeMore && camera.ready}
           isCapturing={isCapturing}
           hasPhotos={photos.length > 0}

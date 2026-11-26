@@ -56,7 +56,7 @@ export const ChatInputBar = React.memo(function ChatInputBar({
       />
 
       {hasArticle && (
-        <Pressable testID="chat-offer-button" style={styles.offerButton} onPress={onMakeOffer}>
+        <Pressable testID="chat-offer-button" accessibilityRole="button" accessibilityLabel="Faire une offre" style={styles.offerButton} onPress={onMakeOffer}>
           <Text style={styles.offerIcon}>$</Text>
         </Pressable>
       )}

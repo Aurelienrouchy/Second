@@ -7,8 +7,11 @@
 #
 # Pourquoi le meetup (et non le paiement carte) :
 #   - Déterministe en CI : aucune feuille Stripe native ni vraie carte requise.
-#   - Le meetup crée bien une transaction (createMeetupTransaction → callable
-#     createTransaction) + un chat + une offre meetup, puis route vers /success.
+#   - Le meetup NE crée PAS de transaction à cette étape : le bouton crée (ou
+#     récupère) le chat avec le vendeur et y poste une OFFRE de rencontre
+#     (ChatService.sendMeetupOffer), puis route vers /success. L'article RESTE
+#     EN VENTE ; il n'est marqué vendu qu'à l'acceptation de l'offre par le
+#     vendeur (callable acceptMeetupOffer). Voir docs/metier/09-meetup.md.
 #   - C'est le seul mode toujours disponible (SHIPPING_ENABLED peut être off ;
 #     dans ce cas le CTA article devient "PROPOSER UN ACHAT" mais aboutit au
 #     même écran "Commander" → meetup).
@@ -101,16 +104,18 @@ appId: com.seconde.app
 - tapOn:
     id: "checkout-meetup-confirm"
 
-# Écran de succès : container racine stable prouve que la transaction proposition a
-# bien été créée (createMeetupTransaction → /checkout/success).
+# Écran de succès : container racine stable prouve que l'offre de rencontre a
+# bien été postée dans le chat (sendMeetupOffer → /checkout/success).
 - extendedWaitUntil:
     visible:
       id: "checkout-success-screen"
     timeout: 20000
-# Le récap affiche le badge MEETUP : confirme le bon mode de livraison
+# Titre de l'écran en mode meetup. Il dit « Demande envoyée » — et NON
+# « Meetup confirmé » — précisément parce qu'aucune transaction n'existe
+# encore : la balle est dans le camp du vendeur.
 # (pas de testID → copy FR de secours, deferred).
 - assertVisible:
-    text: "Meetup confirmé"
+    text: "Demande envoyée"
 # CTA de sortie disponible (vers la messagerie pour convenir du lieu).
 - assertVisible:
     id: "checkout-success-contact-seller"

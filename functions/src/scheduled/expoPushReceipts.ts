@@ -3,7 +3,7 @@ import * as logger from 'firebase-functions/logger';
 import { reconcileExpoPushReceipts } from '../utils/expoPush';
 
 export const checkExpoPushReceipts = onSchedule(
-  { schedule: 'every 15 minutes', region: 'northamerica-northeast1' },
+  { schedule: 'every 15 minutes', region: 'northamerica-northeast1', memory: '512MiB' },
   async () => {
     try {
       await reconcileExpoPushReceipts();
