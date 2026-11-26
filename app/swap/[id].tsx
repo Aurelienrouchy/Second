@@ -18,6 +18,8 @@ import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router
 import * as ImagePicker from 'expo-image-picker';
 
 import { randomUUID } from 'expo-crypto';
+import { useQueryClient } from '@tanstack/react-query';
+import { createCompletedSwapCacheReconciler } from '@/lib/withdrawnArticleCache';
 import { privateMediaUrl } from '@/utils/privateMedia';
 import { prepareImageForUpload } from '@/utils/imageUtils';
 import { uploadPreparedJpeg } from '@/services/nativeStorageUpload';
@@ -100,6 +102,7 @@ export default function SwapDetailScreen() {
     ? (sourceParam as SwapViewSource)
     : 'deep_link';
   const userId = useAuthenticatedUid();
+  const queryClient = useQueryClient();
   const generation = useAuthStore(getAuthSessionGeneration);
   const isAuthLoading = useIsLoading();
   const showAuth = useAuthSheetStore((state) => state.show);
@@ -227,13 +230,18 @@ export default function SwapDetailScreen() {
     if (!id || !userId || !context.focused) return;
     try {
       const operation = context.capture();
+      const reconcileCatalogue = createCompletedSwapCacheReconciler(queryClient, operation.session.uid,
+        () => context.assertCurrent(operation));
       return subscribeToSwap(id, (swapData) => {
         context.assertCurrent(operation); setDelivery({ key: subscriptionKey, swap: swapData });
+        // Reception RPC success alone does not establish completion. Both
+        // participants reconcile from this current server-authorized delivery.
+        void reconcileCatalogue(swapData).catch(() => undefined);
       }, {expectedUid: operation.session.uid, assertContext: () => context.assertCurrent(operation), onChecking: () => {context.assertCurrent(operation); setDelivery({key: subscriptionKey, swap: null, checking: true});}});
     } catch {void Promise.resolve().then(() => setDelivery({key: subscriptionKey, swap: null}));}
   // subscriptionKey owns the captured identity, route, focus and generation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, userId, subscriptionKey, context.focused]);
+  }, [id, userId, subscriptionKey, context.focused, queryClient]);
 
   // Fire swap_viewed once, on the first real-time delivery of a loaded swap.
   // The not_found branch is intentionally not tracked (swap_viewed requires a

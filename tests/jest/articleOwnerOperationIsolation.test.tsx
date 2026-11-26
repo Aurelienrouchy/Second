@@ -10,6 +10,7 @@ import { httpsCallable } from 'firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Article, MeetupSpot } from '@/types';
 let mockSold = true; let mockUid = 'A'; let mockGeneration = 1; let mockArticles: Article[] = [];
+let mockRemovalClient: import('@tanstack/react-query').QueryClient | null = null;
 const mockRead = jest.fn(); const mockDelete = jest.fn(); const mockChat = jest.fn(); const mockOffer = jest.fn();
 const mockPush = jest.fn(); const mockBack = jest.fn(); const mockTrack = jest.fn(); const mockSetCache = jest.fn(); const mockInvalidate = jest.fn();
 jest.mock('@/store/authStore', () => ({ getAuthSessionGeneration: () => mockGeneration,
@@ -24,7 +25,7 @@ jest.mock('expo-router', () => ({
  useRouter: () => ({ push: mockPush, back: mockBack }), useFocusEffect: (callback: () => void | (() => void)) => { const React = require('react'); React.useEffect(callback, [callback]); } }));
 jest.mock('@/hooks/useAuthRequired', () => ({ useRequireAuth: () => ({ requireAuth: (fn: () => void) => fn() }) }));
 jest.mock('@/hooks/useFavorites', () => ({ useFavorites: () => ({ toggleFavorite: jest.fn(), isFavorite: jest.fn() }), favoritesKeys: { all: ['favorites'] } }));
-jest.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: mockArticles, isLoading: false, isRefetching: false, isError: false, refetch: jest.fn() }), useQueryClient: () => ({ getQueryData: () => mockArticles, setQueryData: mockSetCache, invalidateQueries: mockInvalidate }) }));
+jest.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: mockArticles, isLoading: false, isRefetching: false, isError: false, refetch: jest.fn() }), useQueryClient: () => mockRemovalClient ?? ({ getQueryData: () => mockArticles, setQueryData: mockSetCache, invalidateQueries: mockInvalidate }) }));
 jest.mock('@/services/articlesService', () => ({ ArticlesService: { getArticleById: (...args: unknown[]) => mockRead(...args), deleteArticle: (...args: unknown[]) => mockDelete(...args) } }));
 jest.mock('@/services/chatService', () => ({ ChatService: { createOrGetChat: (...args: unknown[]) => mockChat(...args), sendMeetupOffer: (...args: unknown[]) => mockOffer(...args) } }));
 jest.mock('@/services/swapService', () => ({ GENERALIST_ZONE_ID: 'zone' }));
@@ -57,13 +58,13 @@ function harness({ initial = article() }: { initial?: Article } = {}) {
 }
 let menu: jest.SpyInstance; let alert: jest.SpyInstance; let dispatch: jest.Mock;
 beforeEach(async () => {
-  jest.clearAllMocks(); await AsyncStorage.clear(); session('A', 1); mockArticles = [article()]; mockSold = true;
+  jest.clearAllMocks(); mockRemovalClient = null; await AsyncStorage.clear(); session('A', 1); mockArticles = [article()]; mockSold = true;
   mockSetCache.mockImplementation((_key: readonly string[], apply: (old: Article[]) => Article[]) => { mockArticles = apply(mockArticles); return mockArticles; });
   mockRead.mockImplementation(async (id: string) => article(id, mockUid, false)); mockChat.mockResolvedValue({ id: 'chat-A' }); mockOffer.mockResolvedValue('receipt-A'); mockDelete.mockResolvedValue(undefined);
   dispatch = jest.fn(async () => ({ data: { success: true } })); (httpsCallable as jest.Mock).mockImplementation(() => async(p:Record<string,unknown>) => { if(p.operation==='observe')return {data:{operation:'observe',articleId:p.articleId,isSold:mockSold,revision:'a'.repeat(64)}}; const result=await dispatch(p);return {data:{...result.data,operation:'set',outcome:'applied',articleId:p.articleId,requestId:p.requestId,isSold:p.desiredIsSold,revision:null}}; });
   menu = jest.spyOn(ActionSheetIOS, 'showActionSheetWithOptions').mockImplementation(() => undefined); alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 });
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => { mockRemovalClient?.clear(); mockRemovalClient = null; jest.restoreAllMocks(); });
 function choose(label: string) {
   const [options, callback] = menu.mock.calls.at(-1)! as [{ options: string[] }, (index: number) => void];
   callback(options.options.findIndex(text => text.includes(label)));
@@ -139,4 +140,58 @@ it('V2 Mes articles cannot claim adoption or success when the current cache no l
  await waitFor(() => expect(mockRead).toHaveBeenCalled()); await waitFor(() => expect(mockSetCache).toHaveBeenCalled());
  expect(mockTrack.mock.calls.filter(([name]) => name === 'article_sold_toggled')).toEqual([]);
  expect(JSON.parse((await AsyncStorage.getItem(getEnvironmentStorageKey('article-sold:v1:A:article-A')))!)).toHaveProperty('receiptId');
+});
+
+function openRemoval(entry: 'my_articles' | 'article_detail') {
+  if (entry === 'my_articles') {
+    const screen = render(<MyArticlesScreen />);
+    act(() => fireEvent.press(screen.getByTestId('icon-ellipsis-vertical')));
+  } else {
+    const { result } = renderHook(() => harness());
+    act(() => result.current.handleMoreOptions());
+  }
+  act(() => choose('Supprimer'));
+  return (alert.mock.calls.at(-1)![2] as { text: string; onPress?: () => Promise<void> }[])
+    .find(button => button.text === 'Retirer')!.onPress!;
+}
+
+function setupRemovalCache() {
+  const { QueryClient } = jest.requireActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  mockRemovalClient = client;
+  client.setQueryData(['articles', 'user', 'A'], mockArticles);
+  client.setQueryData(['home', 'new-arrivals'], mockArticles);
+  client.setQueryData(['home', 'discover'], { pages: [{ articles: mockArticles, lastDocId: 'cursor' }], pageParams: [null] });
+  return client;
+}
+
+it.each(['my_articles', 'article_detail'] as const)('%s removal confirmation purges the actual QueryClient Home cache', async entry => {
+  const client = setupRemovalCache();
+  const confirm = openRemoval(entry);
+  await act(async () => { await confirm(); });
+  expect(mockDelete).toHaveBeenCalledWith('article-A');
+  expect(client.getQueryData(['articles', 'user', 'A'])).toEqual([]);
+  expect(client.getQueryData(['home', 'new-arrivals'])).toEqual([]);
+  expect(client.getQueryData(['home', 'discover'])).toEqual({ pages: [{ articles: [], lastDocId: 'cursor' }], pageParams: [null] });
+  expect(client.getQueryState(['home', 'new-arrivals'])?.isInvalidated).toBe(true);
+  expect(mockTrack).toHaveBeenCalledWith('article_deleted', expect.objectContaining({ article_id: 'article-A', outcome: 'success', source: entry }));
+});
+
+it.each(['my_articles', 'article_detail'] as const)('%s obsolete withdrawal response leaves the replacement account cache unchanged', async entry => {
+  const client = setupRemovalCache();
+  let finish!: () => void;
+  mockDelete.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+  const confirm = openRemoval(entry);
+  let pending!: Promise<void>;
+  act(() => { pending = confirm(); });
+  expect(mockDelete).toHaveBeenCalledTimes(1);
+  session('B', 2);
+  const replacement = [article('article-B', 'B')];
+  client.setQueryData(['home', 'new-arrivals'], replacement);
+  const replacementCache = client.getQueryData(['home', 'new-arrivals']);
+  await act(async () => { finish(); await pending; });
+  expect(client.getQueryData(['home', 'new-arrivals'])).toBe(replacementCache);
+  expect(client.getQueryState(['home', 'new-arrivals'])?.isInvalidated).toBe(false);
+  expect(mockBack).not.toHaveBeenCalled();
+  expect(mockTrack.mock.calls.some(([name]) => name === 'article_deleted')).toBe(false);
 });

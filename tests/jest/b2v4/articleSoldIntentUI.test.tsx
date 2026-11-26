@@ -102,3 +102,37 @@ it('V4-LIST06 forced application render ACKs actual stored list even while Query
 it('V4-UI11 retained menu opener after same-id actual refetch presents no stale menu or callable',async()=>{
  const screen=await mount();const open=mockMenuOpener;await refreshSold(screen);await act(async()=>open());expect(menu).not.toHaveBeenCalled();expect(dispatch).not.toHaveBeenCalled();expect(alerts).not.toHaveBeenCalled();
 });
+
+it('adopted detail sold receipt removes the Home card; relisting refreshes without inventing a new card', async () => {
+  const screen = await mount();
+  client.setQueryData(['home', 'new-arrivals'], [article()]);
+  const confirm = await confirmation(screen);
+  await act(async () => confirm());
+  await waitFor(() => expect(screen.getByTestId('actual-status')).toHaveTextContent('sold'));
+  await waitFor(() => expect(client.getQueryData(['home', 'new-arrivals'])).toEqual([]));
+  client.setQueryData(['home', 'new-arrivals'], []);
+  expect(client.getQueryState(['home', 'new-arrivals'])?.isInvalidated).toBe(false);
+  choice(screen, 'Remettre');
+  await waitFor(() => expect(screen.getByTestId('actual-status')).toHaveTextContent('listed'));
+  await waitFor(() => expect(client.getQueryState(['home', 'new-arrivals'])?.isInvalidated).toBe(true));
+  expect(client.getQueryData(['home', 'new-arrivals'])).toEqual([]);
+  expect(mutations()).toHaveLength(2);
+  expect(mockTrack.mock.calls.filter(([name]) => name === 'article_sold_toggled')).toHaveLength(2);
+});
+
+it('adopted owner-list sold receipt keeps its Vendu row but removes Home; relisting refreshes Home', async () => {
+  const screen = await mountList();
+  client.setQueryData(['home', 'new-arrivals'], [article()]);
+  const confirm = await listConfirmation(screen);
+  await act(async () => confirm());
+  await waitFor(() => expect(screen.getByText('Vendu')).toBeTruthy());
+  await waitFor(() => expect(client.getQueryData(['home', 'new-arrivals'])).toEqual([]));
+  expect(client.getQueryData<Article[]>(queryKeys.articles.userList('I'))?.[0].isSold).toBe(true);
+  client.setQueryData(['home', 'new-arrivals'], []);
+  listChoice(screen, 'Remettre');
+  await waitFor(() => expect(screen.getAllByText('En vente')).toHaveLength(2));
+  await waitFor(() => expect(client.getQueryState(['home', 'new-arrivals'])?.isInvalidated).toBe(true));
+  expect(client.getQueryData(['home', 'new-arrivals'])).toEqual([]);
+  expect(mutations()).toHaveLength(2);
+  expect(mockTrack.mock.calls.filter(([name]) => name === 'article_sold_toggled')).toHaveLength(2);
+});

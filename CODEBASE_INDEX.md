@@ -2,6 +2,8 @@
 
 # CODEBASE_INDEX.md — Second
 
+`lib/withdrawnArticleCache.ts` réconcilie les listes déjà chargées après retrait ou statut vendu adopté (Mes articles et fiche), et après un troc terminé reçu par son abonnement serveur courant : annulation des anciennes lectures, garde de session, retrait des cartes exactes puis invalidation, y compris Accueil et Le Troc. Le statut vendu conserve la ligne propriétaire ; une remise en vente ou une archive de troc initialement terminée rafraîchit sans éviction aveugle. Les tests utilisent le vrai QueryClient et conservent curseurs, autres zones et archives.
+
 `functions/src/shared/categories.parity.test.ts` compare les 1 263 feuilles et leurs chemins au catalogue app, conserve la recherche historique des parents Hommes, et vérifie les déclarations d’hygiène des soins et les frontières de sécurité enfant. `listingPublication.test.ts` et `phase1LocalAgreements.test.ts` exercent Affiches/Baskets via publication, édition, remise en ligne, admission locale, SwapZone et troc.
 
 `functions/src/utils/admissionDecision.ts` qualifie les refus locaux acceptMeetupOffer/proposeMultiSwap/acceptSwap comme paire documentaire exacte quota+refus : tentative native opaque, propriétaire/session actuelle, sources/quota relus, valeurs clonées et contrôle normal avant commit. `financialSubjectTransaction.ts` refuse toute écriture ajoutée ou altérée ; aucun droit générique sur rate_limits, stock, accord ou notification. Les tests natifs couvrent injections, révocation, draining, rejeu après quota saturé et source changée.

@@ -37,9 +37,9 @@ import {
   type OwnerArticleAction,
 } from '@/features/article/services/ownerArticleActions';
 import { useRequireAuth } from '@/hooks/useAuthRequired';
-import { useFavorites, favoritesKeys } from '@/hooks/useFavorites';
+import { useFavorites } from '@/hooks/useFavorites';
 import { track } from '@/lib/analytics';
-import { queryKeys } from '@/lib/queryKeys';
+import { reconcileOwnerArticleAvailability, removeWithdrawnArticleFromCache } from '@/lib/withdrawnArticleCache';
 
 import { ArticlesService } from '@/services/articlesService';
 import { ChatService } from '@/services/chatService';
@@ -108,8 +108,8 @@ export function useArticleActions({
       if (operationContext.isCurrent(displayed.operation)) Alert.alert('État à vérifier', error instanceof Error ? error.message : 'Actualisez cet article avant une nouvelle modification.');
       return;
     }
-    queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
-    queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
+    void reconcileOwnerArticleAvailability(queryClient, article.id, displayed.operation.session.uid,
+      article.isSold, () => operationContext.assertCurrent(displayed.operation)).catch(() => undefined);
     if (displayed.result.reconciled) Alert.alert('État actualisé', 'Vérifiez le statut affiché avant de choisir une nouvelle modification.');
     else {
       track('article_sold_toggled', { article_id: article.id, new_state: article.isSold ? 'sold' : 'relisted', success: true, source: 'article_detail' });
@@ -504,6 +504,9 @@ export function useArticleActions({
               operationContext.assertCurrent(operation);
               await ArticlesService.deleteArticle(article.id);
               operationContext.assertCurrent(operation);
+              await removeWithdrawnArticleFromCache(queryClient, article.id, operation.session.uid,
+                () => operationContext.assertCurrent(operation));
+              operationContext.assertCurrent(operation);
               track('article_deleted', {
                 article_id: article.id,
                 is_sold: article.isSold,
@@ -513,8 +516,6 @@ export function useArticleActions({
                 price_cents: Math.round(article.price * 100),
               });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
-              queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
               router.back();
             } catch (error) {
               if (!operationContext.isCurrent(operation)) return;

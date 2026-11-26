@@ -1,7 +1,8 @@
 import { establishIdentityFixture, clearIdentityFixture } from '@/tests/jest/helpers/identityFixture';
 import { renderWithQuery as render } from '@/tests/jest/helpers/queryRender';
 import React from 'react';
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 jest.mock('@/components/ui', () => {
   const React = require('react');
@@ -103,4 +104,61 @@ it('permet de réessayer lorsque l’abonnement retourne un échange indisponibl
   expect(screen.getByText('Échange indisponible')).toBeOnTheScreen();
   fireEvent.press(screen.getByText('Réessayer'));
   expect(subscribeToSwap).toHaveBeenCalledTimes(2);
+});
+
+const catalogueClients: QueryClient[] = [];
+afterEach(() => { catalogueClients.splice(0).forEach(client => client.clear()); });
+function catalogueClient() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  catalogueClients.push(client);
+  client.setQueryData(['home', 'new-arrivals'], [{ id: 'coat' }, { id: 'dress' }]);
+  client.setQueryData(['swap-parties', 'generalist'], { party: { id: 'generalist', itemsCount: 2 }, items: [
+    { id: 'zone-coat', articleId: 'coat', sellerId: 'initiator', partyId: 'generalist' },
+    { id: 'zone-dress', articleId: 'dress', sellerId: 'receiver', partyId: 'generalist' },
+  ] });
+  return client;
+}
+function delivery() {
+  return (subscribeToSwap as jest.Mock).mock.calls.at(-1)![1] as (swap: Swap | null) => void;
+}
+
+it.each(['initiator', 'receiver'])('le callback serveur du participant %s retire les deux cartes à la fin du troc', async uid => {
+  (useUser as jest.Mock).mockReturnValue({ id: uid }); establishIdentityFixture(uid);
+  const client = catalogueClient();
+  const pending = { ...proposal, partyId: 'generalist', status: 'shipping' as const };
+  (subscribeToSwap as jest.Mock).mockImplementation((_id, callback) => { callback(pending); return jest.fn(); });
+  render(<QueryClientProvider client={client}><SwapDetailScreen /></QueryClientProvider>);
+  expect(client.getQueryData(['home', 'new-arrivals'])).toEqual([{ id: 'coat' }, { id: 'dress' }]);
+  const cancel = jest.spyOn(client, 'cancelQueries');
+  await act(async () => { delivery()({ ...pending, status: 'completed' }); });
+  expect(client.getQueryData(['home', 'new-arrivals'])).toEqual([]);
+  expect(client.getQueryData(['swap-parties', 'generalist'])).toEqual({ party: { id: 'generalist', itemsCount: 2 }, items: [] });
+  expect(client.getQueryState(['home', 'new-arrivals'])?.isInvalidated).toBe(true);
+  await act(async () => { delivery()({ ...pending, status: 'completed', initiatorRating: { score: 5 } }); });
+  expect(cancel).toHaveBeenCalledTimes(1);
+});
+
+it('un completed initial rafraîchit les listes sans évincer les cartes actuelles depuis une archive', async () => {
+  (useUser as jest.Mock).mockReturnValue({ id: 'initiator' }); establishIdentityFixture('initiator');
+  const client = catalogueClient();
+  (subscribeToSwap as jest.Mock).mockImplementation((_id, callback) => { callback({ ...proposal, partyId: 'generalist', status: 'completed' }); return jest.fn(); });
+  render(<QueryClientProvider client={client}><SwapDetailScreen /></QueryClientProvider>);
+  await waitFor(() => expect(client.getQueryState(['home', 'new-arrivals'])?.isInvalidated).toBe(true));
+  expect(client.getQueryData(['home', 'new-arrivals'])).toEqual([{ id: 'coat' }, { id: 'dress' }]);
+  expect(client.getQueryState(['home', 'new-arrivals'])?.isInvalidated).toBe(true);
+});
+
+it('un ancien callback ne réconcilie pas le cache du nouveau participant connecté', async () => {
+  (useUser as jest.Mock).mockReturnValue({ id: 'initiator' }); establishIdentityFixture('initiator');
+  const client = catalogueClient();
+  const pending = { ...proposal, partyId: 'generalist', status: 'shipping' as const };
+  (subscribeToSwap as jest.Mock).mockImplementation((_id, callback) => { callback(pending); return jest.fn(); });
+  const rendered = render(<QueryClientProvider client={client}><SwapDetailScreen /></QueryClientProvider>);
+  const oldCallback = delivery();
+  (useUser as jest.Mock).mockReturnValue({ id: 'receiver' });
+  await act(async () => { establishIdentityFixture('receiver'); });
+  await rendered.rerenderAsync(<QueryClientProvider client={client}><SwapDetailScreen /></QueryClientProvider>);
+  expect(() => oldCallback({ ...pending, status: 'completed' })).toThrow();
+  expect(client.getQueryData(['home', 'new-arrivals'])).toEqual([{ id: 'coat' }, { id: 'dress' }]);
+  expect(client.getQueryState(['home', 'new-arrivals'])?.isInvalidated).toBe(false);
 });

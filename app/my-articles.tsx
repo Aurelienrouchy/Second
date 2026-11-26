@@ -12,7 +12,7 @@ import { Article } from '@/types';
 import { AUTH_MESSAGES } from '@/constants/authMessages';
 import { track } from '@/lib/analytics';
 import { queryKeys } from '@/lib/queryKeys';
-import { favoritesKeys } from '@/hooks/useFavorites';
+import { reconcileOwnerArticleAvailability, removeWithdrawnArticleFromCache } from '@/lib/withdrawnArticleCache';
 import {
   CANCEL_LABEL,
   MARK_AS_SOLD_ALERT,
@@ -87,8 +87,8 @@ export default function MyArticlesScreen() {
     displayed.current = null;
     if (articles !== receipt.applied) return;
     try { receipt.assertCurrent(); receipt.result.acknowledge(); } catch { return; }
-    queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
-    queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
+    void reconcileOwnerArticleAvailability(queryClient, receipt.result.article.id, receipt.operation.session.uid,
+      receipt.result.article.isSold, () => operationContext.assertCurrent(receipt.operation)).catch(() => undefined);
     if (receipt.result.reconciled) Alert.alert('État actualisé', 'Vérifiez le statut affiché avant de choisir une nouvelle modification.');
     else track('article_sold_toggled', { article_id: receipt.result.article.id, new_state: receipt.result.article.isSold ? 'sold' : 'relisted', success: true, source: 'my_articles' });
   }, [articles, applicationRevision, queryClient]);
@@ -131,6 +131,9 @@ export default function MyArticlesScreen() {
               operationContext.assertCurrent(operation);
               await ArticlesService.deleteArticle(article.id);
               operationContext.assertCurrent(operation);
+              await removeWithdrawnArticleFromCache(queryClient, article.id, operation.session.uid,
+                () => operationContext.assertCurrent(operation));
+              operationContext.assertCurrent(operation);
               track('article_deleted', {
                 article_id: article.id,
                 is_sold: article.isSold,
@@ -139,14 +142,6 @@ export default function MyArticlesScreen() {
                 entry,
                 price_cents: Math.round(article.price * 100),
               });
-              queryClient.setQueryData<Article[]>(
-                queryKeys.articles.userList(operation.session.uid),
-                (old) => old?.filter((a) => a.id !== article.id) ?? []
-              );
-              // The article page and the other lists kept showing it.
-              queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
-              // La fiche article purgeait déjà les favoris, pas « Mes articles ».
-              queryClient.invalidateQueries({ queryKey: favoritesKeys.all });
               closeAllSwipeables();
             } catch (error) {
               if (!operationContext.isCurrent(operation)) return;
