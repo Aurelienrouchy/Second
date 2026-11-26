@@ -1,0 +1,37 @@
+{
+  "protocol": "phase1_google21_submission_ui_readback_v1",
+  "observedAt": "2026-11-26T18:36:49.288Z",
+  "url": "https://play.google.com/console/u/2/developers/6893666166080369968/app/4974846113159684528/publishing",
+  "tabId": "1731993272",
+  "releaseName": "1.0.2 (21) — Correctifs V1",
+  "versionCode": 21,
+  "status": "SENT_PENDING_QUICK_CHECKS",
+  "actualHeading": "Modifications en cours d'examen",
+  "actualRows": [
+    "Élément modifiéDescription",
+    "rocket_launchProduction",
+    "1.0.2 (21) — Correctifs V1 Lancer le déploiement complet"
+  ],
+  "managedPublishingDisabled": true,
+  "sendButtonCount": 0,
+  "quickChecksPending": true,
+  "preview": {
+    "onlyIncludedCode": 21,
+    "old17ExplicitlyNotIncluded": true,
+    "old19RemovedFromDraftAndRetainedInArtifactLibrary": true,
+    "rolloutPercent": 100,
+    "allPreviouslyTargetedCountries": true,
+    "deviceCompatibilityChanges": 0
+  },
+  "submissionSequence": {
+    "confirmedFinalSendDialog": true,
+    "oneTransientUiErrorCode": "5DC56788",
+    "blindRetryPerformed": false,
+    "nextReadbackShowedAcceptedWithoutAnotherSend": true
+  },
+  "limits": [
+    "Google still performs automatic checks before the review proceeds. This is not a claim of publication or completed review.",
+    "Current live code16 was not replaced before Google approval.",
+    "No reviewer credentials or other account data is reproduced."
+  ]
+}

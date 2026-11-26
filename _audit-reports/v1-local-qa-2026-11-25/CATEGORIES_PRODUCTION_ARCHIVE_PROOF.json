@@ -1,0 +1,160 @@
+{
+  "protocol": "phase1_categories_corrected_production_archive_proof_v1",
+  "verifiedAt": "2026-11-26T15:50:44.003653+00:00",
+  "qaSourceSha256": "fdfd9d6c0ab1575e4863d5115c18c192e9abbfaeabfc0df001791ef0a1a61ad7",
+  "productionClientSourceSha256": "4f31400023bfe01f4e2ee206fe358ea45dc9259bd29b484642c30c44200e901a",
+  "source": {
+    "protocol": "phase1_production_eas_client_archive_v3_sdk57",
+    "gitCommit": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47",
+    "qaSourceSha256": "fdfd9d6c0ab1575e4863d5115c18c192e9abbfaeabfc0df001791ef0a1a61ad7",
+    "archiveInventorySha256": "cc457b2fdb485414f8d76b4d6afeb17e641f214b5c5db8178107a0f9393a806c",
+    "archiveFiles": 2077,
+    "buildProfile": "production",
+    "environment": "production",
+    "distribution": "STORE",
+    "firebaseProject": "seconde-b47a6",
+    "bundleIdentifier": "com.seconde.app",
+    "appVersion": "1.0.2",
+    "paymentsEnabled": false,
+    "providerShippingEnabled": false,
+    "commerceTestMode": false,
+    "emulatorsEnabled": false,
+    "phase1QaFlag": false,
+    "nativeProductionFirebaseServicesMatch": true,
+    "nativeNewAnalyticsCollectionClosedByProductionCode": true,
+    "runtimeFileMatches": 1063,
+    "canonicalPackageManager": "npm",
+    "expoVersion": "57.0.34",
+    "reactNativeVersion": "0.86.3",
+    "expectedHermesNativeVersion": "250829098.0.17",
+    "prebuildTemplate": "expo-template-bare-minimum@57.0.36",
+    "iosSceneSupportEnabled": true
+  },
+  "qaInventory": {
+    "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/CATEGORIES_SOURCE_INVENTORY.json",
+    "sha256": "81b2335249b9e4b53eee0cce18f7cd5538c3fa8c6e3346a345e8dc0cc4ff2c7d",
+    "runtimeFileCount": 1063,
+    "archiveRuntimeDigestExactMatch": true,
+    "previousA3a0AlgorithmIndependentlyReproduced": true
+  },
+  "archives": {
+    "ios": {
+      "path": "/tmp/seconde-v1-categories-release-20261126/archive-ios",
+      "stage": "archive",
+      "exitCode": 0
+    },
+    "android": {
+      "path": "/tmp/seconde-v1-categories-release-20261126/archive-android",
+      "stage": "archive",
+      "exitCode": 0
+    },
+    "performedSequentially": true,
+    "officialEasCliVersion": "27.11.0",
+    "environment": {
+      "NODE_ENV": "production",
+      "EAS_BUILD_PROFILE": "production",
+      "EXPO_PUBLIC_APP_ENV": "production",
+      "EXPO_NO_DOTENV": "1",
+      "CI": "1"
+    }
+  },
+  "bothInspectedPlatformArchiveContentsIdentical": true,
+  "sourceArchiveStrongPatternFindings": 0,
+  "signingMaterialOrPrivateEnvironmentFilesInArchive": false,
+  "generatedNativeDirectoriesInArchive": false,
+  "newAnalyticsCaptureClosedByProductionCode": true,
+  "posthogCaptureKeyInProduction": "empty by unconditional production guard",
+  "otaConfigured": false,
+  "runtimeChangesSince17d8": {
+    "functions/src/shared/articleHygiene.ts": "d9c1ed674764097af40fe371e990ec567b2eb7347a653b5345d8786a5a15b05f",
+    "functions/src/shared/categories.ts": "19a99c85f2e70bc606f671ac02742b94703812845e69ed719df876794356d37d",
+    "services/userService.ts": "67b50ba8c1758c079f8be8004b3bc69f512aa878e51d542744f766e01d9b8ed8"
+  },
+  "all1060OtherRuntimeFilesByteIdentical": true,
+  "sdk57NativeInputsUnchanged": true,
+  "sdk57ConfigurationInputDiffsFromSdk56": [
+    {
+      "path": "app.config.js",
+      "sdk57Change": "modified",
+      "unchangedInCategoriesCandidate": true
+    },
+    {
+      "path": "eas.json",
+      "sdk57Change": "modified",
+      "unchangedInCategoriesCandidate": true
+    },
+    {
+      "path": "package-lock.json",
+      "sdk57Change": "modified",
+      "unchangedInCategoriesCandidate": true
+    },
+    {
+      "path": "package.json",
+      "sdk57Change": "modified",
+      "unchangedInCategoriesCandidate": true
+    }
+  ],
+  "fifthSdk57InputYarnDeletion": {
+    "path": "yarn.lock",
+    "sdk56SourceTracked": true,
+    "sdk56ArchiveExplicitlyExcluded": true,
+    "sdk57SourceRemoved": true,
+    "categoriesSourceAbsent": true,
+    "absentFromBothArchivesAndSdk57Baseline": true,
+    "note": "This fifth SDK configuration input is a source deletion; it cannot appear as a removed path in the SDK56→SDK57 archive delta because it was already explicitly excluded from the old EAS archive."
+  },
+  "fullArchiveChangesSince17d8": [
+    {
+      "path": "CODEBASE_INDEX.md",
+      "change": "modified"
+    },
+    {
+      "path": "functions/src/callable/listingPublication.test.ts",
+      "change": "modified"
+    },
+    {
+      "path": "functions/src/callable/phase1LocalAgreements.test.ts",
+      "change": "modified"
+    },
+    {
+      "path": "functions/src/shared/articleHygiene.ts",
+      "change": "modified"
+    },
+    {
+      "path": "functions/src/shared/categories.parity.test.ts",
+      "change": "added"
+    },
+    {
+      "path": "functions/src/shared/categories.ts",
+      "change": "modified"
+    },
+    {
+      "path": "services/userService.publicProfile.test.ts",
+      "change": "added"
+    },
+    {
+      "path": "services/userService.ts",
+      "change": "modified"
+    }
+  ],
+  "sourceRecordHashAlgorithm": "sha256(json.dumps(source,sort_keys=True,separators=(comma,colon)).encode()), no trailing LF; old5439 independently reproduced.",
+  "archiveInventoryDigestAlgorithm": "path+NUL+sha256+LF ordered by sorted pathlib.Path; oldf4ab independently reproduced.",
+  "qaRuntimeDigestAlgorithm": "path+NUL+sha256+LF ordered by sorted string paths; olda3a0 and newfdfd independently reproduced.",
+  "acceptedBuildsPending": true,
+  "easAcceptedBuilds": [],
+  "remoteBuildStartedByThisTask": false,
+  "compiledArtifactQualificationCompleted": false,
+  "historicalProofsPreserved": [
+    "SDK57_PRODUCTION_ARCHIVE_PROOF.json",
+    "SDK57_PRODUCTION_COMPILED_ARTIFACT_PROOF.json",
+    "FINAL_PRODUCTION_ARCHIVE_PROOF.json",
+    "PRODUCTION_ARCHIVE_PROOF.json"
+  ],
+  "privatePreflightSha256": "86113cbcfc3df98b0ef5642560d497783dac3919a86a2fc7075bc429f3c979c9",
+  "limits": [
+    "This verifies source archives only. No new EAS remote build, native compilation, signing credential change, deployment or store submission was performed.",
+    "New accepted build IDs, native Hermes version in new artifacts, compiled flags and actual OTA-disabled native manifests require separate checks after Root creates the builds.",
+    "Native device flows and memory measurements remain separately owned evidence; this archive proof does not relabel them.",
+    "The production client source fingerprint is a canonical source-record hash; the exact1063file QA runtime digest and full-archive digest are distinct and explicitly recorded."
+  ]
+}

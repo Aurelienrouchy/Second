@@ -1,0 +1,32 @@
+{
+  "protocol": "phase1_usb8094_final_source_log_addendum_v1",
+  "checkedAt": "2026-11-26T17:41:10.670357+00:00",
+  "sourceLog": "/tmp/seconde-v1-withdraw-cache-release-20261126/metro-8094-final.log",
+  "processSession": 83613,
+  "sourceLogSha256": "9a65397e4d218aef59ec9bdabaa0b8a6eed70e9f7e9f8172663b8c98ad3ddacc",
+  "bytes": 3349,
+  "lineCount": 32,
+  "markerLineCounts": {
+    "errorLines": 0,
+    "queryFailureMarkers": 0,
+    "missingIndexMarkers": 0,
+    "keychainMarkers": 0,
+    "reanimatedWarnings": 9
+  },
+  "markerPatterns": {
+    "errorLines": "(^|\\s)(ERROR|Error:|Unhandled|FATAL)(\\s|:|$)",
+    "queryFailureMarkers": "(query[^\\n]{0,80}(failed|error|requires an index)|failed[^\\n]{0,60}query)",
+    "missingIndexMarkers": "(requires an index|FAILED_PRECONDITION[^\\n]{0,80}index|failed-precondition[^\\n]{0,80}index|firestore/indexes\\?create)",
+    "keychainMarkers": "(-34018|errSecMissingEntitlement|keychain[^\\n]{0,80}(error|fail))",
+    "reanimatedWarnings": "(Reanimated|overwritten by a layout animation)"
+  },
+  "startupDevTargetPresent": true,
+  "priorReport": "DEV_NATIVE_QA_LOG_CHECK_20261126T173943Z.json",
+  "correction": "The prior report cloud window remains valid, but its metroUsb8094Final projection actually read the stopped initial metro-8094-usb.log. This addendum reads the separate restarted final-source metro-8094-final.log. No prefix comparison across these distinct logs is asserted.",
+  "limits": [
+    "Snapshot of Root final USB8094 Metro process only, without per-line UTC or request/device correlation.",
+    "Marker counts are lines, not deduplicated events; empty marker counts do not certify all client operations.",
+    "No arbitrary message, credential, account identifier or payload is reproduced.",
+    "No new cloud call, invocation or mutation."
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "protocol": "phase1_withdraw_cache_hybrid_build_source_proof_v1",
+  "qaSourceSha256": "feec8e907cd7a15f64737ea14fc7e11702ee5b6fc7d54c92612744a9b61f44cd",
+  "productionClientSourceSha256": "462d042b42ce42a9f0f96876b63be177ace0b5fc0213fe5b55b30f0cf87d8a0c",
+  "source": {
+    "protocol": "phase1_production_eas_client_archive_v3_sdk57",
+    "gitCommit": "a4e833825810aee46b72e3bc8c85ba9198bd8e52",
+    "qaSourceSha256": "feec8e907cd7a15f64737ea14fc7e11702ee5b6fc7d54c92612744a9b61f44cd",
+    "archiveInventorySha256": "c1b85e823f4452cb79c76d65578ff9ef1646afb6f649d321982e6ff40a55658b",
+    "archiveFiles": 2079,
+    "buildProfile": "production",
+    "environment": "production",
+    "distribution": "STORE",
+    "firebaseProject": "seconde-b47a6",
+    "bundleIdentifier": "com.seconde.app",
+    "appVersion": "1.0.2",
+    "paymentsEnabled": false,
+    "providerShippingEnabled": false,
+    "commerceTestMode": false,
+    "emulatorsEnabled": false,
+    "phase1QaFlag": false,
+    "nativeProductionFirebaseServicesMatch": true,
+    "nativeNewAnalyticsCollectionClosedByProductionCode": true,
+    "runtimeFileMatches": 1064,
+    "canonicalPackageManager": "npm",
+    "expoVersion": "57.0.34",
+    "reactNativeVersion": "0.86.3",
+    "expectedHermesNativeVersion": "250829098.0.17",
+    "prebuildTemplate": "expo-template-bare-minimum@57.0.36",
+    "iosSceneSupportEnabled": true
+  },
+  "immutableArchiveProof": {
+    "path": "/tmp/seconde-v1-withdraw-cache-release-20261126/WITHDRAW_CACHE_PRODUCTION_ARCHIVE_PROOF.json",
+    "sha256": "2e789260b043a99d09614f2fbe8e24246bc5646d9ed12135032620f15515e293"
+  },
+  "acceptedBuildsPending": false,
+  "easAcceptedBuilds": [
+    {
+      "id": "2bae2621-c5ea-4064-8bca-a49e0ab312a2",
+      "platform": "ANDROID",
+      "appBuildVersion": "21",
+      "appVersion": "1.0.2",
+      "gitCommitHash": "a4e833825810aee46b72e3bc8c85ba9198bd8e52",
+      "buildProfile": "production",
+      "distribution": "STORE",
+      "createdAt": "2026-11-26T17:41:59.575Z"
+    }
+  ],
+  "hybridIosLocal": {
+    "completionProof": {
+      "path": "/tmp/seconde-v1-withdraw-cache-release-20261126/LOCAL_IOS42_BUILD_COMPLETION.json",
+      "sha256": "ab77041bd2201d25b026d012aa0d325a3bf361fdca08a13b62b663bd69d1f59e"
+    },
+    "requestProof": {
+      "path": "/tmp/seconde-v1-withdraw-cache-release-20261126/SAFELOCAL_BUILD_REQUEST_ATTEMPT2.json",
+      "sha256": "3a8ae212a82fe4bfe89a9b15af96464613bb5ddf17aa5bfc0604e19315bb79a5"
+    },
+    "ipa": {
+      "path": "/tmp/seconde-v1-withdraw-cache-release-20261126/ios-production-local.ipa",
+      "sha256": "57c5e8ed02e5ded6a8412cf56b92f8fdb1f765f214bf7953054f4dc73bc72d81",
+      "sizeBytes": 50441220
+    },
+    "projectTarGzipSha256": "5995034f80817ef7ca8dac3844af5c1fb575a2e393f054510dfbea45ab1a4375",
+    "archiveInventorySha256": "c1b85e823f4452cb79c76d65578ff9ef1646afb6f649d321982e6ff40a55658b",
+    "frozenSourceSha256": "da7e735cc99729a67425eeff44b6d6d153f8ed89bb53cca5e59cafeb7969aa43",
+    "buildNumber": "42",
+    "appVersion": "1.0.2",
+    "gitCommitHash": "a4e833825810aee46b72e3bc8c85ba9198bd8e52",
+    "buildProvider": "EAS_LOCAL",
+    "easCloudBuildId": null,
+    "localBuildNormalExitCodeObservedByRoot": 0
+  },
+  "compiledArtifactQualificationCompleted": false,
+  "limits": [
+    "One cloud Android build and one actual successful local iOS artifact; no iOS cloud build ID exists or is invented.",
+    "Original source/archive proof remains pending=true/empty builds and unchanged.",
+    "Failed local41 attempt1 is historical and not used for this provenance."
+  ]
+}

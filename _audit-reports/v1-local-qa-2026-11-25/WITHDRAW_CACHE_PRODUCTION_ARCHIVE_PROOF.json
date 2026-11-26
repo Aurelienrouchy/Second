@@ -1,0 +1,63 @@
+{
+  "protocol": "phase1_withdraw_cache_production_archive_proof_v1",
+  "verifiedAt": "2026-11-26T17:40:36.157051+00:00",
+  "qaSourceSha256": "feec8e907cd7a15f64737ea14fc7e11702ee5b6fc7d54c92612744a9b61f44cd",
+  "productionClientSourceSha256": "462d042b42ce42a9f0f96876b63be177ace0b5fc0213fe5b55b30f0cf87d8a0c",
+  "source": {
+    "protocol": "phase1_production_eas_client_archive_v3_sdk57",
+    "gitCommit": "a4e833825810aee46b72e3bc8c85ba9198bd8e52",
+    "qaSourceSha256": "feec8e907cd7a15f64737ea14fc7e11702ee5b6fc7d54c92612744a9b61f44cd",
+    "archiveInventorySha256": "c1b85e823f4452cb79c76d65578ff9ef1646afb6f649d321982e6ff40a55658b",
+    "archiveFiles": 2079,
+    "buildProfile": "production",
+    "environment": "production",
+    "distribution": "STORE",
+    "firebaseProject": "seconde-b47a6",
+    "bundleIdentifier": "com.seconde.app",
+    "appVersion": "1.0.2",
+    "paymentsEnabled": false,
+    "providerShippingEnabled": false,
+    "commerceTestMode": false,
+    "emulatorsEnabled": false,
+    "phase1QaFlag": false,
+    "nativeProductionFirebaseServicesMatch": true,
+    "nativeNewAnalyticsCollectionClosedByProductionCode": true,
+    "runtimeFileMatches": 1064,
+    "canonicalPackageManager": "npm",
+    "expoVersion": "57.0.34",
+    "reactNativeVersion": "0.86.3",
+    "expectedHermesNativeVersion": "250829098.0.17",
+    "prebuildTemplate": "expo-template-bare-minimum@57.0.36",
+    "iosSceneSupportEnabled": true
+  },
+  "sourceFreezeSha256": "da7e735cc99729a67425eeff44b6d6d153f8ed89bb53cca5e59cafeb7969aa43",
+  "qaInventorySha256": "595656e3fcb2b579c7fd4fe0b22ec8e59a8740bbd5355c30ca7a8d2fe49dee68",
+  "sourceArchiveStrongPatternFindings": 0,
+  "privatePreflightSha256": "eadb0ef47d15ecc8a7d53d25cae70bdb386a7d9fcf02845a1b9029966e9dec00",
+  "bothInspectedPlatformArchiveContentsIdentical": true,
+  "runtimeChanges": [
+    "app/my-articles.tsx",
+    "app/swap/[id].tsx",
+    "features/article/hooks/useArticleActions.ts",
+    "lib/withdrawnArticleCache.ts"
+  ],
+  "sdkDependenciesBackendAndConfigUnchangedSince4bea": true,
+  "expectedNextBuildVersions": {
+    "ios": "40",
+    "android": "21"
+  },
+  "acceptedBuildsPending": true,
+  "easAcceptedBuilds": [],
+  "remoteBuildStartedByThisWorkflow": false,
+  "compiledArtifactQualificationCompleted": false,
+  "historicalProofPinsPreserved": {
+    "CATEGORIES_PRODUCTION_ARCHIVE_PROOF.json": "291d88a4511a9c78e9d44e0856b09e544fdf194e70a18ba42c9c4616796604a9",
+    "CATEGORIES_PRODUCTION_COMPILED_ARTIFACT_PROOF.json": "d996ddcd053c6f6b25c9992754121718f7d8dce4fb53f93e7374bb751aaaa850"
+  },
+  "limits": [
+    "Source archive scope only. Root must separately launch the builds after source/native checks, then capture actual accepted IDs/versions.",
+    "Old39/20 static PASS remains historical and does not qualify these future artifacts.",
+    "Future actual artifacts require identity, versions, Prod configuration, compiled flags, native Hermes .17, OTA and ELF checks.",
+    "Runtime and memory qualification is separately owned."
+  ]
+}

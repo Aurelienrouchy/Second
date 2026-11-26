@@ -1,0 +1,34 @@
+{
+  "protocol": "phase1_local_ios_build_completion_v1",
+  "recordedAt": "2026-11-26T18:03:01.395355+00:00",
+  "observedBy": "root",
+  "processSession": 77105,
+  "normalExitCode": 0,
+  "requestProof": {
+    "path": "/tmp/seconde-v1-withdraw-cache-release-20261126/SAFELOCAL_BUILD_REQUEST_ATTEMPT2.json",
+    "sha256": "3a8ae212a82fe4bfe89a9b15af96464613bb5ddf17aa5bfc0604e19315bb79a5"
+  },
+  "gitCommit": "a4e833825810aee46b72e3bc8c85ba9198bd8e52",
+  "buildProvider": "EAS_LOCAL",
+  "easCloudBuildId": null,
+  "artifact": {
+    "path": "/tmp/seconde-v1-withdraw-cache-release-20261126/ios-production-local.ipa",
+    "sha256": "57c5e8ed02e5ded6a8412cf56b92f8fdb1f765f214bf7953054f4dc73bc72d81",
+    "bytes": 50441220,
+    "bundleIdentifier": "com.seconde.app",
+    "appVersion": "1.0.2",
+    "nativeBuildNumber": "42",
+    "nativeFirebaseProject": "seconde-b47a6"
+  },
+  "privateLogSha256": "bc1c3c29ae2ad92284ed936d4c8607155ac9a9498f0b88e3a172bf0ff03bab11",
+  "cleanup": {
+    "privateWorkingDirectoryRemoved": true,
+    "inputSourceTarRemoved": true,
+    "credentialCleanupStageObserved": true
+  },
+  "limits": [
+    "Normal local EAS build completion and root metadata check only; full static artifact inspection remains separate.",
+    "The safe request reports no credential/job file written by the wrapper. EAS signing itself uses private temporary files; source tar and build working directory cleanup are checked here.",
+    "This does not claim production IPA execution on the physical phone or long-duration memory stability."
+  ]
+}

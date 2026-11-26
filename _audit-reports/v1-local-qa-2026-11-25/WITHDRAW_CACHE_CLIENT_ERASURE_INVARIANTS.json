@@ -1,0 +1,176 @@
+{
+  "protocol": "phase1_withdraw_cache_client_erasure_invariants_v1",
+  "verifiedAt": "2026-11-26T17:47:18.574212+00:00",
+  "status": "STATIC_CLIENT_ARCHIVE_AND_DEPLOYED_COHORT_QUALIFIED_COMPILED_PENDING",
+  "gitCommit": "a4e833825810aee46b72e3bc8c85ba9198bd8e52",
+  "qaSourceSha256": "feec8e907cd7a15f64737ea14fc7e11702ee5b6fc7d54c92612744a9b61f44cd",
+  "productionClientSourceSha256": "462d042b42ce42a9f0f96876b63be177ace0b5fc0213fe5b55b30f0cf87d8a0c",
+  "productionArchiveInventorySha256": "c1b85e823f4452cb79c76d65578ff9ef1646afb6f649d321982e6ff40a55658b",
+  "runtimeFileCount": 1064,
+  "runtimeChanges": [
+    "app/my-articles.tsx",
+    "app/swap/[id].tsx",
+    "features/article/hooks/useArticleActions.ts",
+    "lib/withdrawnArticleCache.ts"
+  ],
+  "baselineClientProof": {
+    "file": "CATEGORIES_CLIENT_ERASURE_INVARIANTS.json",
+    "sha256": "9f2a930d5a36618044634e98687afcb63b9c6d755f59f0eda6eecff612f4656f",
+    "immutable": true
+  },
+  "sourceArchiveProof": {
+    "file": "WITHDRAW_CACHE_PRODUCTION_ARCHIVE_PROOF.json",
+    "sha256": "2e789260b043a99d09614f2fbe8e24246bc5646d9ed12135032620f15515e293",
+    "runtimeDigestsIndependentlyReproducedByRoot": true,
+    "qaProductionAndArchiveDigestsIndependentlyReproducedByRoot": true,
+    "bothArchivesIdentical": true,
+    "filesPerArchive": 2079
+  },
+  "staticFourFileReview": {
+    "file": "WITHDRAW_CACHE_STATIC_ERASURE_REVIEW_a4e83382.json",
+    "sha256": "2f06b05f6d95de1d257755dc41da861518f81d47c9f8b46a6c21e81f104e481f",
+    "rootAlsoReadFinalSourceAndCallSiteDiff": true,
+    "domainDataAndErasureInvariants": {
+      "noNewFirestoreStorageCollectionOrNamespace": true,
+      "noNewProviderPermissionOrSdkDependency": true,
+      "noNewPrivateFieldDurableDomainSchemaOrCapability": true,
+      "noBackendSourceOrRuntimeConfigurationChangeInThisCommit": true,
+      "noNewFinancialWithdrawalRefundOrAccountErasureCommand": true,
+      "existingWithdrawalAndSoldRelistCallablesUnchanged": true,
+      "erasureFenceJournalRpcContractStorageGenerationsAndInventoryUnchanged": true,
+      "existingQueryClientCacheEntriesAreTheOnlyNewlyModifiedState": true,
+      "noNewLocalPersistenceKeyOrPersistenceConfiguration": true,
+      "serverAuthorityNotGrantedByCachePruning": true,
+      "sourceWitnessAndSessionLeaseFieldsNotChanged": true
+    },
+    "currentContextAndCacheSemantics": {
+      "withdrawalEffectsFollowExistingSuccessfulServerOperation": true,
+      "soldEffectsFollowExistingAdoptedCurrentReceiptBeforeReconciliation": true,
+      "currentActorSessionMountAndFocusGuardRecheckedAfterQueryCancellation": true,
+      "oldQueryResponsesCancelledBeforeTheyCanRestorePrunedCards": true,
+      "ownerSoldInventoryKeyPreservedWhilePublicDiscoveryListsRefresh": true,
+      "relistRefreshesWithoutEvictingCurrentCards": true,
+      "swapTransitionRequiresMatchingSwapPartyParticipantsArticleIdsAndAgreementSourceAtDelivery": true,
+      "pendingOrNonparticipantSwapDoesNotPrune": true,
+      "initialHistoricalCompletedSwapOnlyRefreshes": true,
+      "zoneRowsMatchArticleIdAndSellerIdRatherThanZoneDocumentId": true,
+      "queryCursorPageParamsAndUnrelatedReferencesPreserved": true,
+      "noClaimOfFreshServerReattestationAfterTheLocalCancellationAwait": true
+    }
+  },
+  "unchangedRelevantFilesRootVerified": [
+    {
+      "path": "functions/src/utils/accountErasureRuntime.ts",
+      "sha256": "6cb1b702b040dcbd023eae1d8b3730d514398f7328fda169502650e30ace046e"
+    },
+    {
+      "path": "functions/src/utils/accountErasurePolicy.ts",
+      "sha256": "b9d0caec6e550bb2f05b6b367a7add41871edb46f50f7fdf9cd5f3d705f9049e"
+    },
+    {
+      "path": "functions/src/utils/accountErasureContract.ts",
+      "sha256": "7fa754c061eb0ee11bf6e11a8d4accd266dcd789b6d7bd4adc6d214b579c273c"
+    },
+    {
+      "path": "functions/src/utils/accountErasureQualification.ts",
+      "sha256": "97b46089da9328d9c85b1b0ba5936ebd7c1ef7cedf592cebe212e421ff8cafc4"
+    },
+    {
+      "path": "functions/src/utils/accountErasureProviders.ts",
+      "sha256": "da8c7cf1539897900f44884f9b7afe5e940927372f8bd2af0eb7f20de854a61e"
+    },
+    {
+      "path": "functions/src/triggers/accountErasureStorage.ts",
+      "sha256": "6d1523084bfc3e82f88b13f1e40fd1f24047bd9e8f94f4166fbb2bb704d038db"
+    },
+    {
+      "path": "functions/src/utils/privateAccountSession.ts",
+      "sha256": "85d6eb305bd28c18a1fd1961e116a9029d8972746cc9e7c9eedd45281fada5d7"
+    },
+    {
+      "path": "functions/src/utils/financialRecoveryInterlock.ts",
+      "sha256": "d539f72f3a430d999e2c1b46360c695fd11a89738f85c0ab7977344be5a74284"
+    },
+    {
+      "path": "functions/scripts/checkFinancialWriterRegistry.cjs",
+      "sha256": "5be88b40c23941e3382aad292ca253d5a32128999f66a54b7650ab602e3be0c1"
+    },
+    {
+      "path": "firestore.rules",
+      "sha256": "44062a0a04de06919c88c08c521f9ef9f0da20a004543b0c94736c389eb0cc34"
+    },
+    {
+      "path": "storage.rules",
+      "sha256": "c5e79ea41c2d23c3348a492b21579ff041ab118f1edc0665cdcea60a3c7f0407"
+    },
+    {
+      "path": "config/firebaseConfig.ts",
+      "sha256": "4a530e36736e842a135ce3d27a9c0a2411893c1be430e226170aeb0caf49c765"
+    },
+    {
+      "path": "config/posthogConfig.ts",
+      "sha256": "04ecaf5113f26090af13989315b8fb28efca9e9fb2d50557d9c3d41533fc12a5"
+    },
+    {
+      "path": "services/accountErasureService.ts",
+      "sha256": "5adf59b96f7afc7655bee4f3e7996542ecdb9f0b0385e879334006b3a6673a10"
+    },
+    {
+      "path": "services/accountErasureJournal.ts",
+      "sha256": "61edb5f1c4aad031608f41a2734388689284afd91649d46e0ec9716f4af91e48"
+    }
+  ],
+  "packageLocksNativeInputsAndProviderConfigurationByteIdenticalTo4bea": true,
+  "newBackendOrProviderDeploymentRequiredByCacheDelta": false,
+  "newDataNamespacePrivateFieldPersistenceKeyOrRpcCapability": false,
+  "newCloudMutationPerformedForThisProof": false,
+  "deployedProductionEvidence": {
+    "metadataRefreshFile": "PRODUCTION_METADATA_REFRESH_20261126T174201Z.json",
+    "metadataRefreshSha256": "8028139bae636b0b2000942a7ae50d816dddb662e4b76dd0703d14ac7cf7c7bd",
+    "metadataObservedAt": "2026-11-26T17:42:01.497395+00:00",
+    "categoryDeploymentProofSha256": "f8cdb60d5e150fc55260054fa2fd3354cb108b659ae723187e85ebaaef66767b",
+    "categoryWriterProvenanceSupplementSha256": "8c9472e5990a20206e731859654728439d2625a4604744de1994851459980991",
+    "phase1SourceCohorts": {
+      "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771": 20,
+      "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a": 74,
+      "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde": 21
+    },
+    "receipt": {
+      "sha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+      "generation": "1795696554296081",
+      "expiresAt": "2026-12-25T22:55:33.429113+00:00",
+      "immutableCanonicalBytesMatch": true,
+      "runtimeExactGetOnlyBindingPresent": true
+    },
+    "control": {
+      "generation": "1795639824843632",
+      "mode": "normal",
+      "financialEnvironment": "unconfigured",
+      "sameApprovedHash": true
+    },
+    "legacyServicesClosed": 77,
+    "obsoleteJobsPaused": 17,
+    "engineSourcesAndReceiptPinsUnchanged": true
+  },
+  "nativeAndTests": {
+    "physicalIphoneReportFile": "IPHONE_SDK57_FINAL_OBSERVATIONS.json",
+    "physicalIphoneReportSha256": "c37a302fb12140609d01a9fa9f4c8ba9ed6554463269811aa4ee30c9b3e1ce5e",
+    "nativeMode": "Dev SDK57 same final source, not production IPA",
+    "finalAppChecksFile": "WITHDRAW_CACHE_FINAL_APP_CHECKS.json",
+    "finalAppChecksSha256": "ecb72d270f25597715a3882a9d650700c546c94b0c62320368aa9e223aed0da1"
+  },
+  "compiledProductionBinaryQualification": "PENDING_SEPARATE_ACTUAL_NEW_ARTIFACT_PROOF",
+  "physicalProductionBinaryTestClaimed": false,
+  "realAppleGoogleOAuthOrRevocationClaimed": false,
+  "longDurationMemoryStabilityClaimed": false,
+  "productionBusinessOrErasureInvocationForThisProof": false,
+  "noProductionSecretOrAccountDataCopiedToDev": true,
+  "limits": [
+    "This qualifies the new client source/archive and unchanged erasure/data contracts against separately observed deployed server cohorts.",
+    "The source archive remains immutable with zero accepted build rows; actual cloud/local build provenance is a separate record.",
+    "No new store binary or long-duration memory outcome is inferred from source equality or Dev native observations.",
+    "Receipt211 client provenance is historical and is not a caller-binary whitelist; receipt3eb and matrix800c remain unchanged.",
+    "The current runtime engine receipt expires on its existing December25 deadline; this proof does not renew it.",
+    "The Prod metadata snapshot remains dated17:42:01UTC, not relabeled to this proof generation time."
+  ]
+}

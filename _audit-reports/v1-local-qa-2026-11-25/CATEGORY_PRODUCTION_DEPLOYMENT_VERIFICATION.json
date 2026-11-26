@@ -1,0 +1,642 @@
+{
+  "protocol": "phase1_category_production_deployment_verification_v1",
+  "status": "DEPLOYED_SOURCE_VERIFIED_AND_PREVIOUS_INVOCATION_BOUND_OBSERVED",
+  "verifiedAt": "2026-11-26T16:04:46.787188+00:00",
+  "project": "seconde-b47a6",
+  "candidateGitCommit": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47",
+  "qaSourceSha256": "fdfd9d6c0ab1575e4863d5115c18c192e9abbfaeabfc0df001791ef0a1a61ad7",
+  "serverSourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+  "rootReviewedPreflightSha256": "fa2d2bcc70bddf07992517bb49ff06932179fbd13959b73d2b9646b94575eb81",
+  "rootReviewedScopeGraphSha256": "c11231be3e4fc62ec824d9bb5f38a039df03069066d9e3b6f2f7f6c5824703ea",
+  "deploymentExitCode": 0,
+  "successfulUpdateOperations": 20,
+  "actualNativeFunctionCount": 192,
+  "phase1FunctionCount": 115,
+  "selectedCount": 20,
+  "retainedNativeCount": 172,
+  "retainedPhase1Count": 95,
+  "all172OtherNativeMetadataUnchanged": true,
+  "all95OtherPhase1MetadataUnchanged": true,
+  "selectedFunctions": [
+    {
+      "name": "acceptMeetupOfferV2",
+      "active": true,
+      "revision": "acceptmeetupofferv2-00003-dal",
+      "updatedAt": "2026-11-26T15:58:26.529993064Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": {
+        "before": "http",
+        "after": null
+      },
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "acceptSwapV2",
+      "active": true,
+      "revision": "acceptswapv2-00003-kiq",
+      "updatedAt": "2026-11-26T15:58:28.995807179Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "addItemToPartySecureV2",
+      "active": true,
+      "revision": "additemtopartysecurev2-00003-zuz",
+      "updatedAt": "2026-11-26T15:58:28.189123502Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "administerSupportRequest",
+      "active": true,
+      "revision": "administersupportrequest-00002-pet",
+      "updatedAt": "2026-11-26T15:58:26.491604611Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "analyzeProductImage",
+      "active": true,
+      "revision": "analyzeproductimage-00031-puy",
+      "updatedAt": "2026-11-26T15:58:27.965812863Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "closeMeetupNoShowV2",
+      "active": true,
+      "revision": "closemeetupnoshowv2-00002-fop",
+      "updatedAt": "2026-11-26T15:58:26.655939509Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "commandSupportRequest",
+      "active": true,
+      "revision": "commandsupportrequest-00002-vog",
+      "updatedAt": "2026-11-26T15:58:27.413799815Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "contestAutomatedDecision",
+      "active": true,
+      "revision": "contestautomateddecision-00009-roj",
+      "updatedAt": "2026-11-26T15:58:26.433238166Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "createArticleV2",
+      "active": true,
+      "revision": "createarticlev2-00002-kob",
+      "updatedAt": "2026-11-26T15:58:26.730722151Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": {
+        "before": null,
+        "after": "http"
+      },
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "getMyEligibility",
+      "active": true,
+      "revision": "getmyeligibility-00003-zug",
+      "updatedAt": "2026-11-26T15:58:26.213242913Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "getPendingReportsV2",
+      "active": true,
+      "revision": "getpendingreportsv2-00002-xef",
+      "updatedAt": "2026-11-26T15:58:26.078823659Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "getWalletInfo",
+      "active": true,
+      "revision": "getwalletinfo-00014-dov",
+      "updatedAt": "2026-11-26T15:58:26.592810955Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "proposeMultiSwapV2",
+      "active": true,
+      "revision": "proposemultiswapv2-00003-mav",
+      "updatedAt": "2026-11-26T15:58:26.362632757Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "readSupportRequests",
+      "active": true,
+      "revision": "readsupportrequests-00002-yah",
+      "updatedAt": "2026-11-26T15:58:26.404615798Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "sellerCancelTransactionV2",
+      "active": true,
+      "revision": "sellercanceltransactionv2-00002-jok",
+      "updatedAt": "2026-11-26T15:58:26.189254335Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "sendMeetupProposalV2",
+      "active": true,
+      "revision": "sendmeetupproposalv2-00003-vip",
+      "updatedAt": "2026-11-26T15:58:28.089155501Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "submitReportV2",
+      "active": true,
+      "revision": "submitreportv2-00002-nod",
+      "updatedAt": "2026-11-26T15:58:28.722131978Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "toggleArticleSoldV2",
+      "active": true,
+      "revision": "togglearticlesoldv2-00002-bet",
+      "updatedAt": "2026-11-26T15:58:26.592699455Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "triageReportV2",
+      "active": true,
+      "revision": "triagereportv2-00002-yil",
+      "updatedAt": "2026-11-26T15:58:26.655869753Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    },
+    {
+      "name": "updateArticleV2",
+      "active": true,
+      "revision": "updatearticlev2-00002-lib",
+      "updatedAt": "2026-11-26T15:58:26.435201046Z",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "operatorEnvironmentAndSecretRefsUnchangedExceptSourceHash": true,
+      "managedHttpSignatureNormalization": null,
+      "nativeResourcesAndIamBindingsPreserved": true,
+      "newRevision100PercentTraffic": true
+    }
+  ],
+  "actualUploadedSourceArtifacts": [
+    {
+      "functions": [
+        "acceptMeetupOfferV2"
+      ],
+      "sourceGeneration": "1795708637604216",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "acceptSwapV2"
+      ],
+      "sourceGeneration": "1795708695611588",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "addItemToPartySecureV2"
+      ],
+      "sourceGeneration": "1795708695523226",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "administerSupportRequest"
+      ],
+      "sourceGeneration": "1795708695513257",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "analyzeProductImage"
+      ],
+      "sourceGeneration": "1795708695611892",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "closeMeetupNoShowV2"
+      ],
+      "sourceGeneration": "1795708695642578",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "commandSupportRequest"
+      ],
+      "sourceGeneration": "1795708695564796",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "contestAutomatedDecision"
+      ],
+      "sourceGeneration": "1795708695593353",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "createArticleV2"
+      ],
+      "sourceGeneration": "1795708695554337",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "getMyEligibility"
+      ],
+      "sourceGeneration": "1795708695836034",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "getPendingReportsV2"
+      ],
+      "sourceGeneration": "1795708695518039",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "getWalletInfo"
+      ],
+      "sourceGeneration": "1795708695849139",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "proposeMultiSwapV2"
+      ],
+      "sourceGeneration": "1795708695876405",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "readSupportRequests"
+      ],
+      "sourceGeneration": "1795708695559160",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "sellerCancelTransactionV2"
+      ],
+      "sourceGeneration": "1795708695533612",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "sendMeetupProposalV2"
+      ],
+      "sourceGeneration": "1795708695547361",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "submitReportV2"
+      ],
+      "sourceGeneration": "1795708695533053",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "toggleArticleSoldV2"
+      ],
+      "sourceGeneration": "1795708695559380",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "triageReportV2"
+      ],
+      "sourceGeneration": "1795708695562362",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    },
+    {
+      "functions": [
+        "updateArticleV2"
+      ],
+      "sourceGeneration": "1795708695560391",
+      "archiveSha256": "ddfb6cba8430110377ecf135cc90e21cd7e46c130ea72c398e6e8ebe25c65ca4",
+      "archiveMd5": "cBUPB5NUIUA9bt+ylFWnwQ==",
+      "archiveSize": "6100128",
+      "allFrozenSourceCompiledWrapperAndPackageFilesMatch": true,
+      "environmentEntriesNeverRead": true,
+      "correctProductionEnvironmentOnlyAndNeverRead": true
+    }
+  ],
+  "actualUploadedSourceObjectCount": 20,
+  "all20ActualZipGenerationsReadInMemoryAndCodeBytesVerified": true,
+  "sourceFiles": 314,
+  "changedSourcePathsVsApproved3eStage": [
+    "shared/articleHygiene.ts",
+    "shared/categories.ts"
+  ],
+  "preparedLocalOfficialFirebasePackageSha256": "4f0cb1603604267754851c838d7565f1786037dfa505d193768df5c8ba19f163",
+  "sourceAndCompiledFreezeSha256": "95df4455efb575d09b32579be6ab5d96e8a6f4651195254006107f536ec283c6",
+  "allSelectedOperatorProfilesSecretVersionsResourcesIngressAndIamEnforcementPreserved": true,
+  "existingGeminiReference": {
+    "project": "seconde-b47a6",
+    "secret": "GEMINI_API_KEY",
+    "version": "2",
+    "secretValueRead": false
+  },
+  "managedHttpSignatureNormalizations": [
+    {
+      "name": "acceptMeetupOfferV2",
+      "before": "http",
+      "after": null
+    },
+    {
+      "name": "createArticleV2",
+      "before": null,
+      "after": "http"
+    }
+  ],
+  "qualification": {
+    "phase1SourceCohorts": {
+      "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771": 20,
+      "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a": 74,
+      "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde": 21
+    },
+    "all77LegacyIamBindingsUnchangedAndNoPublicPrincipal": true,
+    "all19EventarcAnd5CronPrivateExactInvokers": true,
+    "receiptSha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+    "receiptGeneration": "1795696554296081",
+    "receiptExpiryPreserved": "2026-12-25T22:55:33.429113+00:00",
+    "writerMatrixSha256": "800c5b898f3ec1c27491f6858c94503539b64bf8de04572dbc2e13b9a7f0be36",
+    "fiveErasureSourcesRevisionsPinsAndProfilesUnchanged": true,
+    "controlGeneration": "1795639824843632",
+    "controlNormalUnconfiguredUnchanged": true,
+    "receiptRuntimeExactObjectGetOnlyBindingPreserved": true,
+    "rulesNativeHashesMatchApprovedReceipt": true,
+    "searchHistoryTimestampDescReady": true,
+    "oldInvocationDrainNotBefore": "2026-11-26T16:00:27.966812+00:00",
+    "oldInvocationDrainObserved": false,
+    "newReceiptOrPinPublished": false,
+    "oldQualificationFilesUnmodified": true,
+    "sourceHashIsNewNotReusedOld3e": true
+  },
+  "previousInvocationBound": {
+    "protocol": "phase1_category_prod_old_invocation_bound_observation_v1",
+    "project": "seconde-b47a6",
+    "observedAt": "2026-11-26T16:02:05.922870+00:00",
+    "notBefore": "2026-11-26T16:00:27.966812+00:00",
+    "observedAfterBoundary": true,
+    "readbackSha256": "f177c2ffe60d1867c3ff8ed2f6b7175e9ea0c628e10a92f3e1cf5392927e5c00",
+    "maximumPreviousTimeoutSeconds": 120,
+    "formula": "max(each actual new function updateTime + that function native previous timeout +1ms)",
+    "all192FunctionMetadataUnchangedSinceExactSourceReadback": true,
+    "unorderedEventarcFilterArraysComparedByExactSortedValues": true,
+    "all115Phase1Active": true,
+    "all20VerifiedRevisionsStill100PercentTrafficWithoutTaggedOldTarget": true,
+    "selectedFunctions": [
+      "acceptMeetupOfferV2",
+      "acceptSwapV2",
+      "addItemToPartySecureV2",
+      "administerSupportRequest",
+      "analyzeProductImage",
+      "closeMeetupNoShowV2",
+      "commandSupportRequest",
+      "contestAutomatedDecision",
+      "createArticleV2",
+      "getMyEligibility",
+      "getPendingReportsV2",
+      "getWalletInfo",
+      "proposeMultiSwapV2",
+      "readSupportRequests",
+      "sellerCancelTransactionV2",
+      "sendMeetupProposalV2",
+      "submitReportV2",
+      "toggleArticleSoldV2",
+      "triageReportV2",
+      "updateArticleV2"
+    ],
+    "noBusinessEndpointInvoked": true,
+    "noStorageErasureOrUnknownResumableWorkDrainClaimed": true
+  },
+  "boundedErrorLogMetadata": {
+    "protocol": "phase1_category_prod_bounded_error_metadata_v1",
+    "project": "seconde-b47a6",
+    "verifiedAt": "2026-11-26T16:04:46.049942+00:00",
+    "from": "2026-11-26T15:56:57.754Z",
+    "to": "2026-11-26T16:04:46.049942+00:00",
+    "phase1ServiceCount": 115,
+    "severityFilter": "ERROR and above",
+    "errorEntriesReturned": 0,
+    "byService": {},
+    "truncated": false,
+    "onlyMetadataRequested": true,
+    "jsonTextProtoPayloadsNeverRequested": true,
+    "businessInvocationFromThisCheck": false
+  },
+  "pipelineIncidents": {
+    "productDeploymentFailures": 0,
+    "normalManagedSignatureChangesExplicitlyRecorded": true,
+    "drainObserverFirstAttemptRejectedUnsortedEventarcFilterArrayOrder": true,
+    "drainObserverThenComparedExactSortedFilterValuesWithoutConfigurationMutation": true,
+    "noSecondProductionDeploymentAttempt": true
+  },
+  "privateEvidenceDigests": [
+    {
+      "file": "ROOT_GO_SCOPE_20261126.json",
+      "sha256": "0bfc888cc288d5aebe3aa9f092698ce3e454104661ebc7e11cef36d41c0cbeb6"
+    },
+    {
+      "file": "PRODUCTION_DEPLOY_ATTEMPT_20261126.json",
+      "sha256": "f8f2eb540f3735ca84beafa3be73cebd7812f47b9b8695b6e9faab98b19313cd"
+    },
+    {
+      "file": "DEPLOYMENT_READBACK_PROOF.json",
+      "sha256": "f177c2ffe60d1867c3ff8ed2f6b7175e9ea0c628e10a92f3e1cf5392927e5c00"
+    },
+    {
+      "file": "OLD_INVOCATION_DRAIN_OBSERVATION.json",
+      "sha256": "52dc8c1251d8100c73ff06f76e2c7d084443dea79b908440a855e47dd3190b53"
+    },
+    {
+      "file": "BOUNDED_PRODUCTION_LOG_METADATA.json",
+      "sha256": "dc2c8e7d6c91478b53fb013b44a16e152450f93484b41ef696ac2a516873a031"
+    }
+  ],
+  "newServicesCreated": false,
+  "newIamPermissionsAdded": false,
+  "fiveErasureFunctionsOrPinsChanged": false,
+  "rulesIndexControlReceiptOrSchedulerMutation": false,
+  "legacy77Reopened": false,
+  "obsolete17JobsRestarted": false,
+  "productionBusinessAccountCreatedOrDeleted": false,
+  "productionBusinessEndpointInvokedForVerification": false,
+  "productionDataOrSecretsCopiedToDev": false,
+  "forcedDeployOrOrphanDeletion": false,
+  "storeActionsPerformedByThisWorker": false,
+  "gitMutationPerformedByThisWorker": false,
+  "limits": [
+    "Production code/configuration/source/traffic and bounded error-metadata checks only; no production business journey or erasure command was invoked.",
+    "The old-invocation observation covers the twenty replaced HTTP functions with their actual previous timeout bounds; it does not assert unknown resumable Storage work drained.",
+    "New39/20 client archives, compiled artifacts and native device journeys remain separately qualified by Root.",
+    "Historical receipt3eb and matrix800c remain exact immutable baseline records; this new report does not relabel their historical client or function provenance."
+  ]
+}

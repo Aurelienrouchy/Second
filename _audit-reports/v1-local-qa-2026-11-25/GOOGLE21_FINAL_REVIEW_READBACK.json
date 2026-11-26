@@ -1,0 +1,26 @@
+{
+  "protocol": "phase1_google21_final_review_ui_readback_v1",
+  "observedAt": "2026-11-26T18:46:43.098Z",
+  "url": "https://play.google.com/console/u/2/developers/6893666166080369968/app/4974846113159684528/publishing",
+  "tabId": "1731993272",
+  "releaseName": "1.0.2 (21) — Correctifs V1",
+  "versionCode": 21,
+  "status": "IN_REVIEW",
+  "actualHeading": "Modifications en cours d'examen",
+  "actualMessage": "Vos modifications sont en cours d'examen. Il est possible que d'autres problèmes soient identifiés lors de l'examen de votre appli.",
+  "quickChecksPending": false,
+  "quickCheckTimerPresent": false,
+  "managedPublishingDisabled": true,
+  "sendButtonCount": 0,
+  "productionChangeRows": [
+    "1.0.2 (21) — Correctifs V1 Lancer le déploiement complet"
+  ],
+  "rolloutPercentFromConfirmedPreview": 100,
+  "old17ExplicitlyNotIncluded": true,
+  "old19RemovedFromDraftRetainedInArtifactLibrary": true,
+  "onlyNew21Sent": true,
+  "limits": [
+    "Review is ongoing, not approved or live. Publication is automatic after approval with managed publishing disabled.",
+    "The initial transient UI error did not cause a second send; fresh server-backed UI showed the accepted change and later completed automatic checks."
+  ]
+}

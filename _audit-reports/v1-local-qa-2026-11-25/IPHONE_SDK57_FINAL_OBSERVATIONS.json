@@ -1,0 +1,146 @@
+{
+  "protocol": "phase1_sdk57_physical_iphone_final_observations_v1",
+  "recordedAt": "2026-11-26T17:38:45.357437+00:00",
+  "reviewedBy": "root",
+  "gitCommit": "a4e833825810aee46b72e3bc8c85ba9198bd8e52",
+  "target": {
+    "model": "iPhone 13 Pro Max",
+    "physicalUsb": true,
+    "os": "iOS 27.0.1",
+    "bundleIdentifier": "com.seconde.app.dev",
+    "firebaseProject": "seconde-dev",
+    "expoSdk": 57,
+    "nativeHermesVersion": "250829098.0.17",
+    "installation": "Official devicectl app update preserving data",
+    "metro": "Root USB8094, phase1 QA, restarted after final four runtime file writes",
+    "nativeProductionBinaryTested": false
+  },
+  "runtimeFileSha256": {
+    "app/my-articles.tsx": "11aafb6a44a096cffc0de07886ef03d8ddcc24f89cc771365b01ab4174577c82",
+    "features/article/hooks/useArticleActions.ts": "efb91cb62724257657b57abeaceda6af464179f19979209192448d350d3f303b",
+    "app/swap/[id].tsx": "a23f9438100974a493c0ab62d2b718cc057a788f43bab4eb6601069126280679",
+    "lib/withdrawnArticleCache.ts": "b33548acfbea2d45380212dada88305558614c51b4f1edcf6bfbb0f4c2823e36"
+  },
+  "observedNativePassed": [
+    "guestHome",
+    "emailSignIn",
+    "searchSDK57 actualA13+B12, oldwithdrawexcluded",
+    "Bproduct Baskets42EU",
+    "favoriteB and persistence afterreload",
+    "nativePhotos picker cancel with zeroimport",
+    "onlypubliclogo added via temporaryUSBHTTP Safari→Photos",
+    "nativegallery imported1/5publiclogo",
+    "X singleQuitterconfirmation",
+    "draft1photo exit→resume→1/5→PhotosReview",
+    "Troc received12/13 withoutcash, terms review, checkbox, accept",
+    "Troc both participants receptions→completed",
+    "Troc rating5/5 saved both; no commentfield",
+    "manual listing Maison/Affiches with1publiclogo",
+    "price12/MileEnd preserved backDetails→Pricing",
+    "publicationC receipt",
+    "editC13 globalSave WITHOUT inlineConfirm→success→fresharticle13",
+    "Owner manual sold: home card disappears without refresh; other cards retained",
+    "Owner sold row preserved in My articles, allowing normal relist",
+    "Owner relist: home card returns at 13 CAD without refresh",
+    "My articles withdrawal: article count 2 to 1, older sold fixture preserved; home card disappears without refresh"
+  ],
+  "finalFixture": {
+    "articleId": "398c5e2b3455c23352c8",
+    "synthetic": true,
+    "status": "WITHDRAWN_BY_NORMAL_OWNER_UI",
+    "personalMediaImported": false,
+    "publicLogoOnly": true,
+    "otherExistingOwnerArticlePreserved": true
+  },
+  "completedSwap": {
+    "swapId": "swap_15c23837e6142ff9f3497ac326b5389b83f9d035bdfcc4c9ab2fae58ae16d960",
+    "bothReceptionsObserved": true,
+    "bothRatings5Of5Observed": true,
+    "consumedArticleIds": [
+      "976d3a547293860e5d43",
+      "2a689db10205c5ae9c77"
+    ],
+    "forcedRelist": false
+  },
+  "recordings": [
+    {
+      "name": "iphone-sdk57-login-replay",
+      "steps": 11,
+      "yamlSha256": "649e83451258fa34aba6e5888d43a251037031ebfa93e5a5f346fa79113ccc39",
+      "finished": true,
+      "replayed": true,
+      "result": "PASS_11_OF_11"
+    },
+    {
+      "name": "iphone-sdk57-v1-parcours-20261126-take1",
+      "steps": 83,
+      "yamlSha256": "03c1fe4bdee887fa9969028f6e4fef8c90eb33f8386b7abe28c07d48c0082f2c",
+      "finished": true,
+      "replayed": false,
+      "result": "OBSERVED_NATIVE_DIAGNOSTIC_NOT_REPLAYED"
+    },
+    {
+      "name": "iphone-sdk57-final-availability-20261126-take1",
+      "steps": 18,
+      "yamlSha256": "b7a822cb7fd866afbff67c269a72635c6b874090bba0bd1a69c20d2245ad9a51",
+      "finished": true,
+      "replayed": false,
+      "result": "OBSERVED_NATIVE_DIAGNOSTIC_NOT_REPLAYED"
+    }
+  ],
+  "captures": [
+    {
+      "path": "iphone-sdk57/gallery-public-logo.png",
+      "sha256": "adb83688a011b708978210c21c5f73a0c62059a76c818a501bc41dfb813ee494"
+    },
+    {
+      "path": "iphone-sdk57/draft-one-photo-resumed.png",
+      "sha256": "3cf630998b1d6aa7e1a488ae2eb72ea6a4a29c18ed6f8b22bbe8113f2ca38bfe"
+    },
+    {
+      "path": "iphone-sdk57/troc-completed.png",
+      "sha256": "81e24484029a8a76b0918f5d5c556394d92dcd8cd130c2d8456d88031c41ef77"
+    },
+    {
+      "path": "iphone-sdk57/price-back-persisted.png",
+      "sha256": "11b205f711b2b6374328e4723766d0e62760b572eed4d067c107ee6ec3296145"
+    },
+    {
+      "path": "iphone-sdk57/edited-price-13.png",
+      "sha256": "6a027550da250280620360e9bfcee0f7003621a90c74d573c5261ca067f2b9bc"
+    },
+    {
+      "path": "iphone-sdk57/home-before-sold.png",
+      "sha256": "1f03d26da10164350e9a8374c00cd14dfa5f8c899f83bda485793e43b832e38f"
+    },
+    {
+      "path": "iphone-sdk57/home-after-sold.png",
+      "sha256": "64ee0afdc13cb7b73f88687505380145fac3a9adcbf53d3fca03c3d877f0407d"
+    },
+    {
+      "path": "iphone-sdk57/sold-owner-row-retained.png",
+      "sha256": "16d27a84e597273921b40b703b00100d8d91da939f1e4cb498baa43bdb05166b"
+    },
+    {
+      "path": "iphone-sdk57/home-after-relist.png",
+      "sha256": "db22db14edec62d7289fb7f19a84f4481d0bc7c73de93c519e21f46eccc4591c"
+    },
+    {
+      "path": "iphone-sdk57/my-articles-after-withdraw.png",
+      "sha256": "794011635b430c2bb1b9bff7d18e8e45ded98293545bccd85bccadd6a4333511"
+    },
+    {
+      "path": "iphone-sdk57/home-after-withdraw.png",
+      "sha256": "0e49b0c032b00d022764859609161d1b107b953fbed7240e57376113c14a89c9"
+    }
+  ],
+  "limits": [
+    "Full physical journey and final availability sequence were observed live and recorded, not replayed end to end.",
+    "The 83-step diagnostic includes one wrong favorite-selector wait and one system-notification interruption, corrected during the live run.",
+    "Login alone was replayed: 11/11 passed, zero failed/errored/skipped.",
+    "Completed-swap cache transition fix has real QueryClient/subscription regression tests; no second destructive physical swap was created to replay that post-fix transition.",
+    "This was the SDK57 development client on Dev using the final client source, not the signed production IPA.",
+    "Photos-picker and system-notification captures remain private and are excluded from this report.",
+    "No production business mutation, real payment, or personal photo import was performed."
+  ]
+}

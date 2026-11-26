@@ -1,0 +1,1770 @@
+{
+  "protocol": "phase1_production_metadata_refresh_v1",
+  "project": "seconde-b47a6",
+  "startedAt": "2026-11-26T18:19:42.493225+00:00",
+  "verifiedAt": "2026-11-26T18:19:51.666271+00:00",
+  "status": "PASS_NATIVE_METADATA_AND_CONFIGURATION_READBACK",
+  "comparisonBaseline": {
+    "source": "actual post-deployment metadata after reviewed20-function rollout",
+    "fileSha256": "c9eff4336a54f004323f88d343c80c517faaa0208205bb9bf7a90dd740d6b681",
+    "deploymentPublicProofSha256": "f8cdb60d5e150fc55260054fa2fd3354cb108b659ae723187e85ebaaef66767b",
+    "writerPublicSupplementSha256": "8c9472e5990a20206e731859654728439d2625a4604744de1994851459980991"
+  },
+  "nativeFunctionCount": 192,
+  "phase1FunctionCount": 115,
+  "selected20": [
+    {
+      "name": "acceptMeetupOfferV2",
+      "revision": "acceptmeetupofferv2-00003-dal",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "acceptSwapV2",
+      "revision": "acceptswapv2-00003-kiq",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "addItemToPartySecureV2",
+      "revision": "additemtopartysecurev2-00003-zuz",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "administerSupportRequest",
+      "revision": "administersupportrequest-00002-pet",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "analyzeProductImage",
+      "revision": "analyzeproductimage-00031-puy",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [
+        "GEMINI_API_KEY"
+      ],
+      "secretReferenceVersions": [
+        "2"
+      ]
+    },
+    {
+      "name": "closeMeetupNoShowV2",
+      "revision": "closemeetupnoshowv2-00002-fop",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "commandSupportRequest",
+      "revision": "commandsupportrequest-00002-vog",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "contestAutomatedDecision",
+      "revision": "contestautomateddecision-00009-roj",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "createArticleV2",
+      "revision": "createarticlev2-00002-kob",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "getMyEligibility",
+      "revision": "getmyeligibility-00003-zug",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "getPendingReportsV2",
+      "revision": "getpendingreportsv2-00002-xef",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "getWalletInfo",
+      "revision": "getwalletinfo-00014-dov",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "proposeMultiSwapV2",
+      "revision": "proposemultiswapv2-00003-mav",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "readSupportRequests",
+      "revision": "readsupportrequests-00002-yah",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "sellerCancelTransactionV2",
+      "revision": "sellercanceltransactionv2-00002-jok",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "sendMeetupProposalV2",
+      "revision": "sendmeetupproposalv2-00003-vip",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "submitReportV2",
+      "revision": "submitreportv2-00002-nod",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "toggleArticleSoldV2",
+      "revision": "togglearticlesoldv2-00002-bet",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "triageReportV2",
+      "revision": "triagereportv2-00002-yil",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    },
+    {
+      "name": "updateArticleV2",
+      "revision": "updatearticlev2-00002-lib",
+      "sourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+      "active": true,
+      "sameNativeMetadataAsDeployedBaseline": true,
+      "secretReferenceNames": [],
+      "secretReferenceVersions": []
+    }
+  ],
+  "phase1SourceCohorts": {
+    "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771": 20,
+    "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a": 74,
+    "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde": 21
+  },
+  "nativeMetadataComparisons": [
+    {
+      "name": "expireStaleProposedSwaps",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "createArticle",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getPendingReports",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "checkExpoPushReceipts",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getAdminEligibilityReview",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "createArticleV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "recordPriceDrop",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "alertAgingDisputes",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "eraseLateAccountStorage",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "updateSearchIndex",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "toggleProductLike",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "stripeWebhook",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "refundWalletPayment",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "onSwapStatusUpdated",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getMomentProducts",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "onSwapCreated",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "cleanupSearchIndex",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "proposeMultiSwap",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "sellerCancelTransaction",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "readPrivateArticleEvidence",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "requestReturn",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "consolidateChatDuplicates",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "triageReport",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getPendingReportsV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getAutomatedDecisionLog",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "onArticleFavorited",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "proposeMultiSwapV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "updatePopularityScores",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "withdrawArticlePrivacy",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "triageReportV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "expireStaleAcceptedOffers",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "cleanupExpiredDrafts",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "reconcileFinances",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "resolveDispute",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "onArticleSold",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getPriceDrops",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "checkSavedSearchNotifications",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "generateEmbeddingOnCreate",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "analyzeProductImage",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "reportTransactionProblem",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "confirmMeetupTransaction",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "submitReport",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "completeAccountErasureAppleWeb",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "rejectMeetupProposal",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "reportMeetupNoShow",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "markSavedSearchViewed",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "expirePhase1LocalOffers",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "createReviewV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "resolveSwapDispute",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "purchaseShopTier",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "sendOfferStatusNotification",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getSwapPartyLeaderboard",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "approveShop",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "flagEligibilityForReview",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "activateWallet",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "cancelPendingTransaction",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "sendMeetupProposalV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getLikedSellers",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getUserReviews",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "suspendShop",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "rateSwap",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "completeMeetupTransaction",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "cancelPendingTransactionV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "updateSellerArticlesCount",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "cancelSwap",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "shipEngineWebhook",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "rejectShop",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "adminRefundTransaction",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "confirmSwapShippingV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "backfillEmbeddings",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "setSwapExchangeMode",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getPrivacyIncidentsLog",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "deliverOperationalNotices",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "updateArticle",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "expireOrphanedTransactions",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "closeMeetupNoShowV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "contestAutomatedDecision",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "toggleProductLikeV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "setMarketingConsent",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getWalletInfo",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getSimilarProducts",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getFeaturedSellers",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "postChatSystemMessage",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "escalatePrivacyIncidentToCAI",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getTrendingBrands",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "sweepPendingLabels",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "removeItemFromPartySecure",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "confirmMeetupTransactionV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "generateEmbeddingOnUpdate",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "findPickupPoints",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "rejectMeetupProposalV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "addEligibilityReviewDetails",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "toggleSellerLike",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getActiveMoments",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "releaseHeldFunds",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "addBankAccount",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "toggleArticleSold",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getHomeFeed",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "administerSupportRequest",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "sendMeetupProposal",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "declineSwap",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "toggleArticleSoldV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "openSwapDispute",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "addItemToPartySecureV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "accountErasureAppleWebCallback",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "confirmSwapReceptionV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "startAccountErasureAppleWeb",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "payWithWallet",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "prepareAccountErasureAppleWeb",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "sellerCancelTransactionV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "checkUsernameAvailability",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "manageAccountErasure",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "addItemToPartySecure",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "onArticleInfoUpdated",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "setMarketingConsentV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "updateShopArticlesCount",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "decideEligibilityReview",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "accountAccessIntake",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getActiveSwapPartyInfo",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "submitReportV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "updateGlobalStats",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "markSavedSearchViewedV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "notifyAffectedUsers",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "expirePhase1LocalProposals",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getServiceFee",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "readSupportRequests",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "ensureGeneralistZone",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "expireStalePostAcceptanceSwaps",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "uploadStripeIdentityDocument",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "resumeAccountErasures",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "readPrivateArticleMedia",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "checkShippedTracking",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "declineSwapV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getNewArrivals",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "listAdminEligibilityReviews",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "createReview",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "rateSwapV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "requestRefund",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "incrementProductView",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "createTransaction",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "deleteUserAccount",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "expireStaleOffers",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getUserPublicProfile",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "createSwapTopUpCheckout",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "confirmSwapReception",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "sendMessageNotification",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "checkTrackingStatus",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "reportMeetupNoShowV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "acceptSwap",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "saveOnboardingPreferences",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "onArticleSoftDeleted",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "deleteUserAccountV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "updateUserStats",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "commandSupportRequest",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "continueAccountErasure",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "generateStyleProfile",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "onUserProfileUpdated",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "recordSignupConsentV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "readPrivateProfileMedia",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getStripeAccountStatus",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "declareSellerActivityV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "createStripeConnectAccount",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getMyEligibility",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getActiveSwapPartyInfoV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getEligibilityReview",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "assignUsername",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "recordSignupConsent",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "onArticlePriceDropped",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "incrementProductViewV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "acceptMeetupOfferV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "confirmSwapShipping",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "acceptSwapV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "visualSearch",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "retryFailedOperations",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "uploadSwapPhotos",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "dispatchOperationalNoticeOnCreate",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "setSwapExchangeModeV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "cancelSwapV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "completeMeetupTransactionV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "updateArticleV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "requestEligibilityReview",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "createStripeCheckout",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "secureMyAccount",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "uploadSwapPhotosV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "reportPrivacyIncident",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "listMyEligibilityReviews",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "ensureGeneralistZoneV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "removeItemFromPartySecureV2",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "acceptMeetupOffer",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "getShippingEstimate",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "walletWithdraw",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    },
+    {
+      "name": "retentionPurge",
+      "metadataUnchanged": true,
+      "differentFieldNames": []
+    }
+  ],
+  "all192NativeMetadataUnchanged": true,
+  "retained95Phase1MetadataUnchanged": true,
+  "fiveErasureEngines": [
+    {
+      "name": "deleteUserAccountV2",
+      "revision": "deleteuseraccountv2-00006-qan",
+      "active": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "receiptSha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+      "receiptGeneration": "1795696554296081"
+    },
+    {
+      "name": "manageAccountErasure",
+      "revision": "manageaccounterasure-00005-mih",
+      "active": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "receiptSha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+      "receiptGeneration": "1795696554296081"
+    },
+    {
+      "name": "continueAccountErasure",
+      "revision": "continueaccounterasure-00006-put",
+      "active": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "receiptSha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+      "receiptGeneration": "1795696554296081"
+    },
+    {
+      "name": "resumeAccountErasures",
+      "revision": "resumeaccounterasures-00006-biw",
+      "active": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "receiptSha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+      "receiptGeneration": "1795696554296081"
+    },
+    {
+      "name": "eraseLateAccountStorage",
+      "revision": "eraselateaccountstorage-00005-wij",
+      "active": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "receiptSha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+      "receiptGeneration": "1795696554296081"
+    }
+  ],
+  "background19Eventarc5Cron": [
+    {
+      "name": "onSwapCreated",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "onSwapStatusUpdated",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "onArticleSoftDeleted",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "onArticleSold",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "onArticleInfoUpdated",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "onUserProfileUpdated",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "updateSearchIndex",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "updateUserStats",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "updateShopArticlesCount",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "updateSellerArticlesCount",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "sendMessageNotification",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "sendOfferStatusNotification",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "onArticleFavorited",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "onArticlePriceDropped",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "generateEmbeddingOnCreate",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "generateEmbeddingOnUpdate",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "dispatchOperationalNoticeOnCreate",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "continueAccountErasure",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "eraseLateAccountStorage",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "expirePhase1LocalProposals",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "expirePhase1LocalOffers",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "deliverOperationalNotices",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "checkExpoPushReceipts",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    },
+    {
+      "name": "resumeAccountErasures",
+      "privateTransport": true,
+      "exactNativeActorInvoker": true
+    }
+  ],
+  "legacy77": [
+    {
+      "name": "updatearticle",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "removeitemfrompartysecure",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "createstripeconnectaccount",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "marksavedsearchviewed",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "additemtopartysecure",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "deleteuseraccount",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "incrementproductview",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "confirmswapshipping",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "setswapexchangemode",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "confirmswapreception",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "cancelpendingtransaction",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "createswaptopupcheckout",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "acceptmeetupoffer",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "createarticle",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "getactivemoments",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "backfillembeddings",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "updatepopularityscores",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "expirestaleacceptedoffers",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "consolidatechatduplicates",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "shipenginewebhook",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "triagereport",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "stripewebhook",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "paywithwallet",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "proposemultiswap",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "checksavedsearchnotifications",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "getswappartyleaderboard",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "resolvedispute",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "cleanupexpireddrafts",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "getpendingreports",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "recordsignupconsent",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "createreview",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "refundwalletpayment",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "getshippingestimate",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "adminrefundtransaction",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "acceptswap",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "walletwithdraw",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "toggleproductlike",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "requestrefund",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "retryfailedoperations",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "rateswap",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "sendmeetupproposal",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "cleanupsearchindex",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "getmomentproducts",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "expirestalepostacceptanceswaps",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "togglearticlesold",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "sweeppendinglabels",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "declineswap",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "completemeetuptransaction",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "purchaseshoptier",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "requestreturn",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "getservicefee",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "releaseheldfunds",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "addbankaccount",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "expirestaleproposedswaps",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "createstripecheckout",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "checkshippedtracking",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "activatewallet",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "uploadstripeidentitydocument",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "setmarketingconsent",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "confirmmeetuptransaction",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "reporttransactionproblem",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "getactiveswappartyinfo",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "cancelswap",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "submitreport",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "reconcilefinances",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "retentionpurge",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "expirestaleoffers",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "createtransaction",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "rejectmeetupproposal",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "findpickuppoints",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "expireorphanedtransactions",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "alertagingdisputes",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "uploadswapphotos",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "reportmeetupnoshow",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "ensuregeneralistzone",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "sellercanceltransaction",
+      "closed": true,
+      "bindingsUnchanged": true
+    },
+    {
+      "name": "updateglobalstats",
+      "closed": true,
+      "bindingsUnchanged": true
+    }
+  ],
+  "all17ObsoleteJobsStillPaused": true,
+  "schedulerConfigurationCount": 22,
+  "schedulerConfigFieldsUnchanged": true,
+  "receipt": {
+    "sha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+    "generation": "1795696554296081",
+    "expiresAt": "2026-12-25T22:55:33.429113+00:00",
+    "immutableCanonicalBytesMatch": true,
+    "runtimeExactGetOnlyBindingPresent": true
+  },
+  "control": {
+    "generation": "1795639824843632",
+    "mode": "normal",
+    "financialEnvironment": "unconfigured",
+    "sameApprovedHash": true
+  },
+  "rules": [
+    {
+      "file": "firestore.rules",
+      "sha256": "44062a0a04de06919c88c08c521f9ef9f0da20a004543b0c94736c389eb0cc34",
+      "matchesCurrentSourceAndApprovedReceipt": true
+    },
+    {
+      "file": "storage.rules",
+      "sha256": "c5e79ea41c2d23c3348a492b21579ff041ab118f1edc0665cdcea60a3c7f0407",
+      "matchesCurrentSourceAndApprovedReceipt": true
+    }
+  ],
+  "searchHistoryTimestampCollectionDescReady": true,
+  "boundedErrorLogs": {
+    "from": "2026-11-26T17:59:50.869071+00:00",
+    "to": "2026-11-26T18:19:50.869071+00:00",
+    "services": 115,
+    "errorMetadataCount": 0,
+    "truncated": false,
+    "payloadsNeverRequested": true
+  },
+  "issues": [],
+  "zipOrSourceArchiveDownloaded": false,
+  "secretManagerOrSecretValueAccessed": false,
+  "newDeploymentIamControlOrReceiptMutation": false,
+  "businessEndpointOrProductionAccountInvokedReadChangedOrDeleted": false,
+  "productionMaterialCopiedToDev": false,
+  "newAppleReadyWritten": false,
+  "limits": [
+    "Fresh metadata/configuration/IAM/traffic and bounded ERROR-log metadata only; no business journey or production erasure execution.",
+    "Existing Secret Manager references are compared as metadata only; secret values are never accessed.",
+    "This timestamped snapshot must not be relabeled as a later observation or as proof of new client archive/binary/native readiness."
+  ]
+}

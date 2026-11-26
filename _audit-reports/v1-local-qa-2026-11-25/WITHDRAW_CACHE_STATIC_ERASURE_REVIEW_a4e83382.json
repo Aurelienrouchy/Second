@@ -1,0 +1,281 @@
+{
+  "protocol": "phase1_withdraw_cache_static_erasure_review_v1",
+  "reviewedAt": "2026-11-26T17:45:46.499064+00:00",
+  "status": "STATIC_FOUR_FILE_SCOPE_REVIEWED_FINAL_CLIENT_ATTESTATION_PENDING",
+  "candidateGitCommit": "a4e833825810aee46b72e3bc8c85ba9198bd8e52",
+  "baselineGitCommit": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47",
+  "scopeExactlyFourRuntimeFiles": true,
+  "runtimeFiles": [
+    {
+      "path": "app/my-articles.tsx",
+      "sha256": "11aafb6a44a096cffc0de07886ef03d8ddcc24f89cc771365b01ab4174577c82",
+      "operation": "modified",
+      "matchesCommittedCandidateBytes": true
+    },
+    {
+      "path": "app/swap/[id].tsx",
+      "sha256": "a23f9438100974a493c0ab62d2b718cc057a788f43bab4eb6601069126280679",
+      "operation": "modified",
+      "matchesCommittedCandidateBytes": true
+    },
+    {
+      "path": "features/article/hooks/useArticleActions.ts",
+      "sha256": "efb91cb62724257657b57abeaceda6af464179f19979209192448d350d3f303b",
+      "operation": "modified",
+      "matchesCommittedCandidateBytes": true
+    },
+    {
+      "path": "lib/withdrawnArticleCache.ts",
+      "sha256": "b33548acfbea2d45380212dada88305558614c51b4f1edcf6bfbb0f4c2823e36",
+      "operation": "added",
+      "matchesCommittedCandidateBytes": true
+    }
+  ],
+  "reviewedEffects": [
+    {
+      "file": "app/my-articles.tsx",
+      "lines": [
+        84,
+        93,
+        128,
+        146
+      ],
+      "behavior": "Uses the existing adopted sold/relist receipt; withdrawal cache pruning starts only after the existing deleteArticle operation returns and current-operation checks pass."
+    },
+    {
+      "file": "features/article/hooks/useArticleActions.ts",
+      "lines": [
+        95,
+        115,
+        500,
+        523
+      ],
+      "behavior": "Keeps existing server mutation/adoption/acknowledgement and operation guards; applies the same cache reconciliation on detail actions."
+    },
+    {
+      "file": "app/swap/[id].tsx",
+      "lines": [
+        230,
+        246
+      ],
+      "behavior": "One reconciler per current subscription identity/route/focus/generation; receives the existing server-authorized subscription delivery, not an inferred completion from reception RPC success."
+    },
+    {
+      "file": "lib/withdrawnArticleCache.ts",
+      "lines": [
+        16,
+        77,
+        80,
+        100,
+        103,
+        139
+      ],
+      "behavior": "Cancels existing catalogue queries, rechecks the supplied current-operation guard, prunes only matching article/owner references in existing cached lists, and invalidates existing query roots for refetch."
+    }
+  ],
+  "domainDataAndErasureInvariants": {
+    "noNewFirestoreStorageCollectionOrNamespace": true,
+    "noNewProviderPermissionOrSdkDependency": true,
+    "noNewPrivateFieldDurableDomainSchemaOrCapability": true,
+    "noBackendSourceOrRuntimeConfigurationChangeInThisCommit": true,
+    "noNewFinancialWithdrawalRefundOrAccountErasureCommand": true,
+    "existingWithdrawalAndSoldRelistCallablesUnchanged": true,
+    "erasureFenceJournalRpcContractStorageGenerationsAndInventoryUnchanged": true,
+    "existingQueryClientCacheEntriesAreTheOnlyNewlyModifiedState": true,
+    "noNewLocalPersistenceKeyOrPersistenceConfiguration": true,
+    "serverAuthorityNotGrantedByCachePruning": true,
+    "sourceWitnessAndSessionLeaseFieldsNotChanged": true
+  },
+  "currentContextAndCacheSemantics": {
+    "withdrawalEffectsFollowExistingSuccessfulServerOperation": true,
+    "soldEffectsFollowExistingAdoptedCurrentReceiptBeforeReconciliation": true,
+    "currentActorSessionMountAndFocusGuardRecheckedAfterQueryCancellation": true,
+    "oldQueryResponsesCancelledBeforeTheyCanRestorePrunedCards": true,
+    "ownerSoldInventoryKeyPreservedWhilePublicDiscoveryListsRefresh": true,
+    "relistRefreshesWithoutEvictingCurrentCards": true,
+    "swapTransitionRequiresMatchingSwapPartyParticipantsArticleIdsAndAgreementSourceAtDelivery": true,
+    "pendingOrNonparticipantSwapDoesNotPrune": true,
+    "initialHistoricalCompletedSwapOnlyRefreshes": true,
+    "zoneRowsMatchArticleIdAndSellerIdRatherThanZoneDocumentId": true,
+    "queryCursorPageParamsAndUnrelatedReferencesPreserved": true,
+    "noClaimOfFreshServerReattestationAfterTheLocalCancellationAwait": true
+  },
+  "unchangedRelevantFiles": [
+    {
+      "path": "package.json",
+      "sha256": "edf17537997f6d97fc40d46a023670ed4785d47ea259f2bbe6c3df09fc1ff239",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "3aa72cc8e1f229a5fff97a1b8f632c0255c90c2d651cbef6d8dc1575fa6aaa40",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "functions/package.json",
+      "sha256": "e2dda5cd7f9ee7935447357b75371adc222c9693ca898fe494ce90bbea698c4a",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "functions/package-lock.json",
+      "sha256": "f268aee9f3805eb22789390e98c96c8235c4d68bce89f22e5048c2d40652f0ca",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "app.config.js",
+      "sha256": "863eef7b24069c51056af50de66ac240f4cbfaf4fe820df65122560551b50fb9",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "eas.json",
+      "sha256": "7d6786b4d6006e3f5a3446691233b32229b52e1391d03df282a3258cc86b9f7f",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "lib/queryKeys.ts",
+      "sha256": "bb8cd29a4abc438ff397c018cef20a060c5cd489dd81795bdae425c31fb409ac",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "config/firebaseConfig.ts",
+      "sha256": "4a530e36736e842a135ce3d27a9c0a2411893c1be430e226170aeb0caf49c765",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "config/firebaseEnvironment.ts",
+      "sha256": "e7edcc3f807baea896297eb83ac8e265e94f2b1adddc44f646328ed947a46497",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "config/posthogConfig.ts",
+      "sha256": "04ecaf5113f26090af13989315b8fb28efca9e9fb2d50557d9c3d41533fc12a5",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "config/featureFlags.ts",
+      "sha256": "d2bfeebe83bc07a5f672fc51f7da31f09a14d987845bda82de7e55bc02a7b23e",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "store/authStore.ts",
+      "sha256": "315db2fcd57d9cac2bf22d9b0b07f0c4e97487995186ea4f55ddbc5fd0502c24",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "services/tradeOperation.ts",
+      "sha256": "e3aec389744310905083bd1a16a902efcf1b4dd1cc874747725d1b66ecdbe864",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "hooks/useTradeOperation.ts",
+      "sha256": "a9565faa101f2b3439e5c43f9c571980348344b34f29e15cbd1c9f5e37d6a950",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "services/accountErasureService.ts",
+      "sha256": "5adf59b96f7afc7655bee4f3e7996542ecdb9f0b0385e879334006b3a6673a10",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "services/accountErasureJournal.ts",
+      "sha256": "61edb5f1c4aad031608f41a2734388689284afd91649d46e0ec9716f4af91e48",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "services/swapService.ts",
+      "sha256": "f58639b9ff16c179e7c506c511c7519c97bb5431631f082110a04b94b7cd8409",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "services/articlesService.ts",
+      "sha256": "697efcaec359c49e2483cbb6d7b925c856fc0abaecdb5dc5b0fc94018d48c93b",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "functions/src/utils/accountErasureRuntime.ts",
+      "sha256": "6cb1b702b040dcbd023eae1d8b3730d514398f7328fda169502650e30ace046e",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "functions/src/utils/accountErasureContract.ts",
+      "sha256": "7fa754c061eb0ee11bf6e11a8d4accd266dcd789b6d7bd4adc6d214b579c273c",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "functions/src/utils/accountErasureQualification.ts",
+      "sha256": "97b46089da9328d9c85b1b0ba5936ebd7c1ef7cedf592cebe212e421ff8cafc4",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "functions/src/utils/accountErasurePolicy.ts",
+      "sha256": "b9d0caec6e550bb2f05b6b367a7add41871edb46f50f7fdf9cd5f3d705f9049e",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "functions/src/triggers/accountErasureStorage.ts",
+      "sha256": "6d1523084bfc3e82f88b13f1e40fd1f24047bd9e8f94f4166fbb2bb704d038db",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "firestore.rules",
+      "sha256": "44062a0a04de06919c88c08c521f9ef9f0da20a004543b0c94736c389eb0cc34",
+      "byteIdenticalToBaseline": true
+    },
+    {
+      "path": "storage.rules",
+      "sha256": "c5e79ea41c2d23c3348a492b21579ff041ab118f1edc0665cdcea60a3c7f0407",
+      "byteIdenticalToBaseline": true
+    }
+  ],
+  "testEvidenceReadOnly": {
+    "files": [
+      "lib/withdrawnArticleCache.test.ts",
+      "tests/jest/articleOwnerOperationIsolation.test.tsx",
+      "tests/jest/b2v4/articleSoldIntentUI.test.tsx",
+      "tests/jest/swap/SwapDetail.test.tsx"
+    ],
+    "covers": "Actual QueryClient pruning/cancellation, replacement-session guards, owner action integration, same-source transition versus historical completion, swapped identity/focus, and unchanged rows/cursors.",
+    "testsRunOrRewrittenByThisReview": false,
+    "newGlobalSuitePassClaimed": false
+  },
+  "freshProductionMetadataContext": {
+    "file": "PRODUCTION_METADATA_REFRESH_20261126T174201Z.json",
+    "sha256": "8028139bae636b0b2000942a7ae50d816dddb662e4b76dd0703d14ac7cf7c7bd",
+    "verifiedAt": "2026-11-26T17:42:01.497395+00:00",
+    "source20": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+    "phase1Count": 115,
+    "other95AndLegacy77Unchanged": true,
+    "fiveErasureSourcesAndReceiptPinsUnchanged": true,
+    "receiptSha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+    "receiptGeneration": "1795696554296081",
+    "receiptExpiry": "2026-12-25T22:55:33.429113+00:00",
+    "controlGeneration": "1795639824843632",
+    "noConfigurationDriftDetected": true,
+    "newDeploymentOrReceiptRequiredByThisClientOnlyDelta": false
+  },
+  "blockingDomainDataErasureConcernIdentified": false,
+  "nativeQaArchiveBinaryAndFinalClientInvariants": {
+    "status": "PENDING_SEPARATE_ROOT_EVIDENCE",
+    "futureProofName": "WITHDRAW_CACHE_CLIENT_ERASURE_INVARIANTS.json",
+    "createdByThisTask": false,
+    "newQaOrProductionClientSourceHashInvented": false,
+    "newAcceptedBuildIdsOrCompiledArtifactsClaimed": false,
+    "actualDeviceExecutionClaimed": false,
+    "realAppleGoogleOAuthOrRevocationClaimed": false,
+    "longDurationMemoryClaimed": false,
+    "productionAccountErasureExecutionClaimed": false
+  },
+  "reviewExecution": {
+    "additionalAuditorSpawn": "Requested but unavailable because thread limit was reached; review performed directly by assigned agent.",
+    "codeTestsRuntimeConfigOrCandidateFilesEdited": false,
+    "cloudMutationOrBusinessInvocation": false,
+    "newAppleReadinessWritten": false,
+    "oldProofsRewritten": false
+  },
+  "limits": [
+    "This is a static domain-data/erasure invariant review of the four committed files; it is not the final release client attestation.",
+    "The completion source is classified from an existing server-authorized delivery; local cache reconciliation does not grant or reattest backend mutation authority.",
+    "Native sold/relist/withdraw/Home/SwapZone behavior and the new actual Expo source archives/binaries require the separate Root evidence before the future client-invariants proof.",
+    "The Prod snapshot is exact as of17:42:01UTC and must not be relabeled as a later observation."
+  ]
+}

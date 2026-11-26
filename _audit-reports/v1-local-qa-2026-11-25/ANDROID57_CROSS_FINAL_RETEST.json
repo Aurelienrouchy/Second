@@ -1,0 +1,268 @@
+{
+  "generatedAt": "2026-11-26T17:14:57.750938+00:00",
+  "scope": "Seconde Dev only, Android emulator5554 SDK57; cross interaction with Root-controlled iOS simulator A then physical iPhone A",
+  "qualification": "13 native UI observations passed; no uninterrupted automated replay claimed; not all V1 flows or memory behavior qualified",
+  "checks": [
+    {
+      "id": "search",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "SDK57 search returned exact A976 at13 CAD, omitted prior withdrawn B d3"
+    },
+    {
+      "id": "chat_b_to_a",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "B sent TEST SDK57 B vers A - recherche et messagerie Dev; Root observed A receipt"
+    },
+    {
+      "id": "chat_a_to_b",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "B displayed Root reply TEST SDK57 A vers B - message recu sur iOS Dev"
+    },
+    {
+      "id": "meetup_proposal",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "B native local13 CAD proposal receipt and pending card"
+    },
+    {
+      "id": "meetup_acceptance",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "A accepted on iOS; B live Offre acceptée and Votre rencontre"
+    },
+    {
+      "id": "meetup_cancellation",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "B native cancellation confirmed once; expired/cancelled propagated A and B; A active isSold=false after"
+    },
+    {
+      "id": "b_publication",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "Single new B2a689 public logo, Baskets men_shoes_sneakers,42EU,12 CAD,Mile End; native publication receipt"
+    },
+    {
+      "id": "b_troc_deposit",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "Add1piece native action and Vos articles count1"
+    },
+    {
+      "id": "troc_proposal",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "Exact B2a689 for A976, hand delivery, Sans complément confirmation and pending receipt"
+    },
+    {
+      "id": "troc_acceptance_cross_phone",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "Root physical iPhone A accepted; B live Échange accepté and both logos loaded"
+    },
+    {
+      "id": "troc_synthetic_completion",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "Root authorized exact synthetic fixtures receipt; A then B confirmed through native dialogs; B Échange terminé"
+    },
+    {
+      "id": "troc_rating",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "B tapped5/5; Merci d’avoir évalué cet échange; no comment field in this flow"
+    },
+    {
+      "id": "preservation",
+      "result": "PASS_NATIVE_OBSERVED",
+      "evidence": "Final MyArticles(2): two original sold B fixtures only; completed new B absent; no relist/withdraw forced"
+    }
+  ],
+  "native": {
+    "package": "com.seconde.app.dev",
+    "firebase": "seconde-dev",
+    "hermesNative": "250829098.0.17",
+    "apkPath": "/tmp/seconde-v1-sdk57-native-build-20261126/android-sdk57/SecondeDev-sdk57-arm64-v8a-debug.apk",
+    "apkSha256": "617445c824666b87bc0a4feb2e8a33e43c7cbff09eebcb963cb8d1d458d5f84c",
+    "installedApkShaVerified": true,
+    "metroPort": 8093,
+    "physicalPhoneOperation": "none by this agent; Root separately owns phone proof"
+  },
+  "actors": {
+    "bUid": "Kh4bdOFYxoM8CoXfZ8FoaOwJ7E13",
+    "aUid": "c4dnF3xPtLPTYqvhuVk24AKxM0t1",
+    "bSyntheticProfile": "Alex Q. @v1qa-android-b-06512",
+    "aSyntheticProfile": "Cille Q. @v1qa-ios-a-065128"
+  },
+  "meetup": {
+    "offerId": "2SjMedwaXKjMI1vNgKpD",
+    "transactionId": "meetup_2SjMedwaXKjMI1vNgKpD",
+    "uiObserved": [
+      "B proposal",
+      "A acceptance propagated",
+      "B cancel confirmed once",
+      "A cancellation propagated (parent report)",
+      "A article active and isSold=false after cancellation"
+    ]
+  },
+  "swap": {
+    "id": "swap_15c23837e6142ff9f3497ac326b5389b83f9d035bdfcc4c9ab2fae58ae16d960",
+    "proposes": "2a689db10205c5ae9c77",
+    "receives": "976d3a547293860e5d43",
+    "method": "meetup",
+    "topUp": "none",
+    "status": "completed UI observed",
+    "images": "both public logos loaded on Android",
+    "rating": 5
+  },
+  "fixtures": {
+    "a": "976d3a547293860e5d43",
+    "bNew": "2a689db10205c5ae9c77",
+    "bPreviouslyWithdrawnPreserved": "d3de77c864067cc9637a",
+    "publicLogoSourceSha256": "dce345a64948222497c119f0cd408f873149b5e3d91f554465b2a9d5870e1f4b",
+    "newBTerminal": "consumed/inactive after completed swap; absent MyArticles; no forced reactivation or extra fixture"
+  },
+  "sourceBinding": {
+    "baseHead": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47",
+    "earlyQaSourceDigest": "fdfd9d6c0ab1575e4863d5115c18c192e9abbfaeabfc0df001791ef0a1a61ad7",
+    "homeCacheFixFastRefreshAt": "2026-11-26T16:39:44Z",
+    "lateQaUncommittedChangesReadOnlySha256": [
+      {
+        "path": "CODEBASE_INDEX.md",
+        "sha256": "ef5f6903a9f140ef79e3648cea3eb4cf67b0bf297158e853f1fe8c028b73311e"
+      },
+      {
+        "path": "app/my-articles.tsx",
+        "sha256": "847d05d418118f13d52909284160161567b150ada10498b2e347bb9916d9646e"
+      },
+      {
+        "path": "features/article/hooks/useArticleActions.ts",
+        "sha256": "3c2fe8a5d795b2a46aba75836871e5c4fbea9d038e1623483a0082c6c9f571dc"
+      },
+      {
+        "path": "tests/jest/articleOwnerOperationIsolation.test.tsx",
+        "sha256": "feeb5a6f9d5ae23e4a914a87ed278aeeb253e333ab3f85e45433d6b12121a1c6"
+      },
+      {
+        "path": "lib/withdrawnArticleCache.test.ts",
+        "sha256": "f482cfeac867b95659793d1de7b149a53b906828e33970896aa480edfd75a314"
+      },
+      {
+        "path": "lib/withdrawnArticleCache.ts",
+        "sha256": "4409721e193ea03bdf63b0a55d719b554e28c0b63d00e32caf83fe67c0c113bb"
+      }
+    ],
+    "note": "Root must bind final freeze to current source; this agent made no source/Git changes."
+  },
+  "logs": {
+    "path": "/Users/aurelien/.argent/tmp/argent-logs-8093-1795708053040-p89476.log",
+    "capturedAt": "2026-11-26T17:14:57.772299+00:00",
+    "baselineEntriesExcluded": 19,
+    "totalEntries": 42,
+    "windowEntries": 23,
+    "levels": {
+      "WARNING": 11,
+      "LOG": 12
+    },
+    "errorEntries": 0,
+    "queryIndexMarkerCount": 0,
+    "firestoreCommitWarnings": {
+      "at": "2026-11-26T16:37:26.368Z",
+      "code": "failed-precondition",
+      "rpc": "Commit",
+      "documentCollection": "chats",
+      "field": "unreadCount.(actorB)",
+      "precondition": "updateTime",
+      "interpretation": "concurrent write precondition warning; no query/index marker, UI acceptance and later cancellation observed",
+      "unreadCounterRecovery": "not independently asserted"
+    },
+    "note": "one SDK Commit failed-precondition warning is retained, not represented as missing-index or ERROR; unread-counter retry/recovery not independently asserted",
+    "sha256": "4306b0c0a2841a6180eb4dd3090867e702a0591959edbcf595bedd7d0ee90cfa",
+    "warningCategories": {
+      "InteractionManager deprecated": 1,
+      "Firestore Commit failed-precondition": 1,
+      "Reanimated animation/layout collision": 9
+    }
+  },
+  "recording": {
+    "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/.argent/e2e/android57-cross-chat-meetup-swap-20261126-take1.yaml",
+    "sha256": "30d522e54ca055a934b5731e0ff3c80b3c89a9f16fd1b507150e1bc2289af2d6",
+    "steps": 163,
+    "finished": true,
+    "replayed": false,
+    "unmetWaits": 7,
+    "crossTreeWarnings": 3,
+    "weakCoordinateSelectors": true,
+    "claim": "diagnostic live recording only, no E2E PASS"
+  },
+  "captures": [
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/01-search-sdk57-a-only.png",
+      "sha256": "6e09743114f01ca46ffb1b5687972a2c053733fa6186fa94ec597fd0e393ab03"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/02-cross-chat-reply-received.png",
+      "sha256": "58c19d768e7cc5b98b473d76b02dda043e47b14776d1183d8d6a48dc48c27a3c"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/03-meetup-proposal-receipt.png",
+      "sha256": "dd3207e864d12e7e229ab0aeeb8961b6cfe16fa079ea92fbceaed2cd30c300af"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/04-meetup-pending-card.png",
+      "sha256": "1267cb27c2c9a0d664cffd2987b51ad0637e485965ea2254366918d7c8e06716"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/05-meetup-accepted.png",
+      "sha256": "980058ac6f2af6db08605beecaf5a8dbd98979312892df750e0cbb700b71a6b4"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/06-meetup-cancelled.png",
+      "sha256": "3b8e10390cb3f7f7cbe05d27776e1fc98de450c5e8b76769fdfb53564e66c597"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/07-target-active-after-meetup-cancel.png",
+      "sha256": "aba49823434966bae053286bfb93282f3605659a466ef143d5ebaa7d74985f28"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/08-home-new-b-and-a-cached.png",
+      "sha256": "08d050d2a2cab188b534def21d965e4f3cc2b8b8ffa62f2376148052eea30303"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/09-b-published.png",
+      "sha256": "9a247d45695bd3b7d99dfc79eb91fbfc5b6f24e064dd76b00dc1fedf27b29f55"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/10-b-deposited-troc.png",
+      "sha256": "b37a5e4cc8466018120a37aead815e552d0617734960bad970ff49c9e292c543"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/11-troc-no-complement-confirmation.png",
+      "sha256": "6cf42bfb1ef3d3e2176bd2ff48b519e77a94d6e762858bf432bb19a2e1022ce6"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/12-troc-pending.png",
+      "sha256": "f8d3539b1b2469b7cc4a2d714687527b39310d7850390af8c5c4f973901d07ff"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/13-troc-accepted-both-public-logos.png",
+      "sha256": "6641ba11e6949aa7a742f54dd78713c984fc968e8258ad95c3f0dbf9fe106502"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/14-troc-completed.png",
+      "sha256": "aac1034a40ff4f99635a29388966f4dc9870e011cae8811021113ba301983c81"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/15-troc-rating-recorded.png",
+      "sha256": "c3c3ff85819aef668d0f7d8ee905754da730fd5b550bf3b7f201b1eaefb878a2"
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-cross/16-final-two-old-sold-fixtures-preserved.png",
+      "sha256": "6f7048542a56b34ce5ae4bf90a10ff60c8cd8a01d053b9e8b3eb4aa91d6344b4"
+    }
+  ],
+  "limitations": [
+    "Accepted Troc has no normal cancellation in current UI; no API forced. Root changed exact synthetic-fixture QA scope to complete reception instead.",
+    "Troc5-star action submits immediately, no comment field; no TEST comment was possible. Dev only.",
+    "Final newB is consumed/inactive and hidden from MyArticles; Home-withdraw regression cannot be qualified from this terminal fixture. Root handles fresh physical-phone fixture C.",
+    "A and B remained in cached Home/Troc on return after Troc completion; no new proposal tapped; freshness/source not independently diagnosed here.",
+    "No memory profiling or physical iPhone automation by this child; Root has separate phone proof.",
+    "No Prod operations, payment/provider/shipping, new accounts, auth changes, code/source modifications, Metro changes, service resets or new B fixture after Troc."
+  ],
+  "remainingRoot": [
+    "Bind final commit/source freeze after Home-cache fix tests",
+    "Finish physical C publication/withdraw Home cache regression",
+    "Final release builds and store submissions managed by Root"
+  ]
+}

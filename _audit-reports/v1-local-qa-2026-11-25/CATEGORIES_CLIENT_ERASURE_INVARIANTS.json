@@ -1,0 +1,295 @@
+{
+  "protocol": "phase1_categories_client_erasure_invariants_v1",
+  "verifiedAt": "2026-11-26T16:11:01.101056+00:00",
+  "status": "STATIC_CLIENT_AND_DEPLOYED_COHORT_QUALIFIED_COMPILED_PENDING",
+  "gitCommit": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47",
+  "qaSourceSha256": "fdfd9d6c0ab1575e4863d5115c18c192e9abbfaeabfc0df001791ef0a1a61ad7",
+  "productionClientSourceSha256": "4f31400023bfe01f4e2ee206fe358ea45dc9259bd29b484642c30c44200e901a",
+  "productionArchiveInventorySha256": "cc457b2fdb485414f8d76b4d6afeb17e641f214b5c5db8178107a0f9393a806c",
+  "baselineGitCommit": "17d8b315f8c11d33d00f6855de396ddd91e8b5e5",
+  "baselineQaSourceSha256": "a3a0b38b19d3d75500cf8ef3d7cd2f5350b06f61c1512e3c14aadc6dba02bf3c",
+  "runtimeDigestsIndependentlyVerified": 1063,
+  "baseGitBlobIdsIndependentlyCompared": 1063,
+  "all1060OtherRuntimeSourcesByteIdentical": true,
+  "onlyChangedRuntimeFiles": [
+    "functions/src/shared/articleHygiene.ts",
+    "functions/src/shared/categories.ts",
+    "services/userService.ts"
+  ],
+  "runtimeChanges": [
+    {
+      "path": "functions/src/shared/articleHygiene.ts",
+      "sha256": "d9c1ed674764097af40fe371e990ec567b2eb7347a653b5345d8786a5a15b05f",
+      "effect": "Existing cosmetic declaration classification extended to the three specific men care leaves and the mixed other leaf; no statement fields or authority added"
+    },
+    {
+      "path": "functions/src/shared/categories.ts",
+      "sha256": "19a99c85f2e70bc606f671ac02742b94703812845e69ed719df876794356d37d",
+      "effect": "Canonical category tree/AI universe alignment with the existing app catalogue"
+    },
+    {
+      "path": "services/userService.ts",
+      "sha256": "67b50ba8c1758c079f8be8004b3bc69f512aa878e51d542744f766e01d9b8ed8",
+      "effect": "Exact functions/not-found + User not found public-profile absence returns the existing null result without a development console error; all other failures retain existing error reporting and return behavior"
+    }
+  ],
+  "clientAndServerPackageLockFilesByteIdenticalTo17d8": true,
+  "nativeSdk57BuildInputsAndProviderConfigurationUnchanged": true,
+  "dataProviders": [
+    {
+      "package": "firebase",
+      "version": "12.12.1",
+      "fullLockEntryAndEntireLockFileUnchangedSince17d8": true
+    },
+    {
+      "package": "@firebase/app",
+      "version": "0.14.11",
+      "fullLockEntryAndEntireLockFileUnchangedSince17d8": true
+    },
+    {
+      "package": "@firebase/auth",
+      "version": "1.13.0",
+      "fullLockEntryAndEntireLockFileUnchangedSince17d8": true
+    },
+    {
+      "package": "@firebase/firestore",
+      "version": "4.14.0",
+      "fullLockEntryAndEntireLockFileUnchangedSince17d8": true
+    },
+    {
+      "package": "@firebase/storage",
+      "version": "0.14.2",
+      "fullLockEntryAndEntireLockFileUnchangedSince17d8": true
+    },
+    {
+      "package": "@firebase/functions",
+      "version": "0.13.3",
+      "fullLockEntryAndEntireLockFileUnchangedSince17d8": true
+    },
+    {
+      "package": "posthog-react-native",
+      "version": "4.54.4",
+      "fullLockEntryAndEntireLockFileUnchangedSince17d8": true
+    },
+    {
+      "package": "@stripe/stripe-react-native",
+      "version": "0.66.0",
+      "fullLockEntryAndEntireLockFileUnchangedSince17d8": true
+    },
+    {
+      "package": "expo-apple-authentication",
+      "version": "57.0.2",
+      "fullLockEntryAndEntireLockFileUnchangedSince17d8": true
+    },
+    {
+      "package": "expo-secure-store",
+      "version": "57.0.4",
+      "fullLockEntryAndEntireLockFileUnchangedSince17d8": true
+    }
+  ],
+  "sourceAndArchiveQualification": {
+    "sourceProofFile": "CATEGORIES_PRODUCTION_BUILD_SOURCE_PROOF.json",
+    "sourceProofSha256": "fe2c3326c71a76bc2ef90e75dd3d4b49df9b29b2af9433224967a9243afb7bae",
+    "qaInventorySha256": "81b2335249b9e4b53eee0cce18f7cd5538c3fa8c6e3346a345e8dc0cc4ff2c7d",
+    "qaDigestIndependentlyReproduced": true,
+    "productionSourceRecordHashIndependentlyReproduced": true,
+    "bothArchiveInventoryDigestsIndependentlyReproduced": true,
+    "bothArchivesHave2077Files": true,
+    "bothArchivesHaveAll1063RuntimeFilesMatchingExactly": true,
+    "productionTarget": "seconde-b47a6",
+    "buildProfile": "production",
+    "qaEmulatorsPaymentsProviderShippingCommerceFlagsClosed": true,
+    "productionPosthogCaptureKeyEmpty": true,
+    "otaConfigured": false
+  },
+  "acceptedBuilds": [
+    {
+      "id": "4370ef3b-9309-4d18-bbae-f87876e01fb5",
+      "platform": "ANDROID",
+      "appVersion": "1.0.2",
+      "appBuildVersion": "20",
+      "gitCommitHash": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47"
+    },
+    {
+      "id": "91ec7a04-88b7-467c-a25d-d11ff6c8c00b",
+      "platform": "IOS",
+      "appVersion": "1.0.2",
+      "appBuildVersion": "39",
+      "gitCommitHash": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47"
+    }
+  ],
+  "sourceReview": {
+    "authStoreListenerSdkSourceAndSessionLeaseFieldsUnchanged": true,
+    "firebaseDataNamespacesAndGenerationConstraintsUnchanged": true,
+    "accountErasureFenceCapabilitiesRpcDtoAndObservationContractUnchanged": true,
+    "financialMutationAuthorityAndPrivateAccountGuardsUnchanged": true,
+    "noNewCollectionPrivateFieldOrStoredWitnessShape": true,
+    "categoryIdsAreValuesWithinExistingArticleAndDraftDocuments": true,
+    "newCosmeticsUseExistingCosmeticDeclarationShapeAndNativeAuthorDateCategoryWitness": true,
+    "hygieneNeverInferredFromConditionAiOrTaxonomyAlone": true,
+    "old965CommonLeafDataPathsHygieneAndChildSafetyClassificationsPreserved": true,
+    "threeOldMenParentIdsRemainLookupCompatibleButCannotAdmitAnImpreciseNewLeaf": true,
+    "childSafetyRuntimeClassificationAndAdmissionImplementationUnchanged": true,
+    "publicProfileAbsenceFixDoesNotCreateMutateOrAdoptAccountData": true,
+    "clientProductionAnalyticsGuardUnchanged": true
+  },
+  "unchangedRelevantFiles": [
+    {
+      "path": "functions/src/utils/accountErasureRuntime.ts",
+      "sha256": "6cb1b702b040dcbd023eae1d8b3730d514398f7328fda169502650e30ace046e",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "functions/src/utils/accountErasurePolicy.ts",
+      "sha256": "b9d0caec6e550bb2f05b6b367a7add41871edb46f50f7fdf9cd5f3d705f9049e",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "functions/src/utils/accountErasureContract.ts",
+      "sha256": "7fa754c061eb0ee11bf6e11a8d4accd266dcd789b6d7bd4adc6d214b579c273c",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "functions/src/utils/accountErasureQualification.ts",
+      "sha256": "97b46089da9328d9c85b1b0ba5936ebd7c1ef7cedf592cebe212e421ff8cafc4",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "functions/src/utils/accountErasureProviders.ts",
+      "sha256": "da8c7cf1539897900f44884f9b7afe5e940927372f8bd2af0eb7f20de854a61e",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "functions/src/triggers/accountErasureStorage.ts",
+      "sha256": "6d1523084bfc3e82f88b13f1e40fd1f24047bd9e8f94f4166fbb2bb704d038db",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "functions/src/utils/privateAccountSession.ts",
+      "sha256": "85d6eb305bd28c18a1fd1961e116a9029d8972746cc9e7c9eedd45281fada5d7",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "functions/src/utils/financialRecoveryInterlock.ts",
+      "sha256": "d539f72f3a430d999e2c1b46360c695fd11a89738f85c0ab7977344be5a74284",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "functions/scripts/checkFinancialWriterRegistry.cjs",
+      "sha256": "5be88b40c23941e3382aad292ca253d5a32128999f66a54b7650ab602e3be0c1",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "firestore.rules",
+      "sha256": "44062a0a04de06919c88c08c521f9ef9f0da20a004543b0c94736c389eb0cc34",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "storage.rules",
+      "sha256": "c5e79ea41c2d23c3348a492b21579ff041ab118f1edc0665cdcea60a3c7f0407",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "config/firebaseConfig.ts",
+      "sha256": "4a530e36736e842a135ce3d27a9c0a2411893c1be430e226170aeb0caf49c765",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "config/posthogConfig.ts",
+      "sha256": "04ecaf5113f26090af13989315b8fb28efca9e9fb2d50557d9c3d41533fc12a5",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "services/accountErasureService.ts",
+      "sha256": "5adf59b96f7afc7655bee4f3e7996542ecdb9f0b0385e879334006b3a6673a10",
+      "byteIdenticalTo17d8": true
+    },
+    {
+      "path": "services/accountErasureJournal.ts",
+      "sha256": "61edb5f1c4aad031608f41a2734388689284afd91649d46e0ec9716f4af91e48",
+      "byteIdenticalTo17d8": true
+    }
+  ],
+  "inventoryAndWriters": {
+    "accountErasureInventoryHash": "48d6f6313c9d5e77cca62191ee7e4ef86f15e0e9e3a2d1727d97fc5380fbe617",
+    "inventoryHashReproducedLocallyFromUnchangedInventoryAndPureSourceHashHelper": true,
+    "financialWriterRegistryHash": "2d8f851d1d9d1ddda8a1df7b9ad9fbe7ae22dbdedbf70031efbb3cdb6d820918",
+    "financialWriterRegistryCheckRunAndPassed": true,
+    "newDurableWriteDestinationOrSchemaRequiredByTheDelta": false
+  },
+  "deployedServerCohort": {
+    "newServerSourceSha256": "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771",
+    "deploymentProofFile": "CATEGORY_PRODUCTION_DEPLOYMENT_VERIFICATION.json",
+    "deploymentProofSha256": "f8cdb60d5e150fc55260054fa2fd3354cb108b659ae723187e85ebaaef66767b",
+    "writerSupplementFile": "CATEGORY_PRODUCTION_WRITER_PROVENANCE_SUPPLEMENT.json",
+    "writerSupplementSha256": "8c9472e5990a20206e731859654728439d2625a4604744de1994851459980991",
+    "currentPhase1Functions": 115,
+    "new20SourceRevisionsAndActualUploadedZipCodeVerified": true,
+    "other95Phase1And77LegacyNativeMetadataUnchanged": true,
+    "all20NewRevisionsAt100PercentTraffic": true,
+    "sourceCohorts": {
+      "e1ccb0f12aa915236f0c9275f69964c78d79a2dc8ab68c02142a81451eda9771": 20,
+      "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a": 74,
+      "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde": 21
+    },
+    "all19EventarcAnd5CronPrivateExactInvokers": true,
+    "all77LegacyServicesClosedAnd17ObsoleteJobsPaused": true,
+    "operatorProfilesIamIngressAndExistingGeminiProdVersion2Preserved": true,
+    "fiveErasureEngineSourcesAndReceiptPinsUnchanged": true,
+    "previousInvocationBoundObservedAt": "2026-11-26T16:02:05.922870+00:00",
+    "previousInvocationBoundNotBefore": "2026-11-26T16:00:27.966812+00:00",
+    "boundedErrorLogMetadata": {
+      "protocol": "phase1_category_prod_bounded_error_metadata_v1",
+      "project": "seconde-b47a6",
+      "verifiedAt": "2026-11-26T16:04:46.049942+00:00",
+      "from": "2026-11-26T15:56:57.754Z",
+      "to": "2026-11-26T16:04:46.049942+00:00",
+      "phase1ServiceCount": 115,
+      "severityFilter": "ERROR and above",
+      "errorEntriesReturned": 0,
+      "truncated": false,
+      "onlyMetadataRequested": true,
+      "jsonTextProtoPayloadsNeverRequested": true,
+      "businessInvocationFromThisCheck": false
+    }
+  },
+  "historicalReceipt": {
+    "sha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+    "generation": "1795696554296081",
+    "historicalClientSourceSha256": "2112254e016b33049453c5168454ae48949a96a5c58c4ae778567c6c33988525",
+    "receiptAndWriterMatrixRemainImmutable": true,
+    "writerMatrixSha256": "800c5b898f3ec1c27491f6858c94503539b64bf8de04572dbc2e13b9a7f0be36",
+    "clientHashIsHistoricalProvenanceNotCallerBinaryWhitelist": true,
+    "erasureEngineSourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+    "new20ServerSourceNotRelabeledAs3e": true,
+    "new115ActorProvenanceIsASeparateSupplement": true,
+    "controlGeneration": "1795639824843632",
+    "controlRulesAndRequiredIndexNativeReadbackPreserved": true,
+    "expiresAt": "2026-12-25T22:55:33.429113+00:00",
+    "expiryNotRenewedAndExpiredQualificationFailsClosed": true,
+    "exactRuntimeSingleObjectGetBindingPreserved": true,
+    "productionNoCollectionNotClaimed": true,
+    "subjectSpecificNativeProviderVerificationStillRequired": true
+  },
+  "compiledProductionBinariesVerified": false,
+  "compiledArtifactQualification": "PENDING_SEPARATE_NEW39_AND20_PROOF",
+  "physicalProductionBinaryTestClaimed": false,
+  "nativeFlowExecutionClaimedByThisStaticProof": false,
+  "realAppleGoogleOAuthOrAppleRevocationClaimed": false,
+  "longDurationMemoryStabilityClaimed": false,
+  "productionBusinessOrErasureCommandInvokedForThisProof": false,
+  "newCloudMutationRequiredForThisSupplement": false,
+  "noCloudApiCallMutationRedeployIamOrReceiptRenewalPerformedByThisStaticTask": true,
+  "noProductionSecretsOrDataCopiedToDev": true,
+  "oldSdk57ClientErasureProofPreserved": {
+    "file": "SDK57_CLIENT_ERASURE_INVARIANTS.json",
+    "sha256": "f2e123f1c0414b5f21cfaab39d193208ea917ea59415994c070e9d87db2674c4"
+  },
+  "limits": [
+    "Static client/source/archive and separately verified deployed server-cohort supplement only; new compiled39/20 artifacts must be inspected independently.",
+    "Source/native dependency equality does not claim actual new store binary execution, real provider login/revocation or long-duration memory measurement.",
+    "The final iOS/Android native business-flow evidence is separately owned by Root and is not inferred from this static proof.",
+    "Existing receipt211 provenance, matrix800c, source3e erasure engines, new sourcee1 twenty-function cohort and new clientfdf/4f314 remain distinct immutable records.",
+    "No new receipt, account, provider permission, collection, private field, data migration or cleanup is introduced by this supplement."
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "protocol": "phase1_withdraw_cache_final_app_checks_v1",
+  "gitCommit": "a4e833825810aee46b72e3bc8c85ba9198bd8e52",
+  "checkedAt": "2026-11-26T17:38:45.357634+00:00",
+  "runtimeFileSha256": {
+    "app/my-articles.tsx": "11aafb6a44a096cffc0de07886ef03d8ddcc24f89cc771365b01ab4174577c82",
+    "features/article/hooks/useArticleActions.ts": "efb91cb62724257657b57abeaceda6af464179f19979209192448d350d3f303b",
+    "app/swap/[id].tsx": "a23f9438100974a493c0ab62d2b718cc057a788f43bab4eb6601069126280679",
+    "lib/withdrawnArticleCache.ts": "b33548acfbea2d45380212dada88305558614c51b4f1edcf6bfbb0f4c2823e36"
+  },
+  "checks": [
+    {
+      "suite": "jest",
+      "passedTests": 2218,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "rawResultSha256": "aea79c9338ce8909942419aa4a695cc09f1de39bc4d615ee48b2c83ac3df0111",
+      "normalProcessExit": 0,
+      "openHandles": [],
+      "privateRawBasename": "final-availability-jest.json"
+    },
+    {
+      "suite": "vitest",
+      "passedTests": 356,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "rawResultSha256": "a20b03eb64dbea6449bc0b24f1a573a3ea65e29846a8d0694d85e92e2e002a7e",
+      "normalProcessExit": 0,
+      "openHandles": null,
+      "privateRawBasename": "final-availability-vitest.json"
+    }
+  ],
+  "backend": "Unchanged by this client-only cache commit; prior targeted backend checks remain historical."
+}

@@ -1,0 +1,232 @@
+{
+  "protocol": "phase1_sdk57_android_category_final_retest_v1",
+  "verifiedAt": "2026-11-26T16:16:18.538749+00:00",
+  "verdict": "Observed native Android flows passed within the scope below. This is not a replayed E2E pass.",
+  "device": {
+    "serial": "emulator-5554",
+    "platform": "android",
+    "kind": "emulator",
+    "model": "sdk_gphone64_arm64",
+    "avdName": "Pixel_7_API_34",
+    "apiLevel": 34
+  },
+  "runtime": {
+    "appPackage": "com.seconde.app.dev",
+    "firebaseProject": "seconde-dev",
+    "metroPort": 8093,
+    "metroProjectRoot": "/private/tmp/seconde-v1-git-release-20261125",
+    "logicalDeviceId": "c8b145f4f1977a44c459ca8871811fd80e5740a3",
+    "debuggerConnectedBeforeAndAfter": true,
+    "candidateCommit": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47",
+    "qaSourceSha256": "fdfd9d6c0ab1575e4863d5115c18c192e9abbfaeabfc0df001791ef0a1a61ad7",
+    "qaSourceShaProvenance": "Parent-frozen runtime source binding; current candidate commit and unchanged dependencies independently verified.",
+    "nativeBuildSourceCommit": "17d8b315f8c11d33d00f6855de396ddd91e8b5e5",
+    "nativeHermesVersion": "250829098.0.17",
+    "nativeApkSha256": "617445c824666b87bc0a4feb2e8a33e43c7cbff09eebcb963cb8d1d458d5f84c",
+    "installedApkHashIndependentlyMatchesPreparedArtifact": true,
+    "nativeBuildProof": {
+      "path": "/tmp/seconde-v1-sdk57-native-build-20261126/android-sdk57/ANDROID_SDK57_DEV_CLIENT_BUILD_PROOF_V2.json",
+      "sha256": "158d555fa20d1bde0d792a118f4dda6eb6049286cdf8813a71ba2015601ae735"
+    }
+  },
+  "fixture": {
+    "id": "d3de77c864067cc9637a",
+    "initialTitle": "TEST DEV SDK57 Android Baskets",
+    "editedTitle": "TEST DEV SDK57 Android Baskets modifie",
+    "categoryPath": [
+      "men",
+      "men_shoes",
+      "men_shoes_sneakers"
+    ],
+    "observedBreadcrumb": "HOMMES > CHAUSSURES > BASKETS",
+    "condition": "very_good",
+    "size": "42",
+    "sizeSystem": "EU",
+    "priceDollars": 12,
+    "neighborhood": "Mile End",
+    "photoCount": 1,
+    "onlyPublicLogoImported": true,
+    "approvedPublicLogoExpectedSourceSha256": "dce345a64948222497c119f0cd408f873149b5e3d91f554465b2a9d5870e1f4b",
+    "finalStateObserved": "Withdrawn from My articles; server-backed action completed before list updated.",
+    "observedConditionLabel": "Très bon état"
+  },
+  "nativeObservedChecks": [
+    {
+      "check": "Photo import and foreground draft",
+      "result": "PASS",
+      "observation": "One approved public logo imported; counter1/5 and thumbnail present."
+    },
+    {
+      "check": "X exit single confirmation and draft resume",
+      "result": "PASS",
+      "observation": "X raised one Quitter confirmation; confirming returned Home; Vendre showed Brouillon trouve1photo; Reprendre restored1/5."
+    },
+    {
+      "check": "Alternate category and size branch",
+      "result": "PASS",
+      "observation": "Hommes→Chaussures→Baskets selected;42 EU required size accepted; published article breadcrumb matched."
+    },
+    {
+      "check": "Pricing Android hardware Back persistence",
+      "result": "PASS",
+      "observation": "12 dollars and Mile End set; keyboard dismissed; hardware Back returned Details; Continue restored12 and Mile End selected."
+    },
+    {
+      "check": "Publication",
+      "result": "PASS",
+      "observation": "Native Annonce publiee receipt and callable returned exact fixture ID."
+    },
+    {
+      "check": "Edit",
+      "result": "PASS",
+      "observation": "Title suffix modifie saved; native Article modifie avec succes receipt; article reread displayed new title."
+    },
+    {
+      "check": "Mark sold",
+      "result": "PASS",
+      "observation": "Confirmation accepted for own fixture; Article vendu CTA and favorites disabled."
+    },
+    {
+      "check": "Relist",
+      "result": "PASS",
+      "observation": "Own fixture relisted; owner CTA and favorites restored; category/size/price retained."
+    },
+    {
+      "check": "Withdraw active fixture via swipe",
+      "result": "PASS",
+      "observation": "Swipe only dedicated fixture row; Retirer confirmation named it; My articles3→2; both older B fixtures remained sold."
+    }
+  ],
+  "preservation": {
+    "olderSoldFixturesObservedBeforeAndAfter": [
+      "Article QA B-SDK-reservation 20261125",
+      "Article QA B 20261125"
+    ],
+    "olderSoldFixturesMutatedByThisTask": false,
+    "productionAccessOrMutation": false,
+    "realPaymentOrShipping": false,
+    "accountCreationDeletionOrCredentialChanges": false,
+    "appDataWipedOrAppReinstalledByThisTask": false,
+    "otherDevicesOrMetroTouched": false,
+    "productOrNativeSourceEdited": false
+  },
+  "logs": {
+    "device": "emulator-5554",
+    "logicalDeviceId": "c8b145f4f1977a44c459ca8871811fd80e5740a3",
+    "metroPort": 8093,
+    "sha256": "846428881f9b42850e3951e512c9d3e18d99265840e8eb8f38daa684998a1dc0",
+    "bytes": 3296,
+    "entries": 19,
+    "levelCounts": {
+      "LOG": 10,
+      "WARNING": 9,
+      "ERROR": 0
+    },
+    "failureMarkers": {
+      "failedPrecondition": 0,
+      "requiresIndex": 0,
+      "firebaseError": 0,
+      "permissionDenied": 0,
+      "listenerFailure": 0,
+      "notificationsKeychainFailure": 0
+    },
+    "warningClusters": [
+      {
+        "count": 9,
+        "message": "[Reanimated] Property transform of AnimatedComponent(Pressable) may be overwritten by a layout animation.",
+        "qualification": "Non-blocking warning observed in My articles; swipe and withdrawal functioned. No source change made."
+      }
+    ],
+    "fullRawLogsCopiedToPublicReport": false
+  },
+  "safeCaptures": [
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/01-draft-found-one-logo.png",
+      "sha256": "a6ae2073359810b9f1bef91de1d7a981ea7c6abf5a03525b762bb8392b822b4d",
+      "bytes": 51749,
+      "evidence": "Draft found with one logo photo",
+      "privacyReview": "Observed image contains only public Seconde logo and synthetic QA fixture content; no gallery or real-media capture copied."
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/02-details-baskets-42eu.png",
+      "sha256": "62a1461426588e39ec14c1d2e55114638b125702310016d12ccd175157bcfe30",
+      "bytes": 56873,
+      "evidence": "Baskets and42 EU selected",
+      "privacyReview": "Observed image contains only public Seconde logo and synthetic QA fixture content; no gallery or real-media capture copied."
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/03-pricing-restored-after-hardware-back.png",
+      "sha256": "5dca021cac76ffc89715886f20b4f6eea71162782cbc1f541bcc19c4d98af261",
+      "bytes": 43432,
+      "evidence": "12 dollars and Mile End restored after Android hardware Back",
+      "privacyReview": "Observed image contains only public Seconde logo and synthetic QA fixture content; no gallery or real-media capture copied."
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/04-publication-receipt.png",
+      "sha256": "062f176f1485afcfc931c8de2145a804fa8063198888346ff397b50d00fd2e21",
+      "bytes": 60963,
+      "evidence": "New Android fixture published",
+      "privacyReview": "Observed image contains only public Seconde logo and synthetic QA fixture content; no gallery or real-media capture copied."
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/05-edit-receipt.png",
+      "sha256": "1d6166bb8ddc33638c0ae993f862adabb75e580287bae0de58d5c898bec52969",
+      "bytes": 81923,
+      "evidence": "Title modification accepted",
+      "privacyReview": "Observed image contains only public Seconde logo and synthetic QA fixture content; no gallery or real-media capture copied."
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/06-sold.png",
+      "sha256": "acb127962a29f91ea8ddf600b87d1c1aa1233139eb3c042f9f49bdb91eaca6ae",
+      "bytes": 81850,
+      "evidence": "Article sold and favorites disabled",
+      "privacyReview": "Observed image contains only public Seconde logo and synthetic QA fixture content; no gallery or real-media capture copied."
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/07-relisted.png",
+      "sha256": "220d6b5eda42d276634e5aabc7289f303d38a0cd2c8bd90a24ec3c44b4d02769",
+      "bytes": 82794,
+      "evidence": "Owner CTA and favorites restored after relist",
+      "privacyReview": "Observed image contains only public Seconde logo and synthetic QA fixture content; no gallery or real-media capture copied."
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/08-withdrawal-confirmation.png",
+      "sha256": "d842195a2f9d5247ecfdc50742856b6c5663dc4fa2530b1d33c3ecf46695b105",
+      "bytes": 71450,
+      "evidence": "Withdrawal confirmation names only the dedicated fixture",
+      "privacyReview": "Observed image contains only public Seconde logo and synthetic QA fixture content; no gallery or real-media capture copied."
+    },
+    {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/09-two-original-sold-fixtures-preserved.png",
+      "sha256": "7511f4615d45b3942478749bd839ce9ad7fe9610770a6cc313e096a960eac2ab",
+      "bytes": 37981,
+      "evidence": "New fixture withdrawn, two original sold fixtures preserved",
+      "privacyReview": "Observed image contains only public Seconde logo and synthetic QA fixture content; no gallery or real-media capture copied."
+    }
+  ],
+  "recording": {
+    "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/.argent/e2e/android57-baskets-draft-persistence-20261126.yaml",
+    "sha256": "2e2f28f15cc67b4e9c9fd8400ca54ab72fafaa5feec75b198929ec3c32009716",
+    "stepCount": 119,
+    "kind": "fragment",
+    "uninterruptedReplayPerformed": false,
+    "e2ePass": false,
+    "qualification": "Recorded first walkthrough retained as diagnostic evidence; initial unreadable/unmet waits, underlay selector collisions and raw points prevent an E2E pass claim."
+  },
+  "privateEvidenceRefs": {
+    "logWindow": {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/ANDROID57_LOG_WINDOW.json",
+      "sha256": "824413d203ed983aab1069a090ab37b7a3f84aaddb1c64653ad9012b2fa6630f"
+    },
+    "incidentDetails": {
+      "path": "/tmp/seconde-v1-sdk57-device-qa-20261126/android-sdk57-observed/PRIVATE_ANDROID57_QA_INCIDENTS.json",
+      "sha256": "3c9eb04f7414eb9ce87b4ce19c8b7fdcc585658ed7eb1196e9166dec426310a6"
+    }
+  },
+  "limitations": [
+    "Android emulator observation only. Physical iPhone SDK57 remains untested by this task.",
+    "No Production/store binary or store submission qualification implied.",
+    "The UI withdrawal result is observed; independent backend-document audit remains for the parent if required.",
+    "Nine Reanimated transform/layout warnings remain recorded; no query/Firebase/ERROR entries appeared in this connected Android capture window."
+  ]
+}

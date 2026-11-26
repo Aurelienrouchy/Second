@@ -1,0 +1,1004 @@
+{
+  "sourceArchiveProofSha256": "291d88a4511a9c78e9d44e0856b09e544fdf194e70a18ba42c9c4616796604a9",
+  "sourceArchiveProofPreserved": true,
+  "schemaVersion": 1,
+  "kind": "categories-production-compiled-artifact-proof",
+  "qualification": "PASS",
+  "scope": "Static category-corrected SDK57 compiled identity, production configuration, feature flags, native Hermes release and disabled OTA only; not overall release runtime qualification.",
+  "releaseRuntimeQualification": "NOT_ASSESSED",
+  "nativeProductionDeviceFlowsVerified": false,
+  "longDurationMemoryStabilityMeasured": false,
+  "verifiedAt": "2026-11-26T16:31:20.201576+00:00",
+  "provenance": {
+    "qaRuntimeSha256": "fdfd9d6c0ab1575e4863d5115c18c192e9abbfaeabfc0df001791ef0a1a61ad7",
+    "productionRuntimeSha256": "4f31400023bfe01f4e2ee206fe358ea45dc9259bd29b484642c30c44200e901a",
+    "gitCommit": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47",
+    "archiveInventorySha256": "cc457b2fdb485414f8d76b4d6afeb17e641f214b5c5db8178107a0f9393a806c"
+  },
+  "expectedVersions": {
+    "expo": "57.0.34",
+    "reactNative": "0.86.3",
+    "hermesNative": "250829098.0.17",
+    "hermesCompiler": "250829098.0.17"
+  },
+  "artifacts": {
+    "ios": {
+      "easBuildId": "91ec7a04-88b7-467c-a25d-d11ff6c8c00b",
+      "buildNumber": "39",
+      "version": "1.0.2",
+      "path": "/tmp/seconde-v1-categories-release-20261126/production-91ec7a04-88b7-467c-a25d-d11ff6c8c00b.ipa",
+      "sha256": "83a2b36c3a1769eeed934b01303f934e457ec4967a8cc1a1b706bc9f28140e64",
+      "sizeBytes": 50653687,
+      "checks": [
+        {
+          "name": "identity",
+          "passed": true,
+          "evidence": {
+            "CFBundleIdentifier": "com.seconde.app",
+            "CFBundleShortVersionString": "1.0.2",
+            "CFBundleVersion": "39",
+            "MinimumOSVersion": "16.4",
+            "UIDeviceFamily": [
+              1
+            ]
+          }
+        },
+        {
+          "name": "version",
+          "passed": true,
+          "evidence": {
+            "CFBundleIdentifier": "com.seconde.app",
+            "CFBundleShortVersionString": "1.0.2",
+            "CFBundleVersion": "39",
+            "MinimumOSVersion": "16.4",
+            "UIDeviceFamily": [
+              1
+            ]
+          }
+        },
+        {
+          "name": "nativeFirebaseProduction",
+          "passed": true,
+          "evidence": {
+            "projectId": "seconde-b47a6",
+            "bundleId": "com.seconde.app",
+            "senderId": "628214013296",
+            "analyticsEnabled": false,
+            "adsEnabled": false
+          }
+        },
+        {
+          "name": "expoEmbeddedConfigProduction",
+          "passed": true,
+          "evidence": {
+            "appEnvironment": "production",
+            "firebaseProjectId": "seconde-b47a6",
+            "scheme": "seconde",
+            "bundleIdentifier": "com.seconde.app",
+            "version": "1.0.2",
+            "buildNumber": "1",
+            "sha256": "15f600448b5476c3f6719c33f925dd25ece835c7877243b7e0be7309987a1da9"
+          }
+        },
+        {
+          "name": "compiledRuntimeFlags",
+          "passed": true,
+          "evidence": {
+            "qualified": true,
+            "format": "Hermes bytecode",
+            "bytecodeVersion": 98,
+            "officialHermesDisassemblyExitCode": 0,
+            "disassembler": {
+              "binaryPath": "/tmp/seconde-v1-git-release-20261125/node_modules/hermes-compiler/hermesc/osx-bin/hermesc",
+              "binarySha256": "459d352c9a3cfdbe9289a167d93f7e30700c6ee591dfee3a4d52dc26eb8548cb",
+              "packageVersion": "250829098.0.17",
+              "reportedReleaseVersion": "250829098.0.17",
+              "supportedHbcBytecodeVersion": 98,
+              "versionCommandExitCode": 0,
+              "applicationCodeExecuted": false,
+              "limits": [
+                "Compiler identity does not prove native engine version; packaged native framework/library release constants are inspected independently."
+              ]
+            },
+            "executed": false,
+            "staticObservations": {
+              "phase1QaEnabled": false,
+              "newPaymentsEnabled": false,
+              "providerShippingEnabled": false,
+              "commerceTestModeEnabled": false,
+              "posthogCaptureKeyEmpty": true
+            },
+            "observationBasis": "Fresh SDK57 ios artifact disassembled using the verified .17 compiler. Feature module initialization writes constant false to QA slot0, folds shipping and payments gates to false and commerce-test gate to false; PostHog API-key slot0 is the empty string. Native Firebase and Expo embedded configuration independently target Production.",
+            "evidence": {
+              "featureFlagModule": {
+                "lineStart": 448478,
+                "lineEnd": 448733,
+                "sha256": "ca7f6d239a66e595afdca5a93aa43df01ff4ca033e1f61e878f035c44705e76c"
+              },
+              "posthogModule": {
+                "lineStart": 448734,
+                "lineEnd": 448778,
+                "sha256": "5085df54415978163f44430bed7c8ba2480b2d0273a0c26c587dc94f342a465e"
+              }
+            },
+            "limitations": [
+              "HBC98/compiler identity is separate from native Hermes release; native engine is independently inspected.",
+              "Runtime resolver argument object constant buffers not independently decoded; native Firebase/Expo Constants directly identify the Production target, combined with the separately inspected exact EAS source/profile.",
+              "Static disassembly does not qualify native flows or long-duration memory stability."
+            ]
+          }
+        },
+        {
+          "name": "artifactSha256",
+          "passed": true,
+          "evidence": {
+            "sha256": "83a2b36c3a1769eeed934b01303f934e457ec4967a8cc1a1b706bc9f28140e64",
+            "sizeBytes": 50653687
+          }
+        },
+        {
+          "name": "nativeHermesRelease",
+          "passed": true,
+          "evidence": {
+            "qualified": true,
+            "observedNativeReleaseVersion": "250829098.0.17",
+            "affectedNativeReleaseObserved": false,
+            "nativeBinaryPathInArtifact": "Payload/Seconde.app/Frameworks/hermesvm.framework/hermesvm",
+            "nativeBinary": {
+              "format": "Mach-O64",
+              "uuid": "be274a23-47cc-3f5a-9e98-8474553df5a8",
+              "bytes": 5124224,
+              "sha256": "29bbd66bee8894c8a8a81532952f8154417acf288587a5a4b4fc464811d74e85",
+              "expectedReleaseVersionOccurrenceCount": 1,
+              "affectedReleaseVersionOccurrenceCount": 0,
+              "textSections": [
+                {
+                  "segment": "__TEXT",
+                  "section": "__text",
+                  "offset": 29824,
+                  "bytes": 1849828,
+                  "sha256": "9f5bc675604dfc430ef729bf1b875e5bdf6a9f327576b63987eca424d8cce02a",
+                  "expectedReleaseVersionPresent": false,
+                  "affectedReleaseVersionPresent": false
+                },
+                {
+                  "segment": "__TEXT",
+                  "section": "__stubs",
+                  "offset": 1879652,
+                  "bytes": 2256,
+                  "sha256": "95b18b090c17875baf70ada82dd393a51693e697c35d0971082badf017fd035b",
+                  "expectedReleaseVersionPresent": false,
+                  "affectedReleaseVersionPresent": false
+                },
+                {
+                  "segment": "__TEXT",
+                  "section": "__objc_stubs",
+                  "offset": 1881920,
+                  "bytes": 3072,
+                  "sha256": "043982a91b704870ab895fe440acafd2b5ff646a27601b6a6f2c465f17520fee",
+                  "expectedReleaseVersionPresent": false,
+                  "affectedReleaseVersionPresent": false
+                },
+                {
+                  "segment": "__TEXT",
+                  "section": "__init_offsets",
+                  "offset": 1884992,
+                  "bytes": 12,
+                  "sha256": "5410f26c32380622e2122735b19f5e520cec7526328cfdebafcbc1ed3849fadf",
+                  "expectedReleaseVersionPresent": false,
+                  "affectedReleaseVersionPresent": false
+                },
+                {
+                  "segment": "__TEXT",
+                  "section": "__const",
+                  "offset": 1885008,
+                  "bytes": 203651,
+                  "sha256": "85367073fe6416baf341ba64c3edab1c8ca37ba2704fb34e704c996b43871071",
+                  "expectedReleaseVersionPresent": false,
+                  "affectedReleaseVersionPresent": false
+                },
+                {
+                  "segment": "__TEXT",
+                  "section": "__cstring",
+                  "offset": 2088659,
+                  "bytes": 62823,
+                  "sha256": "52968abbc1a01fd05e3dad8b579a497a090ead3c0a2889f3cd96703bc9848e8a",
+                  "expectedReleaseVersionPresent": true,
+                  "affectedReleaseVersionPresent": false
+                },
+                {
+                  "segment": "__TEXT",
+                  "section": "__gcc_except_tab",
+                  "offset": 2151484,
+                  "bytes": 14300,
+                  "sha256": "80abdd6313c02b06e385dd9e01c615284abbc251809ed69fbed7bc9b900405d4",
+                  "expectedReleaseVersionPresent": false,
+                  "affectedReleaseVersionPresent": false
+                },
+                {
+                  "segment": "__TEXT",
+                  "section": "__ustring",
+                  "offset": 2165784,
+                  "bytes": 4718,
+                  "sha256": "2ddb0eb60e893d5435afb4a439b2b6b03d797be491bd1286e76f3386bf136634",
+                  "expectedReleaseVersionPresent": false,
+                  "affectedReleaseVersionPresent": false
+                },
+                {
+                  "segment": "__TEXT",
+                  "section": "__objc_methname",
+                  "offset": 2170502,
+                  "bytes": 1604,
+                  "sha256": "c4f060268f5bd08e3329845b60e56efbcec9363a8e4aea7b37e222abe824730f",
+                  "expectedReleaseVersionPresent": false,
+                  "affectedReleaseVersionPresent": false
+                },
+                {
+                  "segment": "__TEXT",
+                  "section": "__unwind_info",
+                  "offset": 2172108,
+                  "bytes": 6964,
+                  "sha256": "55bd36f039261935a77c601c8df95c6b6f574f3b428a35aa9026e85d9a203829",
+                  "expectedReleaseVersionPresent": false,
+                  "affectedReleaseVersionPresent": false
+                },
+                {
+                  "segment": "__TEXT",
+                  "section": "__oslogstring",
+                  "offset": 2179072,
+                  "bytes": 23,
+                  "sha256": "4dfe636dbf3f47ce0b4a398e00b4d48aae3a3d50d984d124acd26f9c8f176511",
+                  "expectedReleaseVersionPresent": false,
+                  "affectedReleaseVersionPresent": false
+                }
+              ]
+            },
+            "referenceComparison": {
+              "referenceKind": "Previously frozen vendor .17 Release archive snapshot; not mutable Debug destroot",
+              "uuidMatches": true,
+              "allTextSectionHashesMatch": true,
+              "matchingTextSections": [
+                "__const",
+                "__cstring",
+                "__gcc_except_tab",
+                "__init_offsets",
+                "__objc_methname",
+                "__objc_stubs",
+                "__oslogstring",
+                "__stubs",
+                "__text",
+                "__unwind_info",
+                "__ustring"
+              ],
+              "referenceArchiveSha256": "2967ee51b41bd433b3027dda875e96194354e2b4d715f9f186fd0c04ccef309d"
+            },
+            "basis": "Actual packaged native Hermes framework inspected independently from the compiler or HBC bytecode version.",
+            "limitations": [
+              "Native engine release identification and static vendor comparison do not execute app flows or measure long-duration memory stability."
+            ]
+          }
+        },
+        {
+          "name": "otaDisabled",
+          "passed": true,
+          "evidence": {
+            "platform": "IOS",
+            "artifactSha256": "83a2b36c3a1769eeed934b01303f934e457ec4967a8cc1a1b706bc9f28140e64",
+            "expoPlists": [
+              {
+                "path": "Payload/Seconde.app/Expo.plist",
+                "sha256": "05ba13f24655445d029d47b626ac23ce8003e2e0722b7f8926b82b89c94ec51b",
+                "values": {
+                  "EXUpdatesEnabled": false,
+                  "EXUpdatesCheckOnLaunch": "ALWAYS",
+                  "EXUpdatesLaunchWaitMs": 0
+                },
+                "presentKeys": [
+                  "EXUpdatesCheckOnLaunch",
+                  "EXUpdatesEnableBsdiffPatchSupport",
+                  "EXUpdatesEnabled",
+                  "EXUpdatesLaunchWaitMs"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "nativeFirebase": {
+        "projectId": "seconde-b47a6",
+        "bundleId": "com.seconde.app",
+        "senderId": "628214013296",
+        "analyticsEnabled": false,
+        "adsEnabled": false
+      },
+      "expoConfig": {
+        "appEnvironment": "production",
+        "firebaseProjectId": "seconde-b47a6",
+        "scheme": "seconde",
+        "bundleIdentifier": "com.seconde.app",
+        "version": "1.0.2",
+        "buildNumber": "1",
+        "sha256": "15f600448b5476c3f6719c33f925dd25ece835c7877243b7e0be7309987a1da9"
+      },
+      "compiledJavascript": {
+        "bytes": 17791734,
+        "sha256": "0e6f6b767c0068bbf2d48fbf39ead2fe3cdc971c7bfbd973bd683c6228efc4d5",
+        "magic": "c61fbc03c103191f",
+        "bytecodeVersion": 98,
+        "executed": false,
+        "qualified": true,
+        "format": "Hermes bytecode",
+        "officialHermesDisassemblyExitCode": 0,
+        "disassembler": {
+          "binaryPath": "/tmp/seconde-v1-git-release-20261125/node_modules/hermes-compiler/hermesc/osx-bin/hermesc",
+          "binarySha256": "459d352c9a3cfdbe9289a167d93f7e30700c6ee591dfee3a4d52dc26eb8548cb",
+          "packageVersion": "250829098.0.17",
+          "reportedReleaseVersion": "250829098.0.17",
+          "supportedHbcBytecodeVersion": 98,
+          "versionCommandExitCode": 0,
+          "applicationCodeExecuted": false,
+          "limits": [
+            "Compiler identity does not prove native engine version; packaged native framework/library release constants are inspected independently."
+          ]
+        },
+        "staticObservations": {
+          "phase1QaEnabled": false,
+          "newPaymentsEnabled": false,
+          "providerShippingEnabled": false,
+          "commerceTestModeEnabled": false,
+          "posthogCaptureKeyEmpty": true
+        },
+        "observationBasis": "Fresh SDK57 ios artifact disassembled using the verified .17 compiler. Feature module initialization writes constant false to QA slot0, folds shipping and payments gates to false and commerce-test gate to false; PostHog API-key slot0 is the empty string. Native Firebase and Expo embedded configuration independently target Production.",
+        "evidence": {
+          "featureFlagModule": {
+            "lineStart": 448478,
+            "lineEnd": 448733,
+            "sha256": "ca7f6d239a66e595afdca5a93aa43df01ff4ca033e1f61e878f035c44705e76c"
+          },
+          "posthogModule": {
+            "lineStart": 448734,
+            "lineEnd": 448778,
+            "sha256": "5085df54415978163f44430bed7c8ba2480b2d0273a0c26c587dc94f342a465e"
+          }
+        },
+        "limitations": [
+          "HBC98/compiler identity is separate from native Hermes release; native engine is independently inspected.",
+          "Runtime resolver argument object constant buffers not independently decoded; native Firebase/Expo Constants directly identify the Production target, combined with the separately inspected exact EAS source/profile.",
+          "Static disassembly does not qualify native flows or long-duration memory stability."
+        ]
+      },
+      "nativeHermes": {
+        "qualified": true,
+        "observedNativeReleaseVersion": "250829098.0.17",
+        "affectedNativeReleaseObserved": false,
+        "nativeBinaryPathInArtifact": "Payload/Seconde.app/Frameworks/hermesvm.framework/hermesvm",
+        "nativeBinary": {
+          "format": "Mach-O64",
+          "uuid": "be274a23-47cc-3f5a-9e98-8474553df5a8",
+          "bytes": 5124224,
+          "sha256": "29bbd66bee8894c8a8a81532952f8154417acf288587a5a4b4fc464811d74e85",
+          "expectedReleaseVersionOccurrenceCount": 1,
+          "affectedReleaseVersionOccurrenceCount": 0,
+          "textSections": [
+            {
+              "segment": "__TEXT",
+              "section": "__text",
+              "offset": 29824,
+              "bytes": 1849828,
+              "sha256": "9f5bc675604dfc430ef729bf1b875e5bdf6a9f327576b63987eca424d8cce02a",
+              "expectedReleaseVersionPresent": false,
+              "affectedReleaseVersionPresent": false
+            },
+            {
+              "segment": "__TEXT",
+              "section": "__stubs",
+              "offset": 1879652,
+              "bytes": 2256,
+              "sha256": "95b18b090c17875baf70ada82dd393a51693e697c35d0971082badf017fd035b",
+              "expectedReleaseVersionPresent": false,
+              "affectedReleaseVersionPresent": false
+            },
+            {
+              "segment": "__TEXT",
+              "section": "__objc_stubs",
+              "offset": 1881920,
+              "bytes": 3072,
+              "sha256": "043982a91b704870ab895fe440acafd2b5ff646a27601b6a6f2c465f17520fee",
+              "expectedReleaseVersionPresent": false,
+              "affectedReleaseVersionPresent": false
+            },
+            {
+              "segment": "__TEXT",
+              "section": "__init_offsets",
+              "offset": 1884992,
+              "bytes": 12,
+              "sha256": "5410f26c32380622e2122735b19f5e520cec7526328cfdebafcbc1ed3849fadf",
+              "expectedReleaseVersionPresent": false,
+              "affectedReleaseVersionPresent": false
+            },
+            {
+              "segment": "__TEXT",
+              "section": "__const",
+              "offset": 1885008,
+              "bytes": 203651,
+              "sha256": "85367073fe6416baf341ba64c3edab1c8ca37ba2704fb34e704c996b43871071",
+              "expectedReleaseVersionPresent": false,
+              "affectedReleaseVersionPresent": false
+            },
+            {
+              "segment": "__TEXT",
+              "section": "__cstring",
+              "offset": 2088659,
+              "bytes": 62823,
+              "sha256": "52968abbc1a01fd05e3dad8b579a497a090ead3c0a2889f3cd96703bc9848e8a",
+              "expectedReleaseVersionPresent": true,
+              "affectedReleaseVersionPresent": false
+            },
+            {
+              "segment": "__TEXT",
+              "section": "__gcc_except_tab",
+              "offset": 2151484,
+              "bytes": 14300,
+              "sha256": "80abdd6313c02b06e385dd9e01c615284abbc251809ed69fbed7bc9b900405d4",
+              "expectedReleaseVersionPresent": false,
+              "affectedReleaseVersionPresent": false
+            },
+            {
+              "segment": "__TEXT",
+              "section": "__ustring",
+              "offset": 2165784,
+              "bytes": 4718,
+              "sha256": "2ddb0eb60e893d5435afb4a439b2b6b03d797be491bd1286e76f3386bf136634",
+              "expectedReleaseVersionPresent": false,
+              "affectedReleaseVersionPresent": false
+            },
+            {
+              "segment": "__TEXT",
+              "section": "__objc_methname",
+              "offset": 2170502,
+              "bytes": 1604,
+              "sha256": "c4f060268f5bd08e3329845b60e56efbcec9363a8e4aea7b37e222abe824730f",
+              "expectedReleaseVersionPresent": false,
+              "affectedReleaseVersionPresent": false
+            },
+            {
+              "segment": "__TEXT",
+              "section": "__unwind_info",
+              "offset": 2172108,
+              "bytes": 6964,
+              "sha256": "55bd36f039261935a77c601c8df95c6b6f574f3b428a35aa9026e85d9a203829",
+              "expectedReleaseVersionPresent": false,
+              "affectedReleaseVersionPresent": false
+            },
+            {
+              "segment": "__TEXT",
+              "section": "__oslogstring",
+              "offset": 2179072,
+              "bytes": 23,
+              "sha256": "4dfe636dbf3f47ce0b4a398e00b4d48aae3a3d50d984d124acd26f9c8f176511",
+              "expectedReleaseVersionPresent": false,
+              "affectedReleaseVersionPresent": false
+            }
+          ]
+        },
+        "referenceComparison": {
+          "referenceKind": "Previously frozen vendor .17 Release archive snapshot; not mutable Debug destroot",
+          "uuidMatches": true,
+          "allTextSectionHashesMatch": true,
+          "matchingTextSections": [
+            "__const",
+            "__cstring",
+            "__gcc_except_tab",
+            "__init_offsets",
+            "__objc_methname",
+            "__objc_stubs",
+            "__oslogstring",
+            "__stubs",
+            "__text",
+            "__unwind_info",
+            "__ustring"
+          ],
+          "referenceArchiveSha256": "2967ee51b41bd433b3027dda875e96194354e2b4d715f9f186fd0c04ccef309d"
+        },
+        "basis": "Actual packaged native Hermes framework inspected independently from the compiler or HBC bytecode version.",
+        "limitations": [
+          "Native engine release identification and static vendor comparison do not execute app flows or measure long-duration memory stability."
+        ]
+      },
+      "embeddedOta": {
+        "platform": "IOS",
+        "artifactSha256": "83a2b36c3a1769eeed934b01303f934e457ec4967a8cc1a1b706bc9f28140e64",
+        "expoPlists": [
+          {
+            "path": "Payload/Seconde.app/Expo.plist",
+            "sha256": "05ba13f24655445d029d47b626ac23ce8003e2e0722b7f8926b82b89c94ec51b",
+            "values": {
+              "EXUpdatesEnabled": false,
+              "EXUpdatesCheckOnLaunch": "ALWAYS",
+              "EXUpdatesLaunchWaitMs": 0
+            },
+            "presentKeys": [
+              "EXUpdatesCheckOnLaunch",
+              "EXUpdatesEnableBsdiffPatchSupport",
+              "EXUpdatesEnabled",
+              "EXUpdatesLaunchWaitMs"
+            ]
+          }
+        ]
+      },
+      "easSource": {
+        "status": "FINISHED",
+        "gitCommitHash": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47",
+        "buildProfile": "production",
+        "distribution": "STORE",
+        "createdAt": "2026-11-26T15:52:40.944Z",
+        "completedAt": "2026-11-26T16:00:07.793Z"
+      },
+      "bundleIdentifier": "com.seconde.app"
+    },
+    "android": {
+      "easBuildId": "4370ef3b-9309-4d18-bbae-f87876e01fb5",
+      "buildNumber": "20",
+      "version": "1.0.2",
+      "path": "/tmp/seconde-v1-categories-release-20261126/production-4370ef3b-9309-4d18-bbae-f87876e01fb5.aab",
+      "sha256": "6477459b1cf719b7e799c5ec714745ea8d9a01b23998eaeb31f875e9f42adb37",
+      "sizeBytes": 143657597,
+      "checks": [
+        {
+          "name": "identity",
+          "passed": true,
+          "evidence": {
+            "package": "com.seconde.app",
+            "versionName": "1.0.2",
+            "versionCode": 20
+          }
+        },
+        {
+          "name": "version",
+          "passed": true,
+          "evidence": {
+            "package": "com.seconde.app",
+            "versionName": "1.0.2",
+            "versionCode": 20
+          }
+        },
+        {
+          "name": "nativeFirebaseProduction",
+          "passed": true,
+          "evidence": {
+            "gcm_defaultSenderId": [
+              "628214013296"
+            ],
+            "google_app_id": [
+              "1:628214013296:android:af3e0444ea4b73a7dd83b5"
+            ],
+            "google_storage_bucket": [
+              "seconde-b47a6.firebasestorage.app"
+            ],
+            "project_id": [
+              "seconde-b47a6"
+            ]
+          }
+        },
+        {
+          "name": "expoEmbeddedConfigProduction",
+          "passed": true,
+          "evidence": {
+            "appEnvironment": "production",
+            "firebaseProjectId": "seconde-b47a6",
+            "scheme": "seconde",
+            "package": "com.seconde.app",
+            "version": "1.0.2",
+            "sha256": "15f600448b5476c3f6719c33f925dd25ece835c7877243b7e0be7309987a1da9"
+          }
+        },
+        {
+          "name": "compiledRuntimeFlags",
+          "passed": true,
+          "evidence": {
+            "qualified": true,
+            "format": "Hermes bytecode",
+            "bytecodeVersion": 98,
+            "officialHermesDisassemblyExitCode": 0,
+            "disassembler": {
+              "binaryPath": "/tmp/seconde-v1-git-release-20261125/node_modules/hermes-compiler/hermesc/osx-bin/hermesc",
+              "binarySha256": "459d352c9a3cfdbe9289a167d93f7e30700c6ee591dfee3a4d52dc26eb8548cb",
+              "packageVersion": "250829098.0.17",
+              "reportedReleaseVersion": "250829098.0.17",
+              "supportedHbcBytecodeVersion": 98,
+              "versionCommandExitCode": 0,
+              "applicationCodeExecuted": false,
+              "limits": [
+                "Compiler identity does not prove native engine version; packaged native framework/library release constants are inspected independently."
+              ]
+            },
+            "executed": false,
+            "staticObservations": {
+              "phase1QaEnabled": false,
+              "newPaymentsEnabled": false,
+              "providerShippingEnabled": false,
+              "commerceTestModeEnabled": false,
+              "posthogCaptureKeyEmpty": true
+            },
+            "observationBasis": "Fresh SDK57 android artifact disassembled using the verified .17 compiler. Feature module initialization writes constant false to QA slot0, folds shipping and payments gates to false and commerce-test gate to false; PostHog API-key slot0 is the empty string. Native Firebase and Expo embedded configuration independently target Production.",
+            "evidence": {
+              "featureFlagModule": {
+                "lineStart": 643196,
+                "lineEnd": 643450,
+                "sha256": "e7bbbb0df03a2e7c3290187a1631ddf9d69d14a59863cb856ac5195a0089c4a7"
+              },
+              "posthogModule": {
+                "lineStart": 643451,
+                "lineEnd": 643494,
+                "sha256": "33c55c1237a94a95f625b1c26e95b1086a0e834b66b5f0b753c4c6a7448b4d61"
+              }
+            },
+            "limitations": [
+              "HBC98/compiler identity is separate from native Hermes release; native engine is independently inspected.",
+              "Runtime resolver argument object constant buffers not independently decoded; native Firebase/Expo Constants directly identify the Production target, combined with the separately inspected exact EAS source/profile.",
+              "Static disassembly does not qualify native flows or long-duration memory stability."
+            ]
+          }
+        },
+        {
+          "name": "artifactSha256",
+          "passed": true,
+          "evidence": {
+            "sha256": "6477459b1cf719b7e799c5ec714745ea8d9a01b23998eaeb31f875e9f42adb37",
+            "sizeBytes": 143657597
+          }
+        },
+        {
+          "name": "nativeHermesRelease",
+          "passed": true,
+          "evidence": {
+            "qualified": true,
+            "observedNativeReleaseVersion": "250829098.0.17",
+            "affectedNativeReleaseObserved": false,
+            "nativeLibraries": [
+              {
+                "path": "base/lib/arm64-v8a/libhermesvm.so",
+                "abi": "arm64-v8a",
+                "expectedReleaseVersion": "250829098.0.17",
+                "expectedNullTerminatedStringCount": 1,
+                "affectedReleaseVersion": "250829098.0.10",
+                "affectedNullTerminatedStringCount": 0,
+                "bytes": 2477320,
+                "sha256": "bf38be45bf5d6ad8ba961eaf9deda5fa7e032f3ff7d3929ba2a624567093bffa",
+                "class": 64,
+                "releaseVersionStringSections": [
+                  ".rodata"
+                ],
+                "gnuBuildId": "7a3863f5a9f1dd547fc8ca55f153f75b274986ba"
+              },
+              {
+                "path": "base/lib/armeabi-v7a/libhermesvm.so",
+                "abi": "armeabi-v7a",
+                "expectedReleaseVersion": "250829098.0.17",
+                "expectedNullTerminatedStringCount": 1,
+                "affectedReleaseVersion": "250829098.0.10",
+                "affectedNullTerminatedStringCount": 0,
+                "bytes": 1700248,
+                "sha256": "180d4113ebea599b2cbb44fe2d2634a7599a8d7afabbcb43670e0fe2839b006a",
+                "class": 32,
+                "releaseVersionStringSections": [
+                  ".rodata"
+                ],
+                "gnuBuildId": "cca622549ce2170a17428d7caeec6c67d4a750a2"
+              },
+              {
+                "path": "base/lib/x86/libhermesvm.so",
+                "abi": "x86",
+                "expectedReleaseVersion": "250829098.0.17",
+                "expectedNullTerminatedStringCount": 1,
+                "affectedReleaseVersion": "250829098.0.10",
+                "affectedNullTerminatedStringCount": 0,
+                "bytes": 3019744,
+                "sha256": "5a16c3f6370190033ae6cfb42b4c7d334eb120e706ad10232f5ea72b3d83d85d",
+                "class": 32,
+                "releaseVersionStringSections": [
+                  ".rodata"
+                ],
+                "gnuBuildId": "4b48f5ea39df58e73bae93bc28906fa7c54c448d"
+              },
+              {
+                "path": "base/lib/x86_64/libhermesvm.so",
+                "abi": "x86_64",
+                "expectedReleaseVersion": "250829098.0.17",
+                "expectedNullTerminatedStringCount": 1,
+                "affectedReleaseVersion": "250829098.0.10",
+                "affectedNullTerminatedStringCount": 0,
+                "bytes": 2591976,
+                "sha256": "3c5f7f3740b6511b55f3f8ba43c24eb1b38ab2fb9dc1ca5618287c3ca6221e13",
+                "class": 64,
+                "releaseVersionStringSections": [
+                  ".rodata"
+                ],
+                "gnuBuildId": "8d927b4d4757e3548fed384ed5666d66ee44c365"
+              }
+            ],
+            "basis": "Direct inspection of native Hermes ELF library bytes for every bundled ABI. NUL-terminated native release version .17 is independent of compiler and HBC version.",
+            "limitations": [
+              "Native engine identification does not execute application code or measure long-duration memory stability.",
+              "No independent vendor Android AAR code hash comparison was performed; per-ABI native ELF release constants, GNU build IDs and hashes are recorded."
+            ]
+          }
+        },
+        {
+          "name": "otaDisabled",
+          "passed": true,
+          "evidence": {
+            "androidManifestUpdatesMetadata": [
+              {
+                "name": "expo.modules.updates.ENABLED",
+                "value": "false"
+              },
+              {
+                "name": "expo.modules.updates.ENABLE_BSDIFF_PATCH_SUPPORT",
+                "value": "true"
+              },
+              {
+                "name": "expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH",
+                "value": "ALWAYS"
+              },
+              {
+                "name": "expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS",
+                "value": "0"
+              }
+            ],
+            "expoConfigHasUpdates": false,
+            "expoConfigUpdates": null,
+            "expoConfigHasRuntimeVersion": false,
+            "expoConfigRuntimeVersion": null
+          }
+        }
+      ],
+      "nativeFirebase": {
+        "gcm_defaultSenderId": [
+          "628214013296"
+        ],
+        "google_app_id": [
+          "1:628214013296:android:af3e0444ea4b73a7dd83b5"
+        ],
+        "google_storage_bucket": [
+          "seconde-b47a6.firebasestorage.app"
+        ],
+        "project_id": [
+          "seconde-b47a6"
+        ]
+      },
+      "expoConfig": {
+        "appEnvironment": "production",
+        "firebaseProjectId": "seconde-b47a6",
+        "scheme": "seconde",
+        "package": "com.seconde.app",
+        "version": "1.0.2",
+        "sha256": "15f600448b5476c3f6719c33f925dd25ece835c7877243b7e0be7309987a1da9"
+      },
+      "compiledJavascript": {
+        "bytes": 14943556,
+        "sha256": "24da38485e3645e4b94058b931bfc94a1d991b87b628af14c7615a281282aaa6",
+        "magic": "c61fbc03c103191f",
+        "qualified": true,
+        "format": "Hermes bytecode",
+        "bytecodeVersion": 98,
+        "officialHermesDisassemblyExitCode": 0,
+        "disassembler": {
+          "binaryPath": "/tmp/seconde-v1-git-release-20261125/node_modules/hermes-compiler/hermesc/osx-bin/hermesc",
+          "binarySha256": "459d352c9a3cfdbe9289a167d93f7e30700c6ee591dfee3a4d52dc26eb8548cb",
+          "packageVersion": "250829098.0.17",
+          "reportedReleaseVersion": "250829098.0.17",
+          "supportedHbcBytecodeVersion": 98,
+          "versionCommandExitCode": 0,
+          "applicationCodeExecuted": false,
+          "limits": [
+            "Compiler identity does not prove native engine version; packaged native framework/library release constants are inspected independently."
+          ]
+        },
+        "executed": false,
+        "staticObservations": {
+          "phase1QaEnabled": false,
+          "newPaymentsEnabled": false,
+          "providerShippingEnabled": false,
+          "commerceTestModeEnabled": false,
+          "posthogCaptureKeyEmpty": true
+        },
+        "observationBasis": "Fresh SDK57 android artifact disassembled using the verified .17 compiler. Feature module initialization writes constant false to QA slot0, folds shipping and payments gates to false and commerce-test gate to false; PostHog API-key slot0 is the empty string. Native Firebase and Expo embedded configuration independently target Production.",
+        "evidence": {
+          "featureFlagModule": {
+            "lineStart": 643196,
+            "lineEnd": 643450,
+            "sha256": "e7bbbb0df03a2e7c3290187a1631ddf9d69d14a59863cb856ac5195a0089c4a7"
+          },
+          "posthogModule": {
+            "lineStart": 643451,
+            "lineEnd": 643494,
+            "sha256": "33c55c1237a94a95f625b1c26e95b1086a0e834b66b5f0b753c4c6a7448b4d61"
+          }
+        },
+        "limitations": [
+          "HBC98/compiler identity is separate from native Hermes release; native engine is independently inspected.",
+          "Runtime resolver argument object constant buffers not independently decoded; native Firebase/Expo Constants directly identify the Production target, combined with the separately inspected exact EAS source/profile.",
+          "Static disassembly does not qualify native flows or long-duration memory stability."
+        ]
+      },
+      "nativeHermes": {
+        "qualified": true,
+        "observedNativeReleaseVersion": "250829098.0.17",
+        "affectedNativeReleaseObserved": false,
+        "nativeLibraries": [
+          {
+            "path": "base/lib/arm64-v8a/libhermesvm.so",
+            "abi": "arm64-v8a",
+            "expectedReleaseVersion": "250829098.0.17",
+            "expectedNullTerminatedStringCount": 1,
+            "affectedReleaseVersion": "250829098.0.10",
+            "affectedNullTerminatedStringCount": 0,
+            "bytes": 2477320,
+            "sha256": "bf38be45bf5d6ad8ba961eaf9deda5fa7e032f3ff7d3929ba2a624567093bffa",
+            "class": 64,
+            "releaseVersionStringSections": [
+              ".rodata"
+            ],
+            "gnuBuildId": "7a3863f5a9f1dd547fc8ca55f153f75b274986ba"
+          },
+          {
+            "path": "base/lib/armeabi-v7a/libhermesvm.so",
+            "abi": "armeabi-v7a",
+            "expectedReleaseVersion": "250829098.0.17",
+            "expectedNullTerminatedStringCount": 1,
+            "affectedReleaseVersion": "250829098.0.10",
+            "affectedNullTerminatedStringCount": 0,
+            "bytes": 1700248,
+            "sha256": "180d4113ebea599b2cbb44fe2d2634a7599a8d7afabbcb43670e0fe2839b006a",
+            "class": 32,
+            "releaseVersionStringSections": [
+              ".rodata"
+            ],
+            "gnuBuildId": "cca622549ce2170a17428d7caeec6c67d4a750a2"
+          },
+          {
+            "path": "base/lib/x86/libhermesvm.so",
+            "abi": "x86",
+            "expectedReleaseVersion": "250829098.0.17",
+            "expectedNullTerminatedStringCount": 1,
+            "affectedReleaseVersion": "250829098.0.10",
+            "affectedNullTerminatedStringCount": 0,
+            "bytes": 3019744,
+            "sha256": "5a16c3f6370190033ae6cfb42b4c7d334eb120e706ad10232f5ea72b3d83d85d",
+            "class": 32,
+            "releaseVersionStringSections": [
+              ".rodata"
+            ],
+            "gnuBuildId": "4b48f5ea39df58e73bae93bc28906fa7c54c448d"
+          },
+          {
+            "path": "base/lib/x86_64/libhermesvm.so",
+            "abi": "x86_64",
+            "expectedReleaseVersion": "250829098.0.17",
+            "expectedNullTerminatedStringCount": 1,
+            "affectedReleaseVersion": "250829098.0.10",
+            "affectedNullTerminatedStringCount": 0,
+            "bytes": 2591976,
+            "sha256": "3c5f7f3740b6511b55f3f8ba43c24eb1b38ab2fb9dc1ca5618287c3ca6221e13",
+            "class": 64,
+            "releaseVersionStringSections": [
+              ".rodata"
+            ],
+            "gnuBuildId": "8d927b4d4757e3548fed384ed5666d66ee44c365"
+          }
+        ],
+        "basis": "Direct inspection of native Hermes ELF library bytes for every bundled ABI. NUL-terminated native release version .17 is independent of compiler and HBC version.",
+        "limitations": [
+          "Native engine identification does not execute application code or measure long-duration memory stability.",
+          "No independent vendor Android AAR code hash comparison was performed; per-ABI native ELF release constants, GNU build IDs and hashes are recorded."
+        ]
+      },
+      "embeddedOta": {
+        "androidManifestUpdatesMetadata": [
+          {
+            "name": "expo.modules.updates.ENABLED",
+            "value": "false"
+          },
+          {
+            "name": "expo.modules.updates.ENABLE_BSDIFF_PATCH_SUPPORT",
+            "value": "true"
+          },
+          {
+            "name": "expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH",
+            "value": "ALWAYS"
+          },
+          {
+            "name": "expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS",
+            "value": "0"
+          }
+        ],
+        "expoConfigHasUpdates": false,
+        "expoConfigUpdates": null,
+        "expoConfigHasRuntimeVersion": false,
+        "expoConfigRuntimeVersion": null
+      },
+      "easSource": {
+        "status": "FINISHED",
+        "gitCommitHash": "4bea3d0abd1b3fdcc3e8239edd8be2b93487be47",
+        "buildProfile": "production",
+        "distribution": "STORE",
+        "createdAt": "2026-11-26T15:52:31.676Z",
+        "completedAt": "2026-11-26T16:27:55.254Z"
+      },
+      "packageIdentifier": "com.seconde.app",
+      "elf16KiB": {
+        "libraryCount": 116,
+        "byAbi": {
+          "arm64-v8a": {
+            "libraries": 29,
+            "exceptions": [],
+            "allLoadAlignedAndCongruent": true
+          },
+          "armeabi-v7a": {
+            "libraries": 29,
+            "exceptions": [
+              "base/lib/armeabi-v7a/libanimation-decoder-gif.so",
+              "base/lib/armeabi-v7a/libappmodules.so",
+              "base/lib/armeabi-v7a/libavif_android.so",
+              "base/lib/armeabi-v7a/libbarhopper_v3.so",
+              "base/lib/armeabi-v7a/libc++_shared.so",
+              "base/lib/armeabi-v7a/libexpo-modules-core.so",
+              "base/lib/armeabi-v7a/libfbjni.so",
+              "base/lib/armeabi-v7a/libgesturehandler.so",
+              "base/lib/armeabi-v7a/libhermestooling.so",
+              "base/lib/armeabi-v7a/libhermesvm.so",
+              "base/lib/armeabi-v7a/libjsi.so",
+              "base/lib/armeabi-v7a/libreact_codegen_rnscreens.so",
+              "base/lib/armeabi-v7a/libreact_codegen_safeareacontext.so",
+              "base/lib/armeabi-v7a/libreactnative.so",
+              "base/lib/armeabi-v7a/libreanimated.so",
+              "base/lib/armeabi-v7a/librnscreens.so",
+              "base/lib/armeabi-v7a/libworklets.so"
+            ],
+            "allLoadAlignedAndCongruent": false
+          },
+          "x86": {
+            "libraries": 29,
+            "exceptions": [
+              "base/lib/x86/libanimation-decoder-gif.so",
+              "base/lib/x86/libappmodules.so",
+              "base/lib/x86/libavif_android.so",
+              "base/lib/x86/libbarhopper_v3.so",
+              "base/lib/x86/libc++_shared.so",
+              "base/lib/x86/libexpo-modules-core.so",
+              "base/lib/x86/libfbjni.so",
+              "base/lib/x86/libgesturehandler.so",
+              "base/lib/x86/libhermestooling.so",
+              "base/lib/x86/libhermesvm.so",
+              "base/lib/x86/libjsi.so",
+              "base/lib/x86/libreact_codegen_rnscreens.so",
+              "base/lib/x86/libreact_codegen_safeareacontext.so",
+              "base/lib/x86/libreactnative.so",
+              "base/lib/x86/libreanimated.so",
+              "base/lib/x86/librnscreens.so",
+              "base/lib/x86/libworklets.so"
+            ],
+            "allLoadAlignedAndCongruent": false
+          },
+          "x86_64": {
+            "libraries": 29,
+            "exceptions": [],
+            "allLoadAlignedAndCongruent": true
+          }
+        },
+        "all64BitLibrariesLoadAlignedAndCongruent": true,
+        "allBundledLibrariesLoadAlignedAndCongruent": false,
+        "finalPlayGeneratedApkZipAlignmentVerified": false,
+        "privateDetailedInspectionSha256": "5f8dd10bb9d6f970b98dd444189acdd4fdbe29d959232a509f25def213050d69"
+      }
+    }
+  },
+  "limitations": [
+    "No application code or native library is executed by this static artifact verification.",
+    "Actual native Hermes release is checked separately from compiler or HBC bytecode version.",
+    "Static verification of the updated native Hermes engine does not measure long-duration memory stability or prove native user journeys.",
+    "Historical SDK57 artifacts38/19 and earlier artifacts remain separate and are not relabeled by this proof.",
+    "ELF LOAD segment inspection does not certify final Play generated APK ZIP alignment; any32bit ABI exceptions are explicitly reported."
+  ]
+}
