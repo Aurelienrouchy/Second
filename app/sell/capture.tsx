@@ -1,5 +1,8 @@
 import { serializeRouteParam } from '@/features/sell/utils/routeParams';
 import { useSellCamera } from '@/features/sell/hooks/useSellCamera';
+import { useSellActorSource, isSellActorSourceCurrent } from '@/features/sell/hooks/useSellActorSource';
+import { captureTradeSession, assertTradeSessionCurrent, staleTradeOperation } from '@/services/tradeOperation';
+import { useSellExitGuard } from '@/features/sell/hooks/useSellExitGuard';
 /**
  * Camera Capture Screen
  * Design System: Editorial Luxe -- Cream, Charcoal, Rust, Sage
@@ -10,7 +13,7 @@ import { useSellCamera } from '@/features/sell/hooks/useSellCamera';
  * - Bottom: thumbnail strip + gallery / capture / continue controls
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -49,6 +52,9 @@ export default function CaptureScreen() {
   const params = useLocalSearchParams();
   const cameraRef = useRef<CameraView>(null);
   const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
+  const { source: actorSource, getCurrentSource } = useSellActorSource();
+  const [photoSource] = useState(actorSource);
+  const captureMounted = useRef(true);
 
   const isResuming = params.resumeDraft === 'true';
   const resumedPhotos: string[] = params.photos
@@ -70,17 +76,29 @@ export default function CaptureScreen() {
   const departureRevision = useRef(0);
   const galleryPending = useRef(false);
   const handlePrivacyOpen = useCallback(() => { departureRevision.current += 1; }, []);
+  useLayoutEffect(() => {
+    captureMounted.current = true;
+    return () => { captureMounted.current = false; departureRevision.current += 1; };
+  }, []);
+  // A slow save must not authorize leaving with an older photo selection.
+  useLayoutEffect(() => { departureRevision.current += 1; }, [photos]);
+  const isPhotoSourceCurrent = useCallback(() => captureMounted.current &&
+    isSellActorSourceCurrent(getCurrentSource(), photoSource), [getCurrentSource, photoSource]);
+  const assertPhotoSourceCurrent = useCallback(() => {
+    if (!isPhotoSourceCurrent()) throw staleTradeOperation();
+    draftService.assertCurrentOwner(photoOwnerUid);
+  }, [isPhotoSourceCurrent, photoOwnerUid]);
 
   const persistPhotos = useCallback(async () => {
     if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current);
-    draftService.assertCurrentOwner(photoOwnerUid);
+    assertPhotoSourceCurrent();
     await draftReadyRef.current;
-    draftService.assertCurrentOwner(photoOwnerUid);
+    assertPhotoSourceCurrent();
     const draft = draftRef.current ?? await draftService.loadDraft() ?? createEmptyDraft();
-    draftService.assertCurrentOwner(photoOwnerUid);
+    assertPhotoSourceCurrent();
     draftRef.current = await draftService.updateDraftPhotos(draft, photos);
-    draftService.assertCurrentOwner(photoOwnerUid);
-  }, [photos, photoOwnerUid]);
+    assertPhotoSourceCurrent();
+  }, [photos, assertPhotoSourceCurrent]);
 
   const saveBeforeLeaving = useCallback(async (leave: () => void) => {
     if (leavingRef.current || !navigation.isFocused()) return;
@@ -88,16 +106,16 @@ export default function CaptureScreen() {
     leavingRef.current = true;
     try {
       await persistPhotos();
-      if (revision !== departureRevision.current || !navigation.isFocused()) return;
+      if (!isPhotoSourceCurrent() || revision !== departureRevision.current || !navigation.isFocused()) return;
       leave();
     } catch {
-      if (revision === departureRevision.current && navigation.isFocused()) {
+      if (isPhotoSourceCurrent() && revision === departureRevision.current && navigation.isFocused()) {
         Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de quitter pour conserver vos photos.');
       }
     } finally {
       leavingRef.current = false;
     }
-  }, [persistPhotos, navigation]);
+  }, [persistPhotos, navigation, isPhotoSourceCurrent]);
 
   const canTakeMore = photos.length < MAX_PHOTOS;
   const hasPhotos = photos.length > 0;
@@ -158,14 +176,16 @@ export default function CaptureScreen() {
   // Initialize or load draft on mount
   useEffect(() => {
     const initDraft = async () => {
-      draftService.assertCurrentOwner(photoOwnerUid);
+      assertPhotoSourceCurrent();
       if (isResuming) {
-        draftService.assertCurrentOwner(photoOwnerUid);
+        assertPhotoSourceCurrent();
         const existingDraft = await draftService.loadDraft();
-        draftService.assertCurrentOwner(photoOwnerUid);
+        assertPhotoSourceCurrent();
         if (existingDraft) draftRef.current = existingDraft;
       } else {
-        draftRef.current = await draftService.startNewDraft();
+        const newDraft = await draftService.startNewDraft();
+        assertPhotoSourceCurrent();
+        draftRef.current = newDraft;
       }
     };
     const ready = initDraft();
@@ -175,7 +195,7 @@ export default function CaptureScreen() {
     void ready.catch(() => {
       if (__DEV__) console.warn('Draft initialization interrupted');
     });
-  }, [isResuming, photoOwnerUid]);
+  }, [isResuming, assertPhotoSourceCurrent]);
 
   // Persist edits while staying on the screen; Continue/close flush immediately.
   useEffect(() => {
@@ -187,17 +207,39 @@ export default function CaptureScreen() {
     return () => { if (photoSaveTimer.current) clearTimeout(photoSaveTimer.current); };
   }, [persistPhotos]);
 
-  useEffect(() => navigation.addListener('beforeRemove', (event) => {
-    if (leavingRef.current || draftService.wasPublished) return;
-    event.preventDefault();
-    Alert.alert('Quitter ?', 'Vos photos seront sauvegardées en brouillon.', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Quitter', onPress: () => { void saveBeforeLeaving(() => navigation.dispatch(event.data.action)); } },
-    ]);
-  }), [navigation, saveBeforeLeaving]);
+  const hasDraftWork = () => photos.length > 0 ||
+    (draftRef.current?.storageUrls.length ?? 0) > 0 || draftRef.current?.aiResult != null;
+  useSellExitGuard({
+    captureOrigin: () => {
+      assertPhotoSourceCurrent();
+      const session = captureTradeSession(photoOwnerUid);
+      const revision = departureRevision.current;
+      return () => {
+        assertPhotoSourceCurrent(); assertTradeSessionCurrent(session);
+        if (revision !== departureRevision.current || !navigation.isFocused()) throw staleTradeOperation();
+      };
+    },
+    hasWork: hasDraftWork,
+    isPublished: () => draftService.wasPublished,
+    save: async assertCurrent => {
+      assertCurrent();
+      // Initialization can still be deleting the previous empty draft. Finish
+      // it before cleanup, otherwise startNewDraft may write after this exit.
+      await draftReadyRef.current;
+      assertCurrent();
+      if (hasDraftWork()) await persistPhotos();
+      else await draftService.deleteDraft();
+      assertCurrent();
+    },
+    onDecision: confirmed => track('sell_exit_prompted', {
+      flow_step: 'capture', confirmed_leave: confirmed, photo_count: photos.length,
+    }),
+    errorMessage: 'Réessayez avant de quitter pour conserver vos photos.',
+  });
 
   // Handlers
   const handleCapture = async () => {
+    if (!isPhotoSourceCurrent()) return;
     const nativeCamera = cameraRef.current;
     if (!nativeCamera || !canTakeMore) return;
     const capture = camera.beginCapture();
@@ -207,7 +249,7 @@ export default function CaptureScreen() {
         quality: 0.7,
         skipProcessing: false,
       });
-      if (!camera.isCaptureCurrent(capture)) return;
+      if (!camera.isCaptureCurrent(capture) || !isPhotoSourceCurrent()) return;
       if (photo?.uri) {
         let added = false;
         setPhotos((prev) => {
@@ -225,7 +267,7 @@ export default function CaptureScreen() {
         }
       }
     } catch (error) {
-      if (!camera.isCaptureCurrent(capture)) return;
+      if (!camera.isCaptureCurrent(capture) || !isPhotoSourceCurrent()) return;
       if (__DEV__) console.error('Error taking photo:', error);
       // A failed shot was silent in production.
       Alert.alert('Photo impossible', "La photo n'a pas pu être prise. Réessayez.");
@@ -235,13 +277,13 @@ export default function CaptureScreen() {
   };
 
   const handleGalleryPress = async () => {
-    if (galleryPending.current || !navigation.isFocused()) return;
+    if (galleryPending.current || !navigation.isFocused() || !isPhotoSourceCurrent()) return;
     const remainingSlots = MAX_PHOTOS - photos.length;
     if (remainingSlots <= 0) return;
     galleryPending.current = true;
     const revision = departureRevision.current;
     const isCurrent = () => {
-      try {draftService.assertCurrentOwner(photoOwnerUid);} catch {return false;}
+      try {assertPhotoSourceCurrent();} catch {return false;}
       return departureRevision.current === revision && navigation.isFocused();
     };
     try {
@@ -285,57 +327,24 @@ export default function CaptureScreen() {
   };
 
   const handleRemovePhoto = useCallback((index: number) => {
+    if (!isPhotoSourceCurrent()) return;
     setPhotos((prev) => prev.filter((_, i) => i !== index));
     track('sell_photo_removed', {
       screen: 'capture',
       photo_index: index,
       photo_count_after: Math.max(0, photos.length - 1),
     });
-  }, [photos.length]);
+  }, [photos.length, isPhotoSourceCurrent]);
 
   const handleClose = () => {
-    const draft = draftRef.current;
-    // Preserve the draft if it holds work beyond the local photos:
-    // already-uploaded Storage images or an AI analysis result would be lost.
-    const hasUploadedWork =
-      photos.length > 0 ||
-      (draft?.storageUrls?.length ?? 0) > 0 ||
-      draft?.aiResult != null;
-
-    if (hasUploadedWork) {
-      Alert.alert(
-        'Quitter ?',
-        'Ton brouillon sera sauvegardé. Tu pourras le reprendre plus tard.',
-        [
-          {
-            text: 'Annuler',
-            style: 'cancel',
-            onPress: () =>
-              track('sell_exit_prompted', {
-                flow_step: 'capture',
-                confirmed_leave: false,
-                photo_count: photos.length,
-              }),
-          },
-          {
-            text: 'Quitter',
-            onPress: () => {
-              track('sell_exit_prompted', {
-                flow_step: 'capture',
-                confirmed_leave: true,
-                photo_count: photos.length,
-              });
-              void saveBeforeLeaving(() => router.replace('/(tabs)'));
-            },
-          },
-        ],
-      );
-    } else {
-      void draftService.deleteDraft().then(() => router.replace('/(tabs)'));
-    }
+    if (!isPhotoSourceCurrent()) return;
+    // Expo Router enqueues the request. The native removal guard owns its one
+    // confirmation, persistence and exact root-level replay when it is delivered.
+    router.replace('/(tabs)');
   };
 
   const handleContinue = () => {
+    if (!isPhotoSourceCurrent()) return;
     if (photos.length === 0) {
       Alert.alert('Aucune photo', 'Ajoutez au moins une photo pour continuer.');
       return;

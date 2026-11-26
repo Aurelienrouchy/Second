@@ -1,0 +1,138 @@
+{
+  "protocol": "phase1_prod_nonfenced_storage_probe_evidence_v1",
+  "project": "seconde-b47a6",
+  "verifiedAt": "2026-11-26T05:04:02.229632+00:00",
+  "plan": {
+    "protocol": "phase1_prod_nonfenced_storage_transport_probe_v1",
+    "project": "seconde-b47a6",
+    "preparedAt": "2026-11-26T04:59:16.453035+00:00",
+    "reviewOwners": [
+      {
+        "alias": "apple",
+        "ownerRawSha256": "1cb3afc0b4248436271029f3ed32d0a34ce831dcdf474078088a3a5f11d0a47f",
+        "authActiveVerified": true,
+        "normalNonAdmin": true,
+        "barriersAbsent": true
+      },
+      {
+        "alias": "google",
+        "ownerRawSha256": "f0724c873b2cbe4a0ff4207072574f2c1bb8850362536f9e3e036e6808586dc3",
+        "authActiveVerified": true,
+        "normalNonAdmin": true,
+        "barriersAbsent": true
+      }
+    ],
+    "selectedAlias": "apple",
+    "bucket": "seconde-b47a6.firebasestorage.app",
+    "nonce": "7d4b13ef3497bcc82bd66dec506d1708",
+    "generationPrecondition": 0,
+    "fixture": {
+      "sourcePublicAsset": "assets/images/icon.png",
+      "sourceSha256": "ad7700d9575e0617a99475814ae84112a24d5e373f3c6a990e4f7697a4286a19",
+      "jpegSha256": "dce345a64948222497c119f0cd408f873149b5e3d91f554465b2a9d5870e1f4b",
+      "jpegMd5Base64": "84kl2sf8GdtdpI2Dq78VKQ==",
+      "bytes": 48787,
+      "width": 1024,
+      "height": 1024,
+      "maximumDimension": 1200,
+      "jpegQuality": 75,
+      "userContent": false,
+      "encoder": "macOS_sips"
+    },
+    "receiver": {
+      "function": "eraseLateAccountStorage",
+      "revision": "eraselateaccountstorage-00004-yun",
+      "updatedAt": "2026-11-26T04:37:08.728869034Z",
+      "runtimeRegion": "northamerica-northeast1",
+      "triggerSourceRegion": "us-central1",
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "currentRevision100Percent": true,
+      "privateExactActor": true,
+      "bucketExact": true
+    },
+    "expectedHandlerBehavior": "no_fence_return_before_command_read_or_business_receipt",
+    "expectedObservableReceipt": "CloudRun_POST_ACK_metadata_only",
+    "exactPerEventIdCorrelationClaimed": false,
+    "correlation": "new_revision_and_tight_before_after_time_window_only",
+    "cleanup": "operator_delete_only_new_exact_generation_with_ifGenerationMatch",
+    "noAuthOrFinancialMutation": true,
+    "objectTemplate": "drafts/{existing_apple_review_uid}/phase1-prod-transport-7d4b13ef3497bcc82bd66dec506d1708/icon.jpg",
+    "plannedObjectPathSha256": "4d2c0339415707d634654ff778e325e4cf424d7145bb881f224d36a7d0568e17",
+    "privatePlanSha256": "eeb598812aef57710caaa486aa221bf7d59a421f40f410188a22f70471e58169"
+  },
+  "creation": {
+    "project": "seconde-b47a6",
+    "generation": "1795669204479633",
+    "timeCreated": "2026-11-26T05:00:04.490Z",
+    "md5Hash": "84kl2sf8GdtdpI2Dq78VKQ==",
+    "planSha256": "eeb598812aef57710caaa486aa221bf7d59a421f40f410188a22f70471e58169",
+    "uploadResponseObservedAt": "2026-11-26T05:00:04.495889+00:00",
+    "pathSha256": "4d2c0339415707d634654ff778e325e4cf424d7145bb881f224d36a7d0568e17",
+    "ifGenerationMatch": 0,
+    "downloadTokenPresent": false,
+    "firebaseAuthCreated": false,
+    "businessDocumentWritten": false,
+    "baselineCloudRunRequestCount": 0,
+    "handlerManuallyInvoked": false
+  },
+  "transportObservation": {
+    "project": "seconde-b47a6",
+    "observedAt": "2026-11-26T05:00:27.644209+00:00",
+    "window": {
+      "start": "2026-11-26T05:00:02.490000+00:00",
+      "end": "2026-11-26T05:00:27.644209+00:00"
+    },
+    "generation": "1795669204479633",
+    "objectStillPresentBeforeOperatorCleanup": true,
+    "privateHeadersAndNoTokenVerified": true,
+    "receiver": {
+      "function": "eraseLateAccountStorage",
+      "revision": "eraselateaccountstorage-00004-yun",
+      "updatedAt": "2026-11-26T04:37:08.728869034Z",
+      "runtimeRegion": "northamerica-northeast1",
+      "triggerSourceRegion": "us-central1",
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "currentRevision100Percent": true,
+      "privateExactActor": true,
+      "bucketExact": true
+    },
+    "matchingGooglePostAcknowledgements": [
+      {
+        "timestamp": "2026-11-26T05:00:05.255941Z",
+        "status": 204,
+        "insertIdSha256": "60547c547826d5a6bbc6d350575a719ac8953ada12abb4281f5672c467dfcac2"
+      }
+    ],
+    "ackCount": 1,
+    "inferenceOnly": "actual_object_creation_with_configured_bucket_trigger_and_new_revision_HTTP_ACK_in_tight_window; not_per_eventId_correlation",
+    "productionBusinessFenceReceipt": false,
+    "productionFinalizerDeletionObserved": false,
+    "handlerManuallyInvoked": false
+  },
+  "operatorCleanup": {
+    "project": "seconde-b47a6",
+    "verifiedAt": "2026-11-26T05:01:41.656924+00:00",
+    "generation": "1795669204479633",
+    "objectPathSha256": "4d2c0339415707d634654ff778e325e4cf424d7145bb881f224d36a7d0568e17",
+    "operatorCleanup": true,
+    "deleteHttpStatus": 204,
+    "ifGenerationMatch": "1795669204479633",
+    "exactGenerationAbsent": true,
+    "productionFinalizerDeletionClaimed": false,
+    "noOtherGenerationDeleted": true,
+    "noAuthOrFinancialMutation": true
+  },
+  "receiptInterpretation": "one_actual_Google_POST_204_to_new_revision_in_tight_window_correlated_with_one_probe_creation; not_exact_eventId_attribution",
+  "productionAuthErasurePerformed": false,
+  "productionFencedBusinessReceiptClaimed": false,
+  "noExistingAccountOrObjectDeleted": true,
+  "afterCleanupReviewIdentityCheck": {
+    "project": "seconde-b47a6",
+    "verifiedAt": "2026-11-26T05:07:24.926117+00:00",
+    "existingReviewAuthCount": 2,
+    "bothAuthPresentAndEnabled": true,
+    "probeCurrentPathAbsent": true,
+    "onlyCreatedGenerationWasDeleted": true,
+    "newIdentityCreated": false
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "project": "seconde-b47a6",
+  "operatorProject": "seconde-prod-control-20261125",
+  "sha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+  "generation": "1795696554296081",
+  "temporaryHold": true,
+  "runtimeGrant": "exact_object_get_only",
+  "phase": "completion",
+  "createdAt": "2026-11-26T12:35:54.833535+00:00",
+  "serverSourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+  "financialAuthority": "not_asserted",
+  "explicitTargetedUserAuthorizationReceived": true,
+  "publishedAfterApproval": true,
+  "receiptSha256Frozen": true,
+  "qualifiedMatrixSha256": "800c5b898f3ec1c27491f6858c94503539b64bf8de04572dbc2e13b9a7f0be36",
+  "onlySingleExactObjectReaderBindingAdded": true,
+  "fivePinsReadbackCompletedAt": "2026-11-26T12:40:33.339609+00:00"
+}

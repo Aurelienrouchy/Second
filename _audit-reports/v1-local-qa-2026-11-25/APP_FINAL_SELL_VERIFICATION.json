@@ -1,0 +1,65 @@
+{
+  "protocol": "phase1_final_sell_root_verification_v1",
+  "verifiedAt": "2026-11-26T12:56:19.825676+00:00",
+  "qaSourceSha256": "95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b",
+  "runtimeFileCount": 1064,
+  "baselineGitCommit": "f7cde9825e0b29a55808b3d7a4b0da2863c18041",
+  "baselineQaSourceSha256": "0454cb10074e5808188981da699e4cde3884ee726a9ef21eba970e8a01602a55",
+  "onlyChangedRuntimeFiles": [
+    "app/sell/_layout.tsx",
+    "app/sell/capture.tsx",
+    "app/sell/pricing.tsx",
+    "features/sell/hooks/useSellActorSource.ts",
+    "features/sell/hooks/useSellExitGuard.ts"
+  ],
+  "rootVerifiedAll1064RuntimeDigests": true,
+  "allOtherRuntimeSourcesUnchanged": true,
+  "automated": {
+    "jest": {
+      "numTotalTestSuites": 224,
+      "numPassedTestSuites": 224,
+      "numTotalTests": 2208,
+      "numPassedTests": 2208,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "files": 224,
+      "rawInventoryFile": "final-release95b-jest.json",
+      "rawInventorySha256": "8c893b9b4161674f0029e7add67d4c060227b5d4b8f22bae61b4cd682b574013",
+      "normalExitCode": 0,
+      "detectOpenHandles": true,
+      "forceExit": false,
+      "watchman": false,
+      "openHandles": []
+    },
+    "vitest": {
+      "numTotalTestSuites": 96,
+      "numPassedTestSuites": 96,
+      "numTotalTests": 329,
+      "numPassedTests": 329,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "files": 31,
+      "rawInventoryFile": "final-release95b-vitest.json",
+      "rawInventorySha256": "fae1d525bbf6a707108039be7a6db3938dbde87d1602d4dcc7f4edeec4c8d843",
+      "normalExitCode": 0
+    }
+  },
+  "appTypecheckExitCode": 0,
+  "boundariesExitCode": 0,
+  "staticChecksPerformedByRootOnFrozenSource": true,
+  "extendedTestsInheritedDiagnostics": 104,
+  "extendedTestsNewDiagnosticsClaimed": 0,
+  "nativeVerification": {
+    "androidProof": "ANDROID_SELL_FINAL_RETEST.json",
+    "androidProofSha256": "351fddc30fa3bedff67ec8aded0920d226952c547667b7a0b55e74230b73e7d0",
+    "androidCases": 8,
+    "rootVerifiedScreenshotDigestsAndBoundedLogHash": true,
+    "iosLastDeltaSmoke": "in progress; historical physical evidence remains separately scoped"
+  },
+  "historicalNativeFailuresRetained": [
+    "ANDROID_EXTENDED_FLOWS.json",
+    "ANDROID_GALLERY_POSTFIX_RETEST.json"
+  ],
+  "productionSourceBinding": "Requires new production archive and compiled artifact supplement; historical source211 remains unchanged",
+  "exhaustive117NativePassClaimed": false
+}

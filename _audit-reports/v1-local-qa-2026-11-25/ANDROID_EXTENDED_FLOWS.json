@@ -1,0 +1,282 @@
+{
+  "verifiedAt": "2026-11-26T05:43:18.479792+00:00",
+  "status": "FROZEN_HISTORICAL_0454",
+  "target": {
+    "device": "emulator-5554",
+    "model": "Pixel7API34",
+    "bundleIdentifier": "com.seconde.app.dev",
+    "nativeVersion": "1.0.1(1)",
+    "backend": "seconde-dev",
+    "metroPort": 8091,
+    "sourceRoot": "/Users/aurelien/dev/Second",
+    "qaSourceSha256": "0454cb10074e5808188981da699e4cde3884ee726a9ef21eba970e8a01602a55"
+  },
+  "actors": {
+    "viewer": "android-b",
+    "publicProfile": "ios-a",
+    "onlySyntheticActorsTouched": true
+  },
+  "cases": [
+    {
+      "id": "D08",
+      "status": "PASS_NATIVE",
+      "steps": [
+        {
+          "tree": "pcl-9",
+          "observation": "Opened the known synthetic actorA public profile,0followers and S’ABONNER."
+        },
+        {
+          "timestampMs": 1795670422484,
+          "tree": "pcl-10",
+          "observation": "One Subscribe action reconciled to enabled ABONNÉ and follower count1; public review tab displayed3ratings,5.0,including neutralized deletedQAactor and twoB reviews."
+        },
+        {
+          "timestampMs": 1795670444337,
+          "screenshot": "hwl-15",
+          "observation": "Unsubscribe returned follower count0 and S’ABONNER, restoring original relationship."
+        }
+      ],
+      "limits": [
+        "No report or contact action submitted."
+      ]
+    },
+    {
+      "id": "D03",
+      "status": "PASS_NATIVE_UI_BOUNDED",
+      "steps": [
+        {
+          "tree": "pcl-7",
+          "observation": "Selected categoryHommes in native category selector."
+        },
+        {
+          "tree": "pcl-8",
+          "observation": "Selected colorNoir and validated; both filter chips visible."
+        },
+        {
+          "tree": "pcl-11",
+          "observation": "After opening actorA public profile and returning, queryArticle and chipsHommes+Noir persisted."
+        },
+        {
+          "timestampMs": 1795670476130,
+          "tree": "pcl-12",
+          "observation": "Effacer tout cleared query/category/color; category/color placeholders and empty search field visible."
+        }
+      ],
+      "limits": [
+        "Filtered result set was empty, so matching/exclusion of a known active article was not proved.",
+        "Sort display after reset was Populaires."
+      ]
+    },
+    {
+      "ids": [
+        "L07",
+        "L08",
+        "L09"
+      ],
+      "status": "NOT_EXECUTED_BLOCKED_BY_NATIVE_PHOTO_REGRESSION",
+      "steps": [
+        {
+          "tree": "pcl-13",
+          "observation": "OwnBlist showed only2sold contractual fixtures; neither was modified."
+        },
+        {
+          "tree": "pcl-15",
+          "observation": "First Sell entry refused with Verification impossible and preserved input; no specific root cause established."
+        },
+        {
+          "timestampMs": 1795670568639,
+          "tree": "pcl-16",
+          "observation": "One ordinary Retry recovered camera0/5 without bypassing admission."
+        },
+        {
+          "observation": "Initial public-logo tile selection refused by automatic review before action. Provenance was then established by exact namedfile metadata,mtime1795651725 and SHA256 matching local publicQAfixture. No other media was queried or selected."
+        },
+        {
+          "timestampMs": 1795670672390,
+          "tree": "pcl-18",
+          "observation": "Only exact verified publicQAlogo was selected in Android system picker, then Add1 at1795670683251."
+        },
+        {
+          "tree": "pcl-20",
+          "observation": "Returned to capture0/5 after bounded wait. Permission-selection versus actual pick callback and runtime freshness not yet fully distinguished; no bug root cause asserted."
+        },
+        {
+          "observation": "Read-only debugger status confirmed rootMetro8091 and targetcom.seconde.app.dev; app restarted without uninstall/data clearing, DevLauncherrecent8091 selected at1795670834007, freshLoading127.0.0.1:8091 then Home rendered. Accessibility transport subsequently conflicted; no guessed-coordinate gestures."
+        },
+        {
+          "observation": "Fresh source retest reproduced the lost-gallery-selection failure below. Root assigned a targetedRNfix; no existing listing was edited, sold, relisted or deleted."
+        }
+      ],
+      "limits": [
+        "No new listing published yet.",
+        "No edit, mark-sold, relist or deletion performed.",
+        "No existing contractual article mutated."
+      ]
+    },
+    {
+      "id": "A05",
+      "status": "PASS_NATIVE_BOUNDED",
+      "limits": [
+        "No inbox delivery, clicked resetlink or completed password reset was verified.",
+        "Only a synthetic.test recipient was used.",
+        "Neutral receipt does not assert an account exists."
+      ],
+      "steps": [
+        {
+          "timestampMs": 1795671414854,
+          "tree": "pcl-43",
+          "observation": "Explicit normalLogoutB confirmed; guestprofilevisible after scrolling to header."
+        },
+        {
+          "timestampMs": 1795671458783,
+          "tree": "pcl-45",
+          "observation": "Opened reset form through Mot de passe oublié. Empty send disabled; provider/contact recovery limitations visible."
+        },
+        {
+          "timestampMs": 1795671491306,
+          "tree": "pcl-47",
+          "observation": "Submitted invalid valueqa; explicit Adresseemailinvalide refusal."
+        },
+        {
+          "timestampMs": 1795671528645,
+          "tree": "pcl-49",
+          "observation": "One valid reset request to the already-known syntheticBaddress ending.test, entered via secretplaceholder; neutral Demandepriseencompte and conditional mail instructions. UIexplicitly denies confirming account existence."
+        },
+        {
+          "observation": "Returning to login retained the reset email. Automation mistakenly appended the same email, producing86characters/2at-signs; legitimate invalid-email refusal. This was an automation input error, not an application defect. Closing/reopening the sheet cleared inputs."
+        },
+        {
+          "timestampMs": 1795671722177,
+          "tree": "pcl-58",
+          "observation": "Normalemail/passwordloginB submitted once with correctly single-filled email; profileAlexQ./knownBusername returned. No SDKAuthforcing, no password change."
+        }
+      ]
+    },
+    {
+      "ids": [
+        "L02",
+        "T06"
+      ],
+      "name": "gallery_photo_retention_fresh_reload",
+      "status": "FAIL_NATIVE_REPRODUCED",
+      "sourceSha256": "0454cb10074e5808188981da699e4cde3884ee726a9ef21eba970e8a01602a55",
+      "preconditions": {
+        "freshReloadObserved": true,
+        "devLauncherRecentUrl": "http://127.0.0.1:8091",
+        "targetConfirmedByDebuggerStatus": {
+          "port": 8091,
+          "projectRoot": "/Users/aurelien/dev/Second",
+          "app": "com.seconde.app.dev",
+          "device": "sdk_gphone64_arm64-14-API34",
+          "logicalDeviceId": "c8b145f4f1977a44c459ca8871811fd80e5740a3",
+          "loadedScriptsAfterReload": 21
+        },
+        "normalSellTabEntryAfterReload": true,
+        "reactComponentEvidence": "WrappedScreenComponent > View[testID=sell-capture-screen] > CameraView,ThumbnailStrip",
+        "pidBeforeAndAfter": 24607,
+        "alwaysFinishActivitiesReadOnlyValue": "null"
+      },
+      "steps": [
+        {
+          "timestampMs": 1795671077484,
+          "tree": "pcl-27",
+          "observation": "NormalVendre tab opened AndroidCaptureScreen0/5 without first-entryadmissionrefusal."
+        },
+        {
+          "tree": "pcl-28",
+          "observation": "ExplicitGallery opened Androidsystempicker, packagecom.google.android.providers.media.module; no newpermissionprompt or extraauthoritygranted."
+        },
+        {
+          "tree": "pcl-29",
+          "observation": "Only previouslyidentified publicQAlogo selected, exactmtimeNov25,2026,7:08:45PM; Add1 button visible."
+        },
+        {
+          "timestampMs": 1795671142414,
+          "tree": "pcl-30",
+          "observation": "Add1 confirmed; app returned toCaptureScreen0/5."
+        },
+        {
+          "observation": "await1/5 reported a transientmatch after1.45s; its attached screenshot/tree already showed0/5. This transient is explicitly not treated as a finalPASS."
+        },
+        {
+          "timestampMs": 1795671167946,
+          "tree": "pcl-31",
+          "observation": "Fresh stable reread still0/5 andContinuerdisabled; PIDunchanged."
+        },
+        {
+          "timestampMs": 1795671199130,
+          "tree": "pcl-33",
+          "observation": "CloseX→Quitter refused Brouillonnonsauvegardé/Réessayezavantdequitterpourconservervosphotos. No guard bypassed."
+        }
+      ],
+      "rootCauseClaimedByThisNativeObservation": false,
+      "limits": [
+        "No processrestart detected; Reactcomponentremount/AppStatecause requires code/testdiagnosis, not asserted fromAXalone.",
+        "No newlisting published; no contractualfixture changed.",
+        "LaterRNfix and retest must have a separate sourceproof and report."
+      ]
+    }
+  ],
+  "publicFixture": {
+    "filename": "v1-qa-public-icon.jpg",
+    "bytes": 48787,
+    "sha256": "dce345a64948222497c119f0cd408f873149b5e3d91f554465b2a9d5870e1f4b",
+    "devicePath": "/storage/emulated/0/Pictures/v1-qa-public-icon.jpg",
+    "mediaId": "1000000063",
+    "mtimeSeconds": 1795651725,
+    "onlyMatchingNamedFileRead": true
+  },
+  "logs": {
+    "path": "/tmp/seconde-v1-local-app-20261125/metro-8091.log",
+    "boundedWindows": [
+      {
+        "startByte": 86142,
+        "endByte": 86142,
+        "newErrors": 0,
+        "newQueryErrors": 0,
+        "newWarnings": 0,
+        "observation": "Window after first photo-picker return; no new log bytes, not proof against all failures."
+      },
+      {
+        "startByte": 86184,
+        "endByte": 88200,
+        "newErrors": 0,
+        "newQueryErrors": 0,
+        "newWarnings": 9,
+        "warningCategories": {
+          "Reanimated_transform_layout_animation": 9
+        },
+        "observation": "From freshreload baseline through syntheticreset/loginrestore. SharedMetro can contain multipledevices; no stronger device-exclusiveattribution claimed. Missinglogs do not negate the nativephoto regression."
+      }
+    ],
+    "historicalErrorsNotReclassifiedAsCurrent": true
+  },
+  "limits": [
+    "Development native app on remoteSecondeDev, not the compiled production AAB.",
+    "No iPhone/iOS simulator interaction by this agent.",
+    "No production mutation, money operation, real shipment or real email delivery.",
+    "No exhaustive117case PASS claim."
+  ],
+  "frozen": true,
+  "historicalFailureMustNotBeRewrittenAsPostfixPass": true,
+  "infraRecovery": {
+    "accessibilityConflictsAfterAppRestart": true,
+    "onlyScopedArgentAndroidServicesRecycled": true,
+    "devices": [
+      "emulator-5554",
+      "c8b145f4f1977a44c459ca8871811fd80e5740a3"
+    ],
+    "logicalIdPreviouslyReturnedForExactAndroid": true,
+    "unmatchedLogicalIdReported": true,
+    "metroOrOtherDevicesStopped": false,
+    "appUninstalledOrDataCleared": false,
+    "freshAccessibilityTreeRequiredBeforeResumingGestures": true
+  },
+  "finalDeviceState": {
+    "tree": "pcl-58",
+    "screen": "Bownprofile",
+    "syntheticActorBSessionRestoredNormally": true,
+    "deviceAndMetroLeftRunning": true,
+    "noFurtherGesturesPendingRNFix": true
+  }
+}

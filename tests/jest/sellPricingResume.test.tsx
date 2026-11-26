@@ -1,6 +1,8 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { establishSession, resetEnvironment } from './auth-onboarding/eligibilityTestHarness';
+import { createSellNavigationFixture } from './helpers/sellNavigationFixture';
 
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/lib/analytics', () => ({ track: jest.fn() }));
@@ -19,12 +21,9 @@ jest.mock('@/features/sell/services/draftService', () => ({
     updateDraftPricing: () => Promise.resolve(mockDraft),
   },
 }));
-jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ resumeDraft: 'true' }),
-  useRouter: () => require('expo-router').router,
-  useFocusEffect: jest.fn(),
-  useNavigation: () => ({ isFocused: () => true, addListener: jest.fn(() => jest.fn()) }),
-  router: { push: jest.fn(), back: jest.fn() },
+jest.mock('expo-router/react-navigation', () => ({
+  usePreventRemove: jest.requireActual('expo-router/build/react-navigation/core/usePreventRemove').usePreventRemove,
+  useIsFocused: jest.requireActual('expo-router/build/react-navigation/core/useIsFocused').useIsFocused,
 }));
 jest.mock('@/features/sell', () => ({
   PriceCard: () => null, HandDeliveryCard: () => null, ShippingCard: () => null, FormErrors: () => null,
@@ -39,10 +38,18 @@ jest.mock('@/components/ui', () => ({
   Button: jest.requireActual('@/components/ui/Button').Button,
  ScreenHeader: () => null }));
 import PricingScreen from '@/app/sell/pricing';
+const native = createSellNavigationFixture(() => true, 'pricing');
+const routerIO = jest.requireMock('expo-router') as Record<string, unknown>;
+routerIO.useLocalSearchParams = () => ({ resumeDraft: 'true' });
+routerIO.useNavigation = () => native.navigation;
+routerIO.useNavigationContainerRef = () => native.rootRef;
+routerIO.useRoute = () => native.route;
+routerIO.useFocusEffect = jest.requireActual('expo-router/build/react-navigation/core/useFocusEffect').useFocusEffect;
 
 describe('resume sell pricing', () => {
+  beforeEach(async () => { await resetEnvironment(); await establishSession('A'); native.reset(); });
   it('passes saved photos, uploaded order, details and AI context through to preview', async () => {
-    const screen = render(<PricingScreen />);
+    const screen = render(<native.Provider><PricingScreen /></native.Provider>);
     await waitFor(() => expect(screen.getByTestId('next')).toBeTruthy());
     await act(async () => { await Promise.resolve(); });
     fireEvent.press(screen.getByTestId('next'));

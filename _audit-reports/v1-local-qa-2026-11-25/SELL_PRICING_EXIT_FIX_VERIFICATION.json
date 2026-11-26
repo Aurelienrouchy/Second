@@ -1,0 +1,295 @@
+{
+  "protocol": "phase1_sell_pricing_owned_exit_persistence_v1",
+  "verifiedAt": "2026-11-26T12:47:32.529737+00:00",
+  "runtimeFrozen": true,
+  "wholeQaSourceBindingByRootPending": true,
+  "baselineQaSourceSha256": "2c324f023eccc9a7588ec42b615e1f757876fd2ba0c048ccf948c141ce25bdae",
+  "baselinePricingSha256": "e9b54938acbde25ff5534120c60d530ff3d46285046d83e76118de9d84e94fcc",
+  "ownedChangedFiles": [
+    {
+      "path": "app/sell/pricing.tsx",
+      "sha256": "4f063a930d9b916514d91104b40879ca5bff91cd8d5574613134fad8f6e8e1a2"
+    },
+    {
+      "path": "tests/jest/sellPricingExitPersistence.test.tsx",
+      "sha256": "27865f66323547df6c1e3bc7d6b5cba057252a4ff3b221d986bb81fcaacf8c5e"
+    },
+    {
+      "path": "tests/jest/sellPricingResume.test.tsx",
+      "sha256": "fbe693914450c7a4922b19293c2d94b4cac19d0cec95e52e06539d52af3a2d18"
+    }
+  ],
+  "sharedGuard": {
+    "path": "features/sell/hooks/useSellExitGuard.ts",
+    "ownedByAnotherRnAgent": true,
+    "sha256": "d5a484ceca4dabba58efc3aceb3e93114f4a27f6d257817b53471a61e74017c8",
+    "confirmationPolicy": "false for pricing, same guarded persistence and exact native action replay"
+  },
+  "sharedNavigationFixture": {
+    "path": "tests/jest/helpers/sellNavigationFixture.tsx",
+    "sha256": "c8048640e086cbf1927829209725b61be7c2883274ddc234d4dd9446b92bda35",
+    "realSdkPrimitives": [
+      "usePreventRemove",
+      "shouldPreventRemove",
+      "StackRouter"
+    ]
+  },
+  "problem": [
+    "Header back swallowed an owned save error then navigated unconditionally.",
+    "Native back/swipe removed the route without persisting typed pricing or neighborhoods.",
+    "Old async callbacks had no mounted/SDK actor/occurrence/input revision checks before navigation."
+  ],
+  "fix": [
+    "Header back now only produces the native action; the shared public usePreventRemove guard saves before replaying the exact captured object through the root ref. No Quitter confirmation is added to pricing.",
+    "Persistence is bound to the same local draft ID and freshly captured actor, SDK source, auth generation, focus and input revision. A failed write keeps the route and inputs; a fresh retry is required.",
+    "Later price edits, actor replacement, batched A-B-A, blur and unmount reject the old navigation and suppress stale alerts.",
+    "Draft initialization is awaited; an unsuccessful step marker does not poison a later explicit save of the already-read draft. An unknown or replaced draft is never silently adopted.",
+    "Continue still saves before preview and preserves saved photos, details, AI and uploaded order in its resume parameters."
+  ],
+  "automated": {
+    "initialRedBeforeRuntimePatch": {
+      "file": "pricing-exit-red.json",
+      "sha256": "3f4ab87eb0e00cf4ec56b3ff17f1bab7bf1b134ace8be99659f589e7a6275341",
+      "normalExitCode": 1,
+      "suites": 1,
+      "passed": 1,
+      "failed": 7,
+      "skipped": 0,
+      "openHandles": [],
+      "tests": [
+        {
+          "name": "persists price and neighborhoods through the real service before a native back, without an exit confirmation",
+          "status": "failed"
+        },
+        {
+          "name": "retains the typed values and blocks header back when the actual storage write fails",
+          "status": "failed"
+        },
+        {
+          "name": "waits for the save then replays the exact parent action once, retaining its SDK symbol and absent source",
+          "status": "failed"
+        },
+        {
+          "name": "does not replay or alert from an old save after same-uid-new-sdk",
+          "status": "failed"
+        },
+        {
+          "name": "does not replay or alert from an old save after batched-A-B-A",
+          "status": "failed"
+        },
+        {
+          "name": "does not replay or alert from an old save after blur",
+          "status": "failed"
+        },
+        {
+          "name": "does not replay or alert from an old save after unmount",
+          "status": "failed"
+        },
+        {
+          "name": "persists before the normal preview transition and retains saved draft context",
+          "status": "passed"
+        }
+      ]
+    },
+    "finalReplayOriginalPricing": {
+      "file": "pricing-exit-final-original-red.json",
+      "sha256": "6dc7679f0bf3adb64b8237a074b01c1e3d71c7962afec5743dbb9a3c92ee7d38",
+      "normalExitCode": 1,
+      "suites": 1,
+      "passed": 1,
+      "failed": 10,
+      "skipped": 0,
+      "openHandles": [],
+      "tests": [
+        {
+          "name": "persists price and neighborhoods through the real service before a native back, without an exit confirmation",
+          "status": "failed"
+        },
+        {
+          "name": "retains the typed values and blocks header back when the actual storage write fails",
+          "status": "failed"
+        },
+        {
+          "name": "recovers from a failed initial step marker when a later owned save can succeed",
+          "status": "failed"
+        },
+        {
+          "name": "waits for the save then replays the exact parent action once, retaining its SDK symbol and absent source",
+          "status": "failed"
+        },
+        {
+          "name": "does not replay or alert from an old save after same-uid-new-sdk",
+          "status": "failed"
+        },
+        {
+          "name": "does not replay or alert from an old save after batched-A-B-A",
+          "status": "failed"
+        },
+        {
+          "name": "does not replay or alert from an old save after blur",
+          "status": "failed"
+        },
+        {
+          "name": "does not replay or alert from an old save after unmount",
+          "status": "failed"
+        },
+        {
+          "name": "does not complete an old departure after the user edits its price while saving",
+          "status": "failed"
+        },
+        {
+          "name": "does not overwrite a newly replaced draft with the former screen values",
+          "status": "failed"
+        },
+        {
+          "name": "persists before the normal preview transition and retains saved draft context",
+          "status": "passed"
+        }
+      ]
+    },
+    "finalGreen": {
+      "file": "pricing-exit-final-green.json",
+      "sha256": "cf659f7ac167310bf6d6dbcc1d62ed1b2de3b0c1e2d39cc9d3b77712c8cdd39e",
+      "normalExitCode": 0,
+      "suites": 2,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "openHandles": [],
+      "tests": [
+        {
+          "name": "persists price and neighborhoods through the real service before a native back, without an exit confirmation",
+          "status": "passed"
+        },
+        {
+          "name": "retains the typed values and blocks header back when the actual storage write fails",
+          "status": "passed"
+        },
+        {
+          "name": "recovers from a failed initial step marker when a later owned save can succeed",
+          "status": "passed"
+        },
+        {
+          "name": "waits for the save then replays the exact parent action once, retaining its SDK symbol and absent source",
+          "status": "passed"
+        },
+        {
+          "name": "does not replay or alert from an old save after same-uid-new-sdk",
+          "status": "passed"
+        },
+        {
+          "name": "does not replay or alert from an old save after batched-A-B-A",
+          "status": "passed"
+        },
+        {
+          "name": "does not replay or alert from an old save after blur",
+          "status": "passed"
+        },
+        {
+          "name": "does not replay or alert from an old save after unmount",
+          "status": "passed"
+        },
+        {
+          "name": "does not complete an old departure after the user edits its price while saving",
+          "status": "passed"
+        },
+        {
+          "name": "does not overwrite a newly replaced draft with the former screen values",
+          "status": "passed"
+        },
+        {
+          "name": "persists before the normal preview transition and retains saved draft context",
+          "status": "passed"
+        },
+        {
+          "name": "resume sell pricing passes saved photos, uploaded order, details and AI context through to preview",
+          "status": "passed"
+        }
+      ]
+    },
+    "intermediateInitialStepMarkerRegression": {
+      "file": "pricing-initial-marker-red.json",
+      "sha256": "15433ff42bb9d8280faff9d549af8817cc9ac07669c472ba9e91f21bed7e2462",
+      "purpose": "One selected regression exposed poisoned readiness; final full targeted run includes it with no skipped cases.",
+      "normalExitCode": 1
+    }
+  },
+  "staticChecks": {
+    "appTypecheckExitCode": 0,
+    "appTypecheckLog": "pricing-exit-final-tsc.log",
+    "boundariesExitCode": 0,
+    "boundariesLog": "pricing-exit-boundaries.log",
+    "pricingEslintExitCode": 0,
+    "pricingEslintErrors": 0,
+    "pricingEslintInheritedWarnings": 1,
+    "extendedTestsTypecheckExitCode": 2,
+    "extendedTestsInheritedDiagnostics": 104,
+    "extendedDiagnosticsInOwnedFiles": 0
+  },
+  "unchangedAuthRpcDataAndFlagSources": [
+    {
+      "path": "features/auth/hooks/useAuthListener.ts",
+      "sha256": "b2c8cbf8ae813566348feca7b0058137b4b0682bd45a44aa3b966987734e839a",
+      "matchesBaseline2c324": true
+    },
+    {
+      "path": "store/authStore.ts",
+      "sha256": "315db2fcd57d9cac2bf22d9b0b07f0c4e97487995186ea4f55ddbc5fd0502c24",
+      "matchesBaseline2c324": true
+    },
+    {
+      "path": "services/tradeOperation.ts",
+      "sha256": "e3aec389744310905083bd1a16a902efcf1b4dd1cc874747725d1b66ecdbe864",
+      "matchesBaseline2c324": true
+    },
+    {
+      "path": "features/sell/services/draftService.ts",
+      "sha256": "6c0dade016906d14130657ad6f59a0c6c7fb2632ffebd38716a816c37b3a5976",
+      "matchesBaseline2c324": true
+    },
+    {
+      "path": "services/newSaleAdmission.ts",
+      "sha256": "e279bda5402a5d94cd30ae13fc26e750aa6fc39c7d8d4ccf84f998fbb0704738",
+      "matchesBaseline2c324": true
+    },
+    {
+      "path": "services/phase1Callable.ts",
+      "sha256": "84bcf5e7876416c0ebfafc50109d5425032190245cd718d3c8ed2f08486c5554",
+      "matchesBaseline2c324": true
+    },
+    {
+      "path": "config/catalogueCallableContracts.ts",
+      "sha256": "84f234c576892a9c35d563a26a33884b5fb17b0ef2512b984b2c1442d4b99e64",
+      "matchesBaseline2c324": true
+    },
+    {
+      "path": "config/firebaseEnvironment.ts",
+      "sha256": "e7edcc3f807baea896297eb83ac8e265e94f2b1adddc44f646328ed947a46497",
+      "matchesBaseline2c324": true
+    },
+    {
+      "path": "config/posthogConfig.ts",
+      "sha256": "04ecaf5113f26090af13989315b8fb28efca9e9fb2d50557d9c3d41533fc12a5",
+      "matchesBaseline2c324": true
+    },
+    {
+      "path": "config/featureFlags.ts",
+      "sha256": "d2bfeebe83bc07a5f672fc51f7da31f09a14d987845bda82de7e55bc02a7b23e",
+      "matchesBaseline2c324": true
+    },
+    {
+      "path": "app/sell/preview.tsx",
+      "sha256": "d6ebbd052ced680222815c2d5fad23f59299dd08ea16f6327245da96d3544f6c",
+      "matchesBaseline2c324": true
+    }
+  ],
+  "nativeVerificationPerformedByThisAgent": false,
+  "rootFullAppSuiteRunByThisAgent": false,
+  "limits": [
+    "RNTL uses the repository iOS preset; native picker/navigation/filesystem presentation remains a substituted transport. This is not a physical-device result.",
+    "The real pricing route, auth store, draft service, AsyncStorage adapter and installed SDK guard/reducer/removal traversal execute in the tests.",
+    "No automatic 500 ms autosave is claimed; every owned removal and Continue flush current pricing explicitly.",
+    "No server/Auth authority, namespace, API payload, analytics configuration, payment or shipping feature flag was changed.",
+    "No production deployment, data mutation, UI gesture, store upload or Git action was performed."
+  ]
+}

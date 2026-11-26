@@ -1,0 +1,22 @@
+# Sens de l’empreinte client du reçu d’effacement — lecture seule
+
+**Conclusion conditionnelle : le reçu 3eb peut rester inchangé pour l’ancienne et la nouvelle UI, si le correctif galerie conserve réellement les invariants pertinents.** L’empreinte 211 reste la provenance exacte de l’archive Production auditée à cette date ; elle ne doit jamais être présentée comme celle des futurs builds 37/18. Leur diff et leurs archives devront fournir une preuve complémentaire distincte. Aucune garde, politique, empreinte liée, permission, commande ou donnée cloud n’a été modifiée pour cette analyse.
+
+- `functions/src/utils/accountErasureQualification.ts:33` : la population est définie par la naissance Auth après le cutoff et le garde prestataire en Prod. Ligne 39, `nativeClientSourceSha256` est uniquement vérifié comme une chaîne de 64 caractères hexadécimaux. Aucun hash/version de client appelant ne lui est comparé. En revanche, les hashes serveur, règles et inventaire sont comparés exactement aux valeurs du runtime aux lignes 52–54.
+- `functions/src/utils/accountErasureContract.ts:114` : le DTO refuse les champs hors liste ; aucun numéro de build ni hash de code client n’est transmis. `functions/src/utils/accountErasure.ts:12` décrit une source Auth native (UID, naissance, providers et révocation), pas une attestation du binaire.
+- `functions/src/utils/accountErasureQualification.ts:62` : la qualification Prod ne devient jamais une preuve de non-collecte. Les lignes66–70 la réservent à Dev. Le test `accountErasureQualification.test.ts:30` confirme que la qualification des écrivains peut rester valide malgré la distribution précédente, tandis que noCollection reste false. Les données PostHog sont encore vérifiées nativement par sujet dans `accountErasureProviders.ts:33`, puis aux lignes91–100.
+
+Le sens cohérent avec ce contrat multi-clients est donc une **pièce de provenance du client Production audité, dont la collecte PostHog est désactivée**, pas une liste blanche exacte des binaires installés. La fermeture externe de l’ingestion reste attestée séparément par le garde prestataire. Le code permissif sur le format ne suffit toutefois pas, à lui seul, à certifier une version future : la preuve opérateur doit rester vraie.
+
+Les anciens 16/35 peuvent utiliser ce reçu pour les identités qui satisfont son cutoff et les autres contrôles. Cela ne rend pas les comptes pré-cutoff éligibles, ni les sources financières ou historiques ambiguës supprimables : `accountErasureQualification.ts:34` et `accountErasureRuntime.ts:113` maintiennent ces contrôles. L’exécution finale requalifie encore les écrivains et prestataires aux lignes 361–364 puis 397–399 du runtime.
+
+## Conditions à vérifier sur le correctif galerie encore à produire
+
+1. Même objet SDK User **et** même UID : état local conservé seulement pour cette même identité ; nouvel objet SDK User/UID et A→B→A remettent le formulaire à zéro. Le masque et le blocage tactile durent jusqu’à l’admission fraîche.
+2. Aucun changement des autorisations Auth, des services/SDK d’écriture, des namespaces Storage/Firestore, de leurs bornes de génération/fence, des payloads RPC ou des règles/serveurs. Préserver un Stack local ne doit pas autoriser une écriture pendant l’admission ou renouveler un ancien droit.
+3. Collecte PostHog toujours fermée en Production (`config/posthogConfig.ts:15`), même configuration Production et aucun nouveau token d’ingestion distribué ; garde 407000, histoire depuis 1970, source 3e et inventaire 48d6 inchangés.
+4. Nouveau hash réel et nouvelles archives 37/18 consignés comme supplément. Ne réécrire ni l’archive 211 ni la matrice 800c ni le reçu 3eb gelés.
+
+Si ces conditions sont prouvées, **pas de nouveau reçu ni de nouvelle permission de lecture à cause du seul correctif UI**. Si un invariant pertinent change, cette qualification ne s’étend pas automatiquement. Si l’on choisit de remplacer 211 dans le reçu, ou de modifier la matrice dont le SHA est épinglé, les octets et le hash du reçu changent : il faut un nouvel objet immuable et la permission correspondante.
+
+La publication de 3eb reste bloquée par le contrôle automatique : l’accord utilisateur ciblé est toujours requis. Cette conclusion n’autorise aucun retry, aucune réinterprétation de l’approbation et aucune mutation Prod. Les nouveaux correctif et binaires n’existant pas encore à ce relevé, leur conformité n’est pas déclarée acquise.

@@ -1,0 +1,230 @@
+{
+  "verifiedAt": "2026-11-26T05:13:51.370010+00:00",
+  "protocol": "phase1_compiled_artifact_static_verification_v1",
+  "productionClientSourceSha256": "2112254e016b33049453c5168454ae48949a96a5c58c4ae778567c6c33988525",
+  "gitCommit": "f7cde9825e0b29a55808b3d7a4b0da2863c18041",
+  "platforms": {
+    "IOS": {
+      "buildId": "bd3d71bf-26fb-4b21-9efe-1aa054886cf9",
+      "easStatus": "FINISHED",
+      "artifactType": "IPA",
+      "artifactBytes": 49926571,
+      "artifactSha256": "688e4909104e4f89badca5d929246b0b5717de2179896101af5aa73345ab245b",
+      "identity": {
+        "CFBundleIdentifier": "com.seconde.app",
+        "CFBundleShortVersionString": "1.0.2",
+        "CFBundleVersion": "36",
+        "MinimumOSVersion": "16.4",
+        "UIDeviceFamily": [
+          1
+        ]
+      },
+      "nativeFirebase": {
+        "projectId": "seconde-b47a6",
+        "bundleId": "com.seconde.app",
+        "senderId": "628214013296",
+        "analyticsEnabled": false,
+        "adsEnabled": false
+      },
+      "expoConfig": {
+        "appEnvironment": "production",
+        "firebaseProjectId": "seconde-b47a6",
+        "scheme": "seconde",
+        "sha256": "73c32ffcac42dba70a6a091ed3e26a67faf906fad55c86f6d65a2691d8fa861b"
+      },
+      "compiledJavascript": {
+        "format": "Hermes bytecode",
+        "bytecodeVersion": 98,
+        "bytes": 17852302,
+        "sha256": "ad92f3ceb99c4a4b752fed93e73836b6cb4c4157eb07445930ce1c3e8d5f9aaa",
+        "officialHermesDisassemblyExitCode": 0,
+        "executed": false,
+        "staticObservations": {
+          "phase1QaEnabled": false,
+          "newPaymentsEnabled": false,
+          "providerShippingEnabled": false,
+          "commerceTestModeEnabled": false,
+          "posthogCaptureKeyEmpty": true
+        },
+        "observationBasis": "Official Hermes98 disassembly: exported flags module stores constant false for QA and folds each supplied commerce feature environment comparison to false; PostHog module stores the empty string in exported API key slot. The unused development configuration remains bundled and is not evidence of an active Dev target.",
+        "evidence": {
+          "featureFlagModuleInitialization": {
+            "sha256": "9269d5886ca376b70d8eac7ea9fdaf045120085400129504940793841a08f72a",
+            "bytecodeLineStart": 546675,
+            "bytecodeLineEnd": 546792
+          },
+          "posthogModuleInitialization": {
+            "sha256": "5f26521ee623b62c7505dd209ffe1a0c85e5b582a7c64fc25ae97860098f8b09",
+            "bytecodeLineStart": 546795,
+            "bytecodeLineEnd": 546837
+          },
+          "runtimeEnvironmentResolver": {
+            "sha256": "1b152df5698867ffaff94171a83d49417173437ff49866ca87c938f13c16f0a2",
+            "bytecodeLineStart": 946105,
+            "bytecodeLineEnd": 946225
+          },
+          "runtimeEnvironmentInitialization": {
+            "sha256": "1b4be3a4c935da689f4a6be8068d5d4264c97d5f4d32f2398a0e14dd4dac9bed",
+            "bytecodeLineStart": 522163,
+            "bytecodeLineEnd": 522202
+          }
+        }
+      },
+      "staticIdentityAndConfigurationPassed": true,
+      "runtimeProductionDeviceTestPerformed": false
+    },
+    "ANDROID": {
+      "buildId": "fad545d1-6196-411b-ba0f-4d15ac12579c",
+      "easStatus": "FINISHED",
+      "artifactType": "AAB",
+      "artifactBytes": 142218266,
+      "artifactSha256": "10907e435f9f99d8434d52df8b00a1e84ff9bc754f65c60aa39a6cab30b9b8fe",
+      "identity": {
+        "package": "com.seconde.app",
+        "versionName": "1.0.2",
+        "versionCode": 17,
+        "compileSdkVersion": 36
+      },
+      "expoConfig": {
+        "appEnvironment": "production",
+        "firebaseProjectId": "seconde-b47a6",
+        "scheme": "seconde",
+        "package": "com.seconde.app",
+        "version": "1.0.2",
+        "sha256": "73c32ffcac42dba70a6a091ed3e26a67faf906fad55c86f6d65a2691d8fa861b"
+      },
+      "nativeFirebaseResources": {
+        "gcm_defaultSenderId": [
+          "628214013296"
+        ],
+        "google_app_id": [
+          "1:628214013296:android:af3e0444ea4b73a7dd83b5"
+        ],
+        "google_storage_bucket": [
+          "seconde-b47a6.firebasestorage.app"
+        ],
+        "project_id": [
+          "seconde-b47a6"
+        ]
+      },
+      "compiledJavascript": {
+        "bytes": 14941684,
+        "sha256": "2dff3fce2b5b12caeb404425f1d65f34663e436acaab251d788a2e8b7bcb8d3d",
+        "magic": "c61fbc03c103191f",
+        "format": "Hermes bytecode",
+        "bytecodeVersion": 98,
+        "officialHermesDisassemblyExitCode": 0,
+        "executed": false,
+        "staticObservations": {
+          "phase1QaEnabled": false,
+          "newPaymentsEnabled": false,
+          "providerShippingEnabled": false,
+          "commerceTestModeEnabled": false,
+          "posthogCaptureKeyEmpty": true
+        },
+        "observationBasis": "Official Hermes98 disassembly of the AAB compiled bundle, with constant false stores in the feature-flag module and an empty API key store in the PostHog module.",
+        "evidence": {
+          "featureFlagModuleInitialization": {
+            "sha256": "f39b4d5631cbedf249f45cb404b565408bef24fb7440cb9011a36c4eba1dcbdf",
+            "bytecodeLineStart": 624839,
+            "bytecodeLineEnd": 624957
+          },
+          "posthogModuleInitialization": {
+            "sha256": "5b8d04e732966a8d594956a754542da66c6d593e6308ae981f1214b82e6f1642",
+            "bytecodeLineStart": 624959,
+            "bytecodeLineEnd": 625001
+          }
+        }
+      },
+      "elf16KiB": {
+        "libraryCount": 116,
+        "all64BitLibrariesLoadAlignedAndCongruent": true,
+        "allBundledLibrariesLoadAlignedAndCongruent": false,
+        "byAbi": {
+          "arm64-v8a": {
+            "libraries": 29,
+            "allLoadAlignmentsAtLeast16KiB": true,
+            "allLoadOffsetVirtualAddressCongruent16KiB": true,
+            "exceptions": []
+          },
+          "armeabi-v7a": {
+            "libraries": 29,
+            "allLoadAlignmentsAtLeast16KiB": false,
+            "allLoadOffsetVirtualAddressCongruent16KiB": false,
+            "exceptions": [
+              "base/lib/armeabi-v7a/libanimation-decoder-gif.so",
+              "base/lib/armeabi-v7a/libappmodules.so",
+              "base/lib/armeabi-v7a/libavif_android.so",
+              "base/lib/armeabi-v7a/libbarhopper_v3.so",
+              "base/lib/armeabi-v7a/libc++_shared.so",
+              "base/lib/armeabi-v7a/libexpo-modules-core.so",
+              "base/lib/armeabi-v7a/libfbjni.so",
+              "base/lib/armeabi-v7a/libgesturehandler.so",
+              "base/lib/armeabi-v7a/libhermestooling.so",
+              "base/lib/armeabi-v7a/libhermesvm.so",
+              "base/lib/armeabi-v7a/libjsi.so",
+              "base/lib/armeabi-v7a/libreact_codegen_rnscreens.so",
+              "base/lib/armeabi-v7a/libreact_codegen_safeareacontext.so",
+              "base/lib/armeabi-v7a/libreactnative.so",
+              "base/lib/armeabi-v7a/libreanimated.so",
+              "base/lib/armeabi-v7a/librnscreens.so",
+              "base/lib/armeabi-v7a/libworklets.so"
+            ]
+          },
+          "x86": {
+            "libraries": 29,
+            "allLoadAlignmentsAtLeast16KiB": false,
+            "allLoadOffsetVirtualAddressCongruent16KiB": false,
+            "exceptions": [
+              "base/lib/x86/libanimation-decoder-gif.so",
+              "base/lib/x86/libappmodules.so",
+              "base/lib/x86/libavif_android.so",
+              "base/lib/x86/libbarhopper_v3.so",
+              "base/lib/x86/libc++_shared.so",
+              "base/lib/x86/libexpo-modules-core.so",
+              "base/lib/x86/libfbjni.so",
+              "base/lib/x86/libgesturehandler.so",
+              "base/lib/x86/libhermestooling.so",
+              "base/lib/x86/libhermesvm.so",
+              "base/lib/x86/libjsi.so",
+              "base/lib/x86/libreact_codegen_rnscreens.so",
+              "base/lib/x86/libreact_codegen_safeareacontext.so",
+              "base/lib/x86/libreactnative.so",
+              "base/lib/x86/libreanimated.so",
+              "base/lib/x86/librnscreens.so",
+              "base/lib/x86/libworklets.so"
+            ]
+          },
+          "x86_64": {
+            "libraries": 29,
+            "allLoadAlignmentsAtLeast16KiB": true,
+            "allLoadOffsetVirtualAddressCongruent16KiB": true,
+            "exceptions": []
+          }
+        },
+        "detailedPrivateInspectionSha256": "986b1e5ac73135ceb465054b352df7f359822b445869ff424e5774672cff1f7d",
+        "finalPlayGeneratedApkZipAlignmentVerified": false
+      },
+      "staticIdentityAndConfigurationPassed": true,
+      "runtimeProductionDeviceTestPerformed": false
+    }
+  },
+  "download": {
+    "source": "Artifact URL returned by EAS Build by ID",
+    "observedOfficialRedirectHosts": [
+      "expo.dev",
+      "api.expo.dev",
+      "wf-artifacts.eascdn.net"
+    ],
+    "newAuthenticationOrPermissionCreated": false,
+    "artifactUrlsIncludedInProof": false
+  },
+  "limits": [
+    "Static IPA identity/configuration and bytecode inspection do not certify an on-device production runtime journey.",
+    "No application code was executed and no device was operated.",
+    "The runtime resolver initialization uses Hermes object constant buffers; its argument object has not been independently decoded. Production target is directly verified in compiled Expo Constants and native Firebase configuration.",
+    "All64bit native library PT_LOAD segments are aligned at least16KiB and offset/vaddr congruent;34libraries in the two32bit ABIs have lower alignment and are reported explicitly.",
+    "The final Play-generated APK ZIP alignment is not certified by static AAB ELF inspection."
+  ],
+  "bothCompiledArtifactsStaticIdentityAndConfigurationPassed": true
+}

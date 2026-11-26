@@ -1,0 +1,541 @@
+{
+  "protocol": "phase1_android_gallery_foreground_retention_fix_v1",
+  "verifiedAt": "2026-11-26T05:56:03.778856+00:00",
+  "baselineGitCommit": "f7cde9825e0b29a55808b3d7a4b0da2863c18041",
+  "baselineQaSourceSha256": "0454cb10074e5808188981da699e4cde3884ee726a9ef21eba970e8a01602a55",
+  "runtimeFrozen": true,
+  "rootFullSourceBindingPending": true,
+  "rootCause": "Android picker can return its local photo before foreground Firebase hydration increments the auth generation. SellLayout previously replaced its Stack by the admission gate, unmounting CaptureScreen and starting a new empty draft.",
+  "fix": [
+    "Keep the exact same SDK actor occurrence stack mounted behind an opaque noninteractive and accessibility-hidden admission gate during fresh identity/generation/focus checks.",
+    "Observe actor UID/SDK changes synchronously in a per-mounted-component useSyncExternalStore observer; batched A-to-B-to-A invalidates continuity even when the original SDK user object is reused.",
+    "Reject stale capture/gallery/persistence callbacks using mount, native SDK source and local occurrence before local adoption, caching, analytics or navigation. No global pending picker recovery is added."
+  ],
+  "changedFiles": [
+    {
+      "path": "app/sell/_layout.tsx",
+      "sha256": "04788abcf34b66ba9b209bbcb1b8d386e9d24b4488bd180b8864a1dd0b712930",
+      "kind": "runtime"
+    },
+    {
+      "path": "app/sell/capture.tsx",
+      "sha256": "bba3066c08b2a1617fad3e2d88a849835ed1e041a23995777b7e49ce27e5ccd7",
+      "kind": "runtime"
+    },
+    {
+      "path": "features/sell/hooks/useSellActorSource.ts",
+      "sha256": "51b63b44e9d86d0a8b1d19e01582c4e2c91ae2752a9fbaa72e1adc48852bdde0",
+      "kind": "runtime"
+    },
+    {
+      "path": "tests/jest/sellAndroidGalleryRecovery.test.tsx",
+      "sha256": "29ae8359c7ca6b2db9c95dee5f1db8ae3cf17c7eea295b9bff4d005da1f6602c",
+      "kind": "test_or_index"
+    },
+    {
+      "path": "tests/jest/sellLayout.test.tsx",
+      "sha256": "edef4e9e3b285ec6d4090cb94e98c2d7a359cf11cbf1d17fc8907e0889e5738e",
+      "kind": "test_or_index"
+    },
+    {
+      "path": "CODEBASE_INDEX.md",
+      "sha256": "f9d1f399f86b77f8dd657fbedcde162008cb8b7045724931a4bab22bd9c3c0bf",
+      "kind": "test_or_index"
+    }
+  ],
+  "unchangedSecurityAndTransportSources": [
+    {
+      "path": "features/auth/hooks/useAuthListener.ts",
+      "sha256": "b2c8cbf8ae813566348feca7b0058137b4b0682bd45a44aa3b966987734e839a",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "store/authStore.ts",
+      "sha256": "315db2fcd57d9cac2bf22d9b0b07f0c4e97487995186ea4f55ddbc5fd0502c24",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "services/tradeOperation.ts",
+      "sha256": "e3aec389744310905083bd1a16a902efcf1b4dd1cc874747725d1b66ecdbe864",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "services/newSaleAdmission.ts",
+      "sha256": "e279bda5402a5d94cd30ae13fc26e750aa6fc39c7d8d4ccf84f998fbb0704738",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "config/featureFlags.ts",
+      "sha256": "d2bfeebe83bc07a5f672fc51f7da31f09a14d987845bda82de7e55bc02a7b23e",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "config/firebaseEnvironment.ts",
+      "sha256": "e7edcc3f807baea896297eb83ac8e265e94f2b1adddc44f646328ed947a46497",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "config/posthogConfig.ts",
+      "sha256": "04ecaf5113f26090af13989315b8fb28efca9e9fb2d50557d9c3d41533fc12a5",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "config/catalogueCallableContracts.ts",
+      "sha256": "84f234c576892a9c35d563a26a33884b5fb17b0ef2512b984b2c1442d4b99e64",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "services/phase1Callable.ts",
+      "sha256": "84bcf5e7876416c0ebfafc50109d5425032190245cd718d3c8ed2f08486c5554",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "features/sell/services/draftService.ts",
+      "sha256": "6c0dade016906d14130657ad6f59a0c6c7fb2632ffebd38716a816c37b3a5976",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "features/sell/services/aiService.ts",
+      "sha256": "9b7b112c55ae905ec0c2ee153ce960e0596da8bf36dd5bbb0a5d25443543aa5a",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "app/sell/preview.tsx",
+      "sha256": "d6ebbd052ced680222815c2d5fad23f59299dd08ea16f6327245da96d3544f6c",
+      "matchesImmutableF7": true
+    }
+  ],
+  "automated": {
+    "redBeforePatch": {
+      "file": "android-gallery-final-red.json",
+      "sha256": "148429510f62d7b64825e24c1356a269ab2269a5f91d55a47a889ef086c6dfea",
+      "suites": 1,
+      "passed": 2,
+      "failed": 5,
+      "skipped": 0,
+      "openHandles": [],
+      "normalExitCode": 1,
+      "tests": [
+        {
+          "name": "keeps the actual photo and draft through foreground hydration, then saves before continue",
+          "status": "failed"
+        },
+        {
+          "name": "keeps the actual photo and draft through foreground hydration, then saves before close",
+          "status": "failed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after different-owner",
+          "status": "passed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after same-uid-new-sdk",
+          "status": "failed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after A-B-A",
+          "status": "failed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after A-B-A-batched-reused-sdk",
+          "status": "failed"
+        },
+        {
+          "name": "does not adopt a deferred gallery result after leaving the capture focus",
+          "status": "passed"
+        }
+      ]
+    },
+    "redReplayImmutableF7": {
+      "file": "android-gallery-original-f7-red.json",
+      "sha256": "faa863aab5f1540b6c6ebb81bc1b71a7c1c80a04417b7e1759359dbc217efef4",
+      "suites": 1,
+      "passed": 2,
+      "failed": 7,
+      "skipped": 0,
+      "openHandles": [],
+      "normalExitCode": 1,
+      "tests": [
+        {
+          "name": "keeps the actual photo and draft through foreground hydration, then saves before continue",
+          "status": "failed"
+        },
+        {
+          "name": "keeps the actual photo and draft through foreground hydration, then saves before close",
+          "status": "failed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after different-owner",
+          "status": "passed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after same-uid-new-sdk",
+          "status": "failed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after A-B-A",
+          "status": "failed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after A-B-A-batched-reused-sdk",
+          "status": "failed"
+        },
+        {
+          "name": "does not adopt a deferred gallery result after leaving the capture focus",
+          "status": "passed"
+        },
+        {
+          "name": "rejects a deferred gallery result after unmount even when the former native navigation still reports focus",
+          "status": "failed"
+        },
+        {
+          "name": "keeps the same local draft hidden after a fresh refusal and unlocks only after a fresh successful retry",
+          "status": "failed"
+        }
+      ]
+    },
+    "greenFocused": {
+      "file": "android-gallery-final-green.json",
+      "sha256": "f05ab3fe4596c495450b7075f358d90821d8b9aa7cd26d8412197ef1e17976f1",
+      "suites": 5,
+      "passed": 77,
+      "failed": 0,
+      "skipped": 0,
+      "openHandles": [],
+      "normalExitCode": 0,
+      "tests": [
+        {
+          "name": "SellLayout — invité ramène au tunnel de vente après la connexion",
+          "status": "passed"
+        },
+        {
+          "name": "ne représente pas la feuille sur un rendu du même focus, mais la repropose après un vrai retour",
+          "status": "passed"
+        },
+        {
+          "name": "keeps the actual photo and draft through foreground hydration, then saves before continue",
+          "status": "passed"
+        },
+        {
+          "name": "keeps the actual photo and draft through foreground hydration, then saves before close",
+          "status": "passed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after different-owner",
+          "status": "passed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after same-uid-new-sdk",
+          "status": "passed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after A-B-A",
+          "status": "passed"
+        },
+        {
+          "name": "rejects a picker response from the former actor after A-B-A-batched-reused-sdk",
+          "status": "passed"
+        },
+        {
+          "name": "does not adopt a deferred gallery result after leaving the capture focus",
+          "status": "passed"
+        },
+        {
+          "name": "rejects a deferred gallery result after unmount even when the former native navigation still reports focus",
+          "status": "passed"
+        },
+        {
+          "name": "keeps the same local draft hidden after a fresh refusal and unlocks only after a fresh successful retry",
+          "status": "passed"
+        },
+        {
+          "name": "gallery capture with camera denied lets gallery photos continue after persistence, without waiting for the debounce",
+          "status": "passed"
+        },
+        {
+          "name": "gallery capture with camera denied shows the prepared camera without presentation delay, but restores the draft before allowing photo edits",
+          "status": "passed"
+        },
+        {
+          "name": "gallery capture with camera denied waits for entrance completion before requesting OS permission and admits the denied fallback",
+          "status": "passed"
+        },
+        {
+          "name": "gallery capture with camera denied stops hidden preparation in the background and rejects the old native ready event on resumption",
+          "status": "passed"
+        },
+        {
+          "name": "closes normal A capabilities while signIn B waits for its cache, then admits B",
+          "status": "passed"
+        },
+        {
+          "name": "keeps B readonly after cache IO fails instead of projecting normal A",
+          "status": "passed"
+        },
+        {
+          "name": "retains legitimate normal capabilities on a same-UID refresh while cache IO waits",
+          "status": "passed"
+        },
+        {
+          "name": "ignores old logout completion after A→B with final owner B",
+          "status": "passed"
+        },
+        {
+          "name": "ignores old logout completion after A→B with final owner A",
+          "status": "passed"
+        },
+        {
+          "name": "completes nominal logout after the provider delivers a coherent null event",
+          "status": "passed"
+        },
+        {
+          "name": "ignores queued null observer payload when Auth.currentUser already belongs to B",
+          "status": "passed"
+        },
+        {
+          "name": "reprise du même cache après déplacement du conteneur iOS relit seulement le candidat actuel et persiste les références normalisées sans recopier l’ancien conteneur",
+          "status": "passed"
+        },
+        {
+          "name": "reprise du même cache après déplacement du conteneur iOS refuse le candidat indisponible sans réécrire ni supprimer le brouillon ({\"exists\":false})",
+          "status": "passed"
+        },
+        {
+          "name": "reprise du même cache après déplacement du conteneur iOS refuse le candidat indisponible sans réécrire ni supprimer le brouillon ({\"exists\":true,\"isDirectory\":true})",
+          "status": "passed"
+        },
+        {
+          "name": "reprise du même cache après déplacement du conteneur iOS refuse le résultat tardif du contrôle de fichier après A→B→A sans adopter ni écrire pour le nouveau compte",
+          "status": "passed"
+        },
+        {
+          "name": "reprise du même cache après déplacement du conteneur iOS fusionne la normalisation avec les champs modifiés pendant la vérification du fichier",
+          "status": "passed"
+        },
+        {
+          "name": "createEmptyDraft initialise un brouillon vide à l’étape 1 avec un id unique",
+          "status": "passed"
+        },
+        {
+          "name": "save / load — round-trip sauve puis recharge un brouillon non périmé",
+          "status": "passed"
+        },
+        {
+          "name": "save / load — round-trip rafraîchit updatedAt à chaque sauvegarde",
+          "status": "passed"
+        },
+        {
+          "name": "save / load — round-trip renvoie null quand aucun brouillon n’existe",
+          "status": "passed"
+        },
+        {
+          "name": "expiration — purge à 14 jours supprime et renvoie null pour un brouillon créé il y a plus de 14 jours",
+          "status": "passed"
+        },
+        {
+          "name": "expiration — purge à 14 jours conserve un brouillon créé il y a 13 jours",
+          "status": "passed"
+        },
+        {
+          "name": "expiration — purge à 14 jours hasDraft ne compte pas un brouillon périmé",
+          "status": "passed"
+        },
+        {
+          "name": "expiration — purge à 14 jours hasDraft est vrai pour un brouillon frais, faux quand vide",
+          "status": "passed"
+        },
+        {
+          "name": "expiration — purge à 14 jours getDaysUntilExpiration renvoie ~14 pour un brouillon neuf et 0 si périmé",
+          "status": "passed"
+        },
+        {
+          "name": "expiration — purge à 14 jours affiche les jours calendaires pour fin de l’heure d’été, indépendamment du fuseau du runner",
+          "status": "passed"
+        },
+        {
+          "name": "expiration — purge à 14 jours affiche les jours calendaires pour début de l’heure d’été, indépendamment du fuseau du runner",
+          "status": "passed"
+        },
+        {
+          "name": "expiration — purge à 14 jours affiche les jours calendaires pour échéance passée dans l’heure répétée, indépendamment du fuseau du runner",
+          "status": "passed"
+        },
+        {
+          "name": "progression des étapes — Math.max, jamais de régression updateDraftFields fait passer à l’étape 2 minimum",
+          "status": "passed"
+        },
+        {
+          "name": "progression des étapes — Math.max, jamais de régression updateDraftPricing fait passer à l’étape 3 minimum",
+          "status": "passed"
+        },
+        {
+          "name": "progression des étapes — Math.max, jamais de régression ne régresse pas le step si le brouillon est déjà plus avancé",
+          "status": "passed"
+        },
+        {
+          "name": "progression des étapes — Math.max, jamais de régression updateDraftStep applique une étape explicite et persiste",
+          "status": "passed"
+        },
+        {
+          "name": "photos & storageUrls cache une photo distante en local et la persiste comme photo du brouillon",
+          "status": "passed"
+        },
+        {
+          "name": "photos & storageUrls ne recopie pas une photo déjà cachée dans le répertoire du compte",
+          "status": "passed"
+        },
+        {
+          "name": "photos & storageUrls updateDraftAIResult conserve les anciennes storageUrls si non fournies",
+          "status": "passed"
+        },
+        {
+          "name": "deleteDraft — règle de publication (keepStorageImages) par défaut, supprime aussi les images Storage du brouillon",
+          "status": "passed"
+        },
+        {
+          "name": "deleteDraft — règle de publication (keepStorageImages) après publication (keepStorageImages=true), NE supprime PAS les images Storage",
+          "status": "passed"
+        },
+        {
+          "name": "deleteDraft — règle de publication (keepStorageImages) nettoie les images locales du brouillon ciblé",
+          "status": "passed"
+        },
+        {
+          "name": "deleteDraft — règle de publication (keepStorageImages) est idempotent quand il n’y a rien à supprimer",
+          "status": "passed"
+        },
+        {
+          "name": "flag de publication — wasPublished / markPublished est false par défaut (aucune publication)",
+          "status": "passed"
+        },
+        {
+          "name": "flag de publication — wasPublished / markPublished markPublished arme le flag",
+          "status": "passed"
+        },
+        {
+          "name": "flag de publication — wasPublished / markPublished saveDraft ré-arme le guard (flag remis à false)",
+          "status": "passed"
+        },
+        {
+          "name": "flag de publication — wasPublished / markPublished loadDraft ré-arme le guard (flag remis à false)",
+          "status": "passed"
+        },
+        {
+          "name": "cleanupExpiredDrafts — purge des images orphelines supprime toutes les images locales quand aucun brouillon n’existe",
+          "status": "passed"
+        },
+        {
+          "name": "cleanupExpiredDrafts — purge des images orphelines ne supprime que les images n’appartenant pas au brouillon courant",
+          "status": "passed"
+        },
+        {
+          "name": "media ordering and concurrent edits keeps photo/storage URL pairs after reordering, deletion and stale field saves",
+          "status": "passed"
+        },
+        {
+          "name": "media ordering and concurrent edits discards incomplete uploaded sets when a new gallery photo is added",
+          "status": "passed"
+        },
+        {
+          "name": "media ordering and concurrent edits caches new photos in distinct files rather than overwriting a retained photo",
+          "status": "passed"
+        },
+        {
+          "name": "finished draft lifecycle does not resurrect a published or discarded draft through a delayed screen save",
+          "status": "passed"
+        },
+        {
+          "name": "replaced drafts does not overwrite a new draft from an older screen still saving",
+          "status": "passed"
+        },
+        {
+          "name": "canonical private draft references preserves tokenless uploaded references alongside local photos when saving and resuming",
+          "status": "passed"
+        },
+        {
+          "name": "account isolation and interrupted operations ignores the legacy global draft and leaves its key and cached files untouched",
+          "status": "passed"
+        },
+        {
+          "name": "account isolation and interrupted operations resumes only the authenticated account draft and rejects another account snapshot",
+          "status": "passed"
+        },
+        {
+          "name": "account isolation and interrupted operations does not read another account or legacy cache and cleans only its own directory",
+          "status": "passed"
+        },
+        {
+          "name": "account isolation and interrupted operations rejects another environment’s private photo without reading, copying or deleting its file",
+          "status": "passed"
+        },
+        {
+          "name": "account isolation and interrupted operations rejects queued edits after an account switch, including switching back before completion",
+          "status": "passed"
+        },
+        {
+          "name": "account isolation and interrupted operations cancels a debounced save when the active account changes",
+          "status": "passed"
+        },
+        {
+          "name": "account isolation and interrupted operations keeps an already dispatched write scoped to its initiator and rejects its late result",
+          "status": "passed"
+        },
+        {
+          "name": "account isolation and interrupted operations does not return an in-flight read to a different account",
+          "status": "passed"
+        },
+        {
+          "name": "account isolation and interrupted operations rejects an in-flight photo save after a switch and never saves under the new account",
+          "status": "passed"
+        },
+        {
+          "name": "account isolation and interrupted operations does not create, read, write or clean a draft without authentication",
+          "status": "passed"
+        },
+        {
+          "name": "filesystem-safe draft owner IDs rejects . before reading or writing a cache",
+          "status": "passed"
+        },
+        {
+          "name": "filesystem-safe draft owner IDs rejects .. before reading or writing a cache",
+          "status": "passed"
+        },
+        {
+          "name": "filesystem-safe draft owner IDs rejects alice/bob before reading or writing a cache",
+          "status": "passed"
+        },
+        {
+          "name": "filesystem-safe draft owner IDs rejects alice%2Fbob before reading or writing a cache",
+          "status": "passed"
+        },
+        {
+          "name": "filesystem-safe draft owner IDs rejects alice.bob before reading or writing a cache",
+          "status": "passed"
+        }
+      ]
+    }
+  },
+  "newRegressionCases": 9,
+  "persistenceAssertions": [
+    "The same real draft ID survives foreground hydration and is persisted through the real draft service and AsyncStorage adapter.",
+    "Continue and explicit close/confirmation wait for a successful owned local file copy/save before navigation; no false saved outcome.",
+    "A fresh eligibility failure keeps routes hidden, pointerEvents none, importantForAccessibility no-hide-descendants; only a fresh successful retry reveals the same capture.",
+    "Former owners, replacement SDK users, normal/batched A-to-B-to-A, focus loss and unmount cannot adopt old picker results or emit sell_photo_added."
+  ],
+  "staticChecks": {
+    "appTypecheckExitCode": 0,
+    "boundariesExitCode": 0,
+    "targetedReactCompilerLintExitCode": 0,
+    "extendedTestsTypecheckExitCode": 2,
+    "extendedTestsInheritedDiagnostics": 104,
+    "diagnosticsInChangedFiles": 0
+  },
+  "nativePostFixVerificationPerformedByThisAgent": false,
+  "nativeReproductionReference": "ANDROID_EXTENDED_FLOWS.json historical baseline0454; post-fix device verification is owned separately.",
+  "iosImpactReadOnly": "The fully entered iOS capture overlay is outside SellLayout and is not invalidated by a same-UID foreground generation in ImmersiveOverlay.getCurrentCycle. Once the flow reaches /sell/photos-review, its Stack receives the same retention fix. No iOS overlay runtime is changed or native iOS success inferred.",
+  "limits": [
+    "RNTL uses the repository iOS Jest preset but mounts the actual Android capture route and parent; this is not native Android device evidence.",
+    "Native picker, navigation stack, remote Firebase and filesystem transports are substituted; admission, auth store/listener and draft service implementations remain real.",
+    "No production deployment, account mutation, payment, shipment, store upload, device action or Git mutation was performed by this agent."
+  ]
+}

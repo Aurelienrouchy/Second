@@ -1,0 +1,39 @@
+{
+  "project": "seconde-b47a6",
+  "controlProject": "seconde-prod-control-20261125",
+  "bucket": "seconde-b47a6-phase1-controls",
+  "object": "installations/phase1_prod_20261125/manifests/account-erasure/3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4.json",
+  "receiptSha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+  "createCondition": "ifGenerationMatch=0",
+  "temporaryHold": true,
+  "cacheControl": "private, no-store",
+  "readerRole": "projects/seconde-prod-control-20261125/roles/phase1ControlReader",
+  "rolePermissions": [
+    "storage.objects.get"
+  ],
+  "readerPrincipal": "serviceAccount:seconde-phase1-runtime@seconde-b47a6.iam.gserviceaccount.com",
+  "condition": "resource.type == 'storage.googleapis.com/Object' && resource.name == 'projects/_/buckets/seconde-b47a6-phase1-controls/objects/installations/phase1_prod_20261125/manifests/account-erasure/3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4.json'",
+  "pinFunctions": [
+    "deleteUserAccountV2",
+    "manageAccountErasure",
+    "continueAccountErasure",
+    "resumeAccountErasures",
+    "eraseLateAccountStorage"
+  ],
+  "pinEnvironmentKeys": [
+    "ACCOUNT_ERASURE_QUALIFICATION_OBJECT",
+    "ACCOUNT_ERASURE_QUALIFICATION_GENERATION",
+    "ACCOUNT_ERASURE_QUALIFICATION_SHA256"
+  ],
+  "expiryUnchanged": "2026-12-25T22:55:33.429113+00:00",
+  "controlGenerationUnchanged": "1795639824843632",
+  "oldReceiptRetained": true,
+  "noAccountDeletedByThisAction": true,
+  "newObjectsWritten": 0,
+  "newIamBindingsApplied": 0,
+  "pinsUpdated": 0,
+  "publicationProcessStarted": false,
+  "automaticReviewRejected": true,
+  "retryOrWorkaroundPerformed": false,
+  "rejectionReason": "Explicit user authorization for this exact production receipt and persistent IAM permission was not established by automatic approval review."
+}

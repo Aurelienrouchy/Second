@@ -1,0 +1,17 @@
+{
+  "protocol": "phase1_obsolete_apple35_cancel_completed_v1",
+  "verifiedAt": "2026-11-26T13:19:55.400686+00:00",
+  "appId": "6757828492",
+  "version": "1.0.2",
+  "versionId": "ed2f8189-8646-4d9a-b3f8-34e5f0a00497",
+  "appStoreState": "DEVELOPER_REJECTED",
+  "obsoleteBuildNumber": "35",
+  "obsoleteReviewState": "COMPLETE",
+  "obsoleteReviewItemState": "REMOVED",
+  "explicitTargetedUserAuthorizationReceived": true,
+  "singleCancellationDispatched": true,
+  "separateReadOnlyNativeStateConfirmed": true,
+  "readbackSha256": "1fad44e7e6d2eeb2723597f5b997b235beb059c6ff5518883bcc060cb79921b0",
+  "build36Attached": false,
+  "newCorrectedBuildSubmitted": false
+}

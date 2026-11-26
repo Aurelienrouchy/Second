@@ -1,0 +1,392 @@
+{
+  "protocol": "phase1_android_sell_native_final_retest_v1",
+  "verifiedAt": "2026-11-26T13:23:53.936479+00:00",
+  "status": "FROZEN_NATIVE_PASS_WITH_EXPLICIT_LIMITS",
+  "source": {
+    "qaRuntimeSha256": "95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b",
+    "runtimeFileCount": 1064,
+    "frozenByRootBeforeActions": true,
+    "nativeAppReinstalled": false,
+    "appDataCleared": false,
+    "historicalReportsUnchangedByThisRetest": true
+  },
+  "environment": {
+    "device": "emulator-5554",
+    "avd": "Pixel_7_API_34",
+    "platform": "Android API34 arm64 emulator",
+    "bundle": "com.seconde.app.dev",
+    "nativeVersion": "1.0.1(1)",
+    "backend": "seconde-dev",
+    "actor": "android-b",
+    "uid": "Kh4bdOFYxoM8CoXfZ8FoaOwJ7E13",
+    "normalSessionObservedAs": "Alex Q. / known B synthetic username",
+    "sdkAuthForced": false,
+    "productionStoreBinary": false
+  },
+  "connection": {
+    "emulatorInitiallyStoppedAndBootedWithoutWipe": true,
+    "freshDevLauncherLoadSelectedAtMs": 1795697649304,
+    "metroPid": 16664,
+    "metroListen": "127.0.0.1:8091",
+    "metroSessionId": 23050,
+    "nodeOptions": "--dns-result-order=ipv4first",
+    "startupArgs": [
+      "--phase1",
+      "--port",
+      "8091",
+      "--dev-client",
+      "--localhost"
+    ],
+    "manifestHttpStatusOutsideSandbox": 200,
+    "manifestExtraAppEnvironment": "development",
+    "manifestExtraFirebaseProjectId": "seconde-dev",
+    "manifestPackage": "com.seconde.app.dev",
+    "manifestScheme": "seconde-dev",
+    "qaFlagsBasis": "Owned process arguments plus unchanged guarded start-dev script, which forces QA=true and payment/shipping/commerce=false. These flags are not extra manifest fields.",
+    "onlyAdbReverse": "tcp:8091 -> tcp:8091",
+    "user8081OrPhone8092Stopped": false,
+    "onlyOwnMisconfiguredRecipePidsStopped": [
+      16125,
+      16487
+    ],
+    "accessibilityRecoveryScopedOnlyToAndroid": true
+  },
+  "publicFixture": {
+    "filename": "v1-qa-public-icon.jpg",
+    "bytes": 48787,
+    "sha256": "dce345a64948222497c119f0cd408f873149b5e3d91f554465b2a9d5870e1f4b",
+    "deviceMtime": 1795651725,
+    "hashAndMtimeRecheckedAfterBoot": true,
+    "onlyThisPhotoSelected": true,
+    "otherMediaReadOrSelected": false,
+    "cameraPermission": "Existing one-time permission was renewed using Only this time; no camera photo taken."
+  },
+  "listing": {
+    "id": "752c55565b02a5bbd72a",
+    "title": "Article QA B final 20261126",
+    "description": "Annonce synthetique QA V1. Logo public Seconde uniquement. Aucun article reel, aucun paiement ni livraison.",
+    "initialPriceCad": 12,
+    "editedPriceCad": 13,
+    "meetup": "Mile End",
+    "onlyListingMutated": true,
+    "noOfferOrderPaymentCreated": true,
+    "finalState": "withdrawn / old link unavailable",
+    "oldSoldFixturesPreserved": [
+      "d4ddbbf3417063527653",
+      "fa8090d12faca0d75114"
+    ]
+  },
+  "cases": [
+    {
+      "ids": [
+        "L02",
+        "T06"
+      ],
+      "status": "PASS_NATIVE_BOUNDED",
+      "evidence": [
+        {
+          "tree": "2wb-12",
+          "action": "Only the exact verified public logo was selected in the native picker."
+        },
+        {
+          "atMs": 1795697954867,
+          "tree": "2wb-14",
+          "action": "Add1 returned to retained photo1/5 and enabled Continue after foreground revalidation."
+        },
+        {
+          "atMs": 1795697980056,
+          "tree": "2wb-15",
+          "action": "Fresh read approximately18seconds later still displayed1/5."
+        }
+      ],
+      "capture": "resumed_photo"
+    },
+    {
+      "name": "capture_exit_save_resume",
+      "status": "PASS_NATIVE",
+      "evidence": [
+        {
+          "atMs": 1795697983136,
+          "tree": "2wb-16",
+          "action": "X opened one Quitter confirmation."
+        },
+        {
+          "atMs": 1795698002078,
+          "screenshotId": "y4c-25",
+          "action": "A single confirmation returned to actual Home; no second prompt or save-error alert."
+        },
+        {
+          "tree": "2wb-18",
+          "action": "Fresh Home AX confirmed after scoped helper recovery."
+        },
+        {
+          "tree": "2wb-19",
+          "action": "Reopening Sell displayed saved draft1photo."
+        },
+        {
+          "atMs": 1795698132205,
+          "tree": "2wb-20",
+          "action": "Resume restored the same logo,1/5 and enabled Continue."
+        },
+        {
+          "atMs": 1795698155860,
+          "tree": "2wb-21",
+          "action": "Continue opened Photos review with the same single logo."
+        }
+      ],
+      "captures": [
+        "saved_draft",
+        "resumed_photo"
+      ]
+    },
+    {
+      "id": "L03",
+      "status": "PASS_REAL_REQUEST_AND_EDITABLE_RESULT_WITH_LIMITS",
+      "evidence": [
+        {
+          "atMs": 1795698170553,
+          "tree": "2wb-22",
+          "action": "One explicit Prepare action triggered real upload/analysis of only the public logo."
+        },
+        {
+          "tree": "2wb-23",
+          "action": "Details prepared returned5prefilled fields with accessory/color/state summary labels."
+        },
+        {
+          "tree": "2wb-24",
+          "action": "Actual Details titled Visuel logo Seconde and explicitly stated that no garment/fashion item was identifiable; condition remained To choose."
+        },
+        {
+          "action": "Title/description were manually replaced with explicit synthetic QA content; condition was explicitly selected."
+        }
+      ],
+      "capture": "ai_details",
+      "limits": [
+        "No hard rejection of a non-garment was observed.",
+        "No positive garment-recognition accuracy claimed.",
+        "No provider key, billing setting or Production image changed."
+      ]
+    },
+    {
+      "name": "pricing_native_hardware_back",
+      "status": "PASS_NATIVE",
+      "evidence": [
+        {
+          "tree": "2wb-32",
+          "action": "Actual price12CAD and Mile End selected; keyboard closed."
+        },
+        {
+          "tree": "2wb-33",
+          "action": "Argent native hardware Back returned to Details, not a screen back-CTA tap."
+        },
+        {
+          "atMs": 1795698483050,
+          "tree": "2wb-34",
+          "action": "Reopened Pricing retained actual field12 and selected Mile End."
+        }
+      ],
+      "capture": "pricing_restored"
+    },
+    {
+      "ids": [
+        "L05",
+        "L06"
+      ],
+      "status": "PASS_NATIVE_PUBLICATION",
+      "evidence": [
+        {
+          "tree": "2wb-35",
+          "action": "Preview showed exact synthetic content,12CAD and Mile End."
+        },
+        {
+          "atMs": 1795698528114,
+          "tree": "2wb-36",
+          "action": "One Publish click returned Listing published."
+        },
+        {
+          "tree": "2wb-37",
+          "action": "Owner detail displayed exact title/content."
+        },
+        {
+          "tree": "2wb-38",
+          "action": "System share preview supplied the actual former link. Chooser closed with native Back, no recipient/destination selected."
+        }
+      ],
+      "capture": "published",
+      "limits": [
+        "An unrelated account address appeared in the share AX and was not copied into durable evidence; later outputs were redacted.",
+        "Dev publication only, not Production/store release."
+      ]
+    },
+    {
+      "id": "L07",
+      "status": "PASS_NATIVE",
+      "evidence": [
+        {
+          "tree": "2wb-44",
+          "action": "Owner edit changed only price12 to13."
+        },
+        {
+          "atMs": 1795698714190,
+          "tree": "2wb-45",
+          "action": "One Save returned Article modified successfully."
+        },
+        {
+          "tree": "2wb-46",
+          "action": "Owner detail reread the same listing at13CAD with unchanged title/description."
+        }
+      ],
+      "capture": "edited"
+    },
+    {
+      "id": "L08",
+      "status": "PASS_NATIVE",
+      "evidence": [
+        {
+          "atMs": 1795698807518,
+          "action": "Explicit mark-sold confirmation for the dedicated QA listing only."
+        },
+        {
+          "tree": "2wb-50",
+          "action": "Final detail displayed Article sold, favorite disabled."
+        },
+        {
+          "atMs": 1795698848870,
+          "tree": "2wb-52",
+          "action": "Relist returned active owner state and favorite control."
+        },
+        {
+          "tree": "2wb-53",
+          "action": "My listings independently displayed this QA row En vente at13CAD alongside the two old sold fixtures."
+        }
+      ],
+      "captures": [
+        "sold",
+        "relisted"
+      ],
+      "limits": [
+        "No payment, physical handover, order or counterparty contract asserted."
+      ]
+    },
+    {
+      "id": "L09",
+      "status": "PASS_NATIVE_WITHDRAWAL_AND_OLD_LINK_SAFETY",
+      "evidence": [
+        {
+          "action": "Normal active-item menu offered no deletion; marking the same disposable QA listing sold again was required for removal."
+        },
+        {
+          "atMs": 1795698924926,
+          "tree": "2wb-55",
+          "action": "First intent was stopped by State updated; state reread and one new explicit intent selected."
+        },
+        {
+          "atMs": 1795699011407,
+          "tree": "2wb-61",
+          "action": "Fresh confirmation reconciled QA row to Sold; guard did not repeat."
+        },
+        {
+          "tree": "2wb-63",
+          "action": "Remove confirmation named the exact synthetic title and warned it could not be relisted."
+        },
+        {
+          "atMs": 1795699068429,
+          "tree": "2wb-64",
+          "action": "One Remove returned My listings2, containing only both old sold fixtures."
+        },
+        {
+          "tree": "2wb-66",
+          "action": "Former link displayed This article is no longer available, with only return-home action; no buying/editing/photo access."
+        }
+      ],
+      "captures": [
+        "removed",
+        "old_link"
+      ],
+      "limits": [
+        "Public withdrawal/unavailability proved; physical erasure of retained private records/media is not claimed."
+      ]
+    }
+  ],
+  "logs": {
+    "path": "/tmp/seconde-v1-local-app-20261125/metro-8091.log",
+    "startByte": 88242,
+    "endByte": 92678,
+    "newErrorLines": 0,
+    "newQueryErrors": 0,
+    "newWarningLines": 9,
+    "warningCategories": {
+      "Reanimated": 9
+    },
+    "boundedRawSha256": "b24b92f39ca63bc288c9378f75fded7c7471c31a19d21416c9e1c79fa3eedb7d",
+    "limits": [
+      "Bounded shared Metro log; not a universal or device-exclusive absence-of-errors claim.",
+      "Nine Reanimated warnings retained."
+    ]
+  },
+  "screenshots": {
+    "resumed_photo": {
+      "path": "screens/android-final95b-resumed-photo.png",
+      "sha256": "4c63f44626dd8115e9a9c8ab75d6d8ead3b718936c91987e2d697b40c8d48911"
+    },
+    "saved_draft": {
+      "path": "screens/android-final95b-saved-draft.png",
+      "sha256": "1733b5fb20a91b31eaa3719574033916f6c24d390c2379b299d57fd81ca28274"
+    },
+    "ai_details": {
+      "path": "screens/android-final95b-ai-logo-description.png",
+      "sha256": "e4574a3e4959d097c8e679956c00092dc7edce8029f26b274bab11d16a6a7baa"
+    },
+    "pricing_restored": {
+      "path": "screens/android-final95b-pricing-hardware-back-restored.png",
+      "sha256": "088e52ee53903008224544b20100d60d8d926ecd8d441d99075f6fdd433c4540"
+    },
+    "published": {
+      "path": "screens/android-final95b-published.png",
+      "sha256": "c96b3e347a8a2a6e1d4c1e0d566db0dd99b8f003bf1e41d01e175592e1746f34"
+    },
+    "edited": {
+      "path": "screens/android-final95b-price-edited.png",
+      "sha256": "9c78e8aaa6de2802f0d9a64ce5face34d97c07064bc5b577b490581fcf3974f4"
+    },
+    "sold": {
+      "path": "screens/android-final95b-marked-sold.png",
+      "sha256": "2e8972f53fc435b48e575741365cf4a2cc7d57dbadf98ebc8cd3025c0c355d31"
+    },
+    "relisted": {
+      "path": "screens/android-final95b-relisted.png",
+      "sha256": "72a4c9686730527d1cd0a16875cdec62ff0491023cd749b3c159cb7caa9a3d0f"
+    },
+    "removed": {
+      "path": "screens/android-final95b-removed-old-fixtures-preserved.png",
+      "sha256": "cacd149ce5c8724df3bbf66b9aad1ca8b54fb2ee982e0335fa51f0be8d0c7f5c"
+    },
+    "old_link": {
+      "path": "screens/android-final95b-old-link-unavailable.png",
+      "sha256": "21e1469b071d5c57a9676686b33340ff0c8612bb5e3ebd79b5cb55164fa27c6f"
+    }
+  },
+  "evidenceLimit": {
+    "earlyCaptureMediaReapedByScopedTransportRecovery": [
+      "y4c-22",
+      "y4c-23",
+      "y4c-25"
+    ],
+    "earlyObservationsRetainedAsToolAxAndTimestamps": true,
+    "noMissingScreenshotReconstructed": true,
+    "resumedPhotoAndSavedDraftDurablyCopied": true
+  },
+  "finalAndroidState": {
+    "tree": "2wb-66",
+    "screen": "Former listing unavailable",
+    "BSessionKept": true,
+    "deviceAndMetroRunning": true,
+    "exclusiveOwnershipReleased": true
+  },
+  "limits": [
+    "All observations on Android emulator against remote Seconde Dev, not a compiled Production binary or physical iPhone.",
+    "No Production/money/real shipment/real email/real customer data touched.",
+    "0454galleryFAIL and2c324exitFAIL remain in separate historical reports.",
+    "No exhaustive117case PASS claim."
+  ]
+}

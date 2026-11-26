@@ -1,0 +1,28 @@
+{
+  "protocol": "phase1_obsolete_apple35_cancellation_blocked_v1",
+  "recordedAt": "2026-11-26T12:26:19.727788+00:00",
+  "appId": "6757828492",
+  "version": "1.0.2",
+  "buildNum": "35",
+  "submissionId": "be0b60b5-ec01-4444-859f-49adc62d3f2c",
+  "preparedAt": "2026-11-26T12:23:54.365Z",
+  "lastObservedSnapshot": {
+    "versionId": "ed2f8189-8646-4d9a-b3f8-34e5f0a00497",
+    "appStoreState": "IN_REVIEW",
+    "attachedBuildId": "bba04fa2-8f60-40b0-8494-8665bca3a761",
+    "buildNum": "35",
+    "processingState": "VALID",
+    "submissionId": "be0b60b5-ec01-4444-859f-49adc62d3f2c",
+    "submissionState": "IN_REVIEW",
+    "itemId": "YmUwYjYwYjUtZWMwMS00NDQ0LTg1OWYtNDlhZGM2MmQzZjJjfDZ8ODk2MTQ1NjA1",
+    "itemState": "READY_FOR_REVIEW",
+    "itemVersionId": "ed2f8189-8646-4d9a-b3f8-34e5f0a00497"
+  },
+  "autoReviewRejectedBeforeProcessLaunch": true,
+  "rejectionReason": "Explicit targeted user authorization required to cancel this Apple review; broad publishing authorization was not accepted.",
+  "dispatchCount": 0,
+  "appleMutationExecuted": false,
+  "newBuildAttachedOrSubmitted": false,
+  "userApprovalQuestionPending": true,
+  "noRetryOrIndirectExecution": true
+}

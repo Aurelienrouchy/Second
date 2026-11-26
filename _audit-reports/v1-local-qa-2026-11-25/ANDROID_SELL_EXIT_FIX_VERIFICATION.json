@@ -1,0 +1,236 @@
+{
+  "protocol": "second.android-sell-exit-fix.v1",
+  "verifiedAt": "2026-11-26T12:42:30.946Z",
+  "baselineGitCommit": "f7cde9825e0b29a55808b3d7a4b0da2863c18041",
+  "baselineQaSourceSha256": "2c324f023eccc9a7588ec42b615e1f757876fd2ba0c048ccf948c141ce25bdae",
+  "baselineCapture": {
+    "path": "/tmp/seconde-v1-jest-repair/sell-exit-baseline-2c/capture.tsx",
+    "sha256": "bba3066c08b2a1617fad3e2d88a849835ed1e041a23995777b7e49ce27e5ccd7"
+  },
+  "runtimeFrozen": true,
+  "rootFullSourceBindingPending": true,
+  "rootCause": [
+    "X showed an explicit Alert and queued router.replace. Its finally cleared leavingRef before Expo delivered the queued beforeRemove, causing a second Alert.",
+    "Replaying the parent REPLACE through child navigation.dispatch injected source=capture-key. The installed parent StackRouter rejected that foreign source and native core handled the targeted action with unchanged state.",
+    "An empty close concurrent with startNewDraft could delete first and allow initialization to recreate the empty draft after departure.",
+    "Photos could change while confirmed persistence was awaiting native cache IO, allowing departure with the older photo snapshot."
+  ],
+  "fix": [
+    "Public usePreventRemove owns only the focused route removal, one confirmation and one original native action.",
+    "Before and after IO, verify captured owner/SDK occurrence, Auth generation, mounted/focus/privacy/photo revision, root container instance/readiness and focused native route key path.",
+    "Replay the exact action object through useNavigationContainerRef().current.dispatch, preserving target, absent source and the native opaque visited-route symbol; no general bypass flag.",
+    "Await draft initialization before empty deletion or photo persistence, keep actual owned draft ID, stay on real IO failure, and allow an explicit current retry.",
+    "Increment local departure revision on committed photo changes; a stale save cannot close the screen, while a new explicit confirmation persists all current photos.",
+    "The same local hook supports Pricing autosave without a confirmation through confirmExit:false; Pricing changes and tests are independently owned and reported."
+  ],
+  "changedRuntimeFiles": [
+    {
+      "path": "app/sell/capture.tsx",
+      "sha256": "984e0d25eaca6c831ee046839915ffd6276a046e53598c0ca8881c0800f1eb9c"
+    },
+    {
+      "path": "features/sell/hooks/useSellExitGuard.ts",
+      "sha256": "d5a484ceca4dabba58efc3aceb3e93114f4a27f6d257817b53471a61e74017c8"
+    }
+  ],
+  "changedSupportFiles": [
+    {
+      "path": "tests/jest/sellAndroidGalleryRecovery.test.tsx",
+      "sha256": "38a4ba4b1303c2dbada742c63af4a7c6d8131479b0b393885eb1fba891f34306"
+    },
+    {
+      "path": "tests/jest/helpers/sellNavigationFixture.tsx",
+      "sha256": "c8048640e086cbf1927829209725b61be7c2883274ddc234d4dd9446b92bda35"
+    },
+    {
+      "path": "CODEBASE_INDEX.md",
+      "sha256": "6edb2e0cd18434266e6c55c9433d8c5a80f60f9df33833639b2e57dc6705443f"
+    }
+  ],
+  "unchangedSecurityAndTransportSources": [
+    {
+      "path": "features/auth/hooks/useAuthListener.ts",
+      "sha256": "b2c8cbf8ae813566348feca7b0058137b4b0682bd45a44aa3b966987734e839a",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "store/authStore.ts",
+      "sha256": "315db2fcd57d9cac2bf22d9b0b07f0c4e97487995186ea4f55ddbc5fd0502c24",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "services/tradeOperation.ts",
+      "sha256": "e3aec389744310905083bd1a16a902efcf1b4dd1cc874747725d1b66ecdbe864",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "services/newSaleAdmission.ts",
+      "sha256": "e279bda5402a5d94cd30ae13fc26e750aa6fc39c7d8d4ccf84f998fbb0704738",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "config/featureFlags.ts",
+      "sha256": "d2bfeebe83bc07a5f672fc51f7da31f09a14d987845bda82de7e55bc02a7b23e",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "config/firebaseEnvironment.ts",
+      "sha256": "e7edcc3f807baea896297eb83ac8e265e94f2b1adddc44f646328ed947a46497",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "config/posthogConfig.ts",
+      "sha256": "04ecaf5113f26090af13989315b8fb28efca9e9fb2d50557d9c3d41533fc12a5",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "config/catalogueCallableContracts.ts",
+      "sha256": "84f234c576892a9c35d563a26a33884b5fb17b0ef2512b984b2c1442d4b99e64",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "services/phase1Callable.ts",
+      "sha256": "84bcf5e7876416c0ebfafc50109d5425032190245cd718d3c8ed2f08486c5554",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "features/sell/services/draftService.ts",
+      "sha256": "6c0dade016906d14130657ad6f59a0c6c7fb2632ffebd38716a816c37b3a5976",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "features/sell/services/aiService.ts",
+      "sha256": "9b7b112c55ae905ec0c2ee153ce960e0596da8bf36dd5bbb0a5d25443543aa5a",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "app/sell/preview.tsx",
+      "sha256": "d6ebbd052ced680222815c2d5fad23f59299dd08ea16f6327245da96d3544f6c",
+      "matchesImmutableF7": true
+    },
+    {
+      "path": "lib/analytics.ts",
+      "sha256": "ebc1cd8647396bee6fed484f74b23f7337886b1d33122735bb75c23ed89a8c64",
+      "matchesImmutableF7": true
+    }
+  ],
+  "automated": {
+    "baselineReplay": {
+      "path": "/tmp/seconde-v1-jest-repair/sell-exit-original2c-red.json",
+      "sha256": "fa7c756de2458177453308bbfdb72b4f64b385d3e94d17a3ae0e5118fe043df0",
+      "exitCode": 1,
+      "suites": 1,
+      "passed": 8,
+      "failed": 10,
+      "pending": 0,
+      "openHandles": [],
+      "failedCases": [
+        "keeps the actual photo and draft through foreground hydration, then saves before close",
+        "does not leave or claim a saved draft after a real cache failure, and permits a fresh explicit retry",
+        "does not replay a confirmed native action after generation changes during persistence",
+        "does not replay a confirmed native action after actor changes during persistence",
+        "does not replay a confirmed native action after sdk-source changes during persistence",
+        "does not replay a confirmed native action after focus changes during persistence",
+        "does not replay a confirmed native action after root-container changes during persistence",
+        "waits for actual empty-draft initialization before removing the empty draft and exiting without a prompt",
+        "does not leave with an old photo snapshot when the selection changes during the confirmed save",
+        "cancels or dismisses one prompt without permitting a later different removal action"
+      ]
+    },
+    "emptyInitializationRed": {
+      "path": "/tmp/seconde-v1-jest-repair/sell-exit-empty-red.json",
+      "sha256": "7d571dfc6f860db87b62a8413c3866a07ae75771eee0a7bb519d39f2e5e1bd32",
+      "exitCode": 1,
+      "suites": 1,
+      "passed": 16,
+      "failed": 1,
+      "pending": 0,
+      "openHandles": [],
+      "failedCases": [
+        "waits for actual empty-draft initialization before removing the empty draft and exiting without a prompt"
+      ]
+    },
+    "photoRevisionRed": {
+      "path": "/tmp/seconde-v1-jest-repair/sell-exit-photo-revision-red.json",
+      "sha256": "781d6858c3a9107222251adbcda87e47d78c1f4093634ffc51ff82b466a34c27",
+      "exitCode": 1,
+      "suites": 1,
+      "passed": 0,
+      "failed": 1,
+      "pending": 17,
+      "openHandles": [],
+      "failedCases": [
+        "does not leave with an old photo snapshot when the selection changes during the confirmed save"
+      ]
+    },
+    "finalGreen": {
+      "path": "/tmp/seconde-v1-jest-repair/sell-exit-final-green.json",
+      "sha256": "548748e8d800289f4154b1511a5e9813d76a9063d04133934b56d1257de48d49",
+      "exitCode": 0,
+      "suites": 5,
+      "passed": 86,
+      "failed": 0,
+      "pending": 0,
+      "openHandles": [],
+      "failedCases": []
+    },
+    "engine": "Installed usePreventRemove, shouldPreventRemove and StackRouter are real. Only native navigation/SDK, network and filesystem IO seams are substituted. Expo router requests are delivered after the caller finally; child dispatch models the installed source injection. Root route removal and owned AsyncStorage state are asserted.",
+    "invocation": "npx jest [5 explicit focused suites] --runInBand --watchman=false --detectOpenHandles --json; normal process termination, no forceExit.",
+    "baselineReplayConfig": {
+      "path": "/tmp/seconde-v1-jest-repair/sell-exit-baseline-2c/jest-original.json",
+      "sha256": "76ba96361a65240b9133889527403c965df94979dbca4146f259f39970bb5525"
+    }
+  },
+  "persistenceAssertions": [
+    "Foreground hydration keeps the same capture component, draft ID, owner and actual cached photo; Continue flushes before PUSH.",
+    "X yields exactly one confirmation and root removal only after the real owned draft is saved.",
+    "Cache failure keeps the route and displays an error; a fresh explicit retry succeeds.",
+    "Generation, actor, same-UID SDK source, focus or root-container changes during save stop replay and suppress stale error feedback.",
+    "Dismissal revokes only its own intent; a different Back intent needs its own confirmation; double confirmation cannot replay twice.",
+    "Deferred initial empty read completes before cleanup; after successful empty exit no draft has been recreated.",
+    "Photo selection changing from1 to2 during save prevents old departure; an explicit current retry saves both photos before removal.",
+    "All9 earlier gallery regression cases remain green, including batched A-B-A with the original SDKUser object reused."
+  ],
+  "staticChecks": {
+    "appTypecheck": {
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/seconde-v1-jest-repair/sell-exit-final-tsc.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "boundaries": {
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/seconde-v1-jest-repair/sell-exit-final-boundaries.log",
+        "sha256": "695508a90b5df29fabb719e1faa5757be253746c3ac71011dfc5c7edf7804105"
+      }
+    },
+    "targetedReactCompilerLint": {
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/seconde-v1-jest-repair/sell-exit-final-eslint.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "extendedTestTypecheck": {
+      "exitCode": 2,
+      "inheritedDiagnostics": 104,
+      "affectedDiagnostics": 0,
+      "log": {
+        "path": "/tmp/seconde-v1-jest-repair/sell-exit-final-test-types.log",
+        "sha256": "3f015888d6762bb1f82e8bc231cad096e75478a0fad8af029142819c9b679b1a"
+      },
+      "note": "The repository test typecheck retains104 pre-existing diagnostics. None concern Capture, useSellExitGuard or the new fixture/regression suite."
+    }
+  },
+  "nativePostFixVerificationPerformedByThisAgent": false,
+  "nativeReproductionReference": "ANDROID_GALLERY_POSTFIX_RETEST.json: gallery stable1/5 PASS, then two confirmations and capture still present after57s on source2c; this is a distinct exit defect.",
+  "limits": [
+    "This report proves automated route/persistence contracts; the separate device owner must retest actual close/resume/Continue/publication flows on the final source.",
+    "The already uploaded store candidates36/17 predate these fixes and are not qualified by this report.",
+    "No physical iPhone, cloud, native source folders or Git writes were performed by this agent.",
+    "Original gallery proof and failing native2c exit proof remain immutable and are not relabeled as passing.",
+    "No additional independent review of this new hook is claimed; the earlier read-only SDK contract audit supplied the confirmed causes."
+  ]
+}

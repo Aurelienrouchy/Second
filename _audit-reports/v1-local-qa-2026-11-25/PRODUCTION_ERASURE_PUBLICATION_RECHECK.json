@@ -1,0 +1,32 @@
+{
+  "project": "seconde-b47a6",
+  "verifiedAt": "2026-11-26T12:34:36.124432+00:00",
+  "functionCount": 115,
+  "allActorSourcesRevisionsProfilesUnchanged": true,
+  "sourceCohorts": {
+    "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde": 26,
+    "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a": 89
+  },
+  "rules": [
+    {
+      "file": "firestore.rules",
+      "sha256": "44062a0a04de06919c88c08c521f9ef9f0da20a004543b0c94736c389eb0cc34",
+      "nativeMatches": true
+    },
+    {
+      "file": "storage.rules",
+      "sha256": "c5e79ea41c2d23c3348a492b21579ff041ab118f1edc0665cdcea60a3c7f0407",
+      "nativeMatches": true
+    }
+  ],
+  "indexReady": true,
+  "controlGeneration": "1795639824843632",
+  "controlSha256": "4c2a5d43482be7bb49dd476a836e8fe403cd725d90952d5a945d00fa68596669",
+  "controlNormalUnconfiguredUnchanged": true,
+  "actualProductionClientSourceSha256": "2112254e016b33049453c5168454ae48949a96a5c58c4ae778567c6c33988525",
+  "actualProductionArchiveProofSemanticsVerified": true,
+  "drainObserved": true,
+  "expiryPreserved": "2026-12-25T22:55:33.429113+00:00",
+  "newReceiptPublished": false,
+  "newPinsPublished": false
+}

@@ -21,9 +21,9 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/store/authStore', () => ({
   getAuthSessionGeneration: () => 0,
-
-  useAuthStore: (select: (s: { user: null; isLoading: boolean }) => unknown) =>
-    select({ user: null, isLoading: false }),
+  useAuthStore: jest.requireActual('zustand').create(() => ({
+    user: null, identityUser: null, authenticatedUid: null, isLoading: false,
+  })),
 }));
 jest.mock('@/store/authSheetStore', () => ({
   useAuthSheetStore: { getState: () => ({ show: mockShow }) },

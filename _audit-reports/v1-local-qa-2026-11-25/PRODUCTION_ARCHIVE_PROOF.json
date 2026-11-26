@@ -1,0 +1,60 @@
+{
+  "verifiedAt": "2026-11-26T04:51:48.920514+00:00",
+  "productionClientSourceSha256": "2112254e016b33049453c5168454ae48949a96a5c58c4ae778567c6c33988525",
+  "source": {
+    "protocol": "phase1_production_eas_client_archive_v1",
+    "gitCommit": "f7cde9825e0b29a55808b3d7a4b0da2863c18041",
+    "archiveInventorySha256": "29275b7c419dea57c9354da8b089093144e70781327fec2ec2e0265831897b31",
+    "archiveFiles": 2070,
+    "buildProfile": "production",
+    "environment": "production",
+    "distribution": "STORE",
+    "firebaseProject": "seconde-b47a6",
+    "bundleIdentifier": "com.seconde.app",
+    "appVersion": "1.0.2",
+    "paymentsEnabled": false,
+    "providerShippingEnabled": false,
+    "commerceTestMode": false,
+    "emulatorsEnabled": false,
+    "phase1QaFlag": false,
+    "nativeProductionFirebaseServicesMatch": true,
+    "nativeNewAnalyticsCollectionClosedByProductionCode": true,
+    "runtimeFileMatches": 1061,
+    "canonicalPackageManager": "npm",
+    "intentionallyExcludedSourceProofPath": "yarn.lock"
+  },
+  "easAcceptedBuilds": [
+    {
+      "id": "fad545d1-6196-411b-ba0f-4d15ac12579c",
+      "platform": "ANDROID",
+      "status": "NEW",
+      "appVersion": "1.0.2",
+      "appBuildVersion": "17",
+      "buildProfile": "production",
+      "distribution": "STORE",
+      "gitCommitHash": "f7cde9825e0b29a55808b3d7a4b0da2863c18041",
+      "createdAt": "2026-11-26T04:48:40.261Z"
+    },
+    {
+      "id": "bd3d71bf-26fb-4b21-9efe-1aa054886cf9",
+      "platform": "IOS",
+      "status": "NEW",
+      "appVersion": "1.0.2",
+      "appBuildVersion": "36",
+      "buildProfile": "production",
+      "distribution": "STORE",
+      "gitCommitHash": "f7cde9825e0b29a55808b3d7a4b0da2863c18041",
+      "createdAt": "2026-11-26T04:48:51.440Z"
+    }
+  ],
+  "bothInspectedPlatformArchiveContentsIdentical": true,
+  "configurationInActualBuildContext": true,
+  "sourceArchiveStrongPatternFindings": 0,
+  "signingMaterialOrPrivateEnvironmentFilesInArchive": false,
+  "artifactCompilationCompleteVerified": false,
+  "limits": [
+    "Archive/profile and accepted build jobs are verified; compiled store binaries are not yet verified.",
+    "QA0454 is a component-match input, not relabeled as a production binary.",
+    "Real provider login remains pending owner interaction."
+  ]
+}

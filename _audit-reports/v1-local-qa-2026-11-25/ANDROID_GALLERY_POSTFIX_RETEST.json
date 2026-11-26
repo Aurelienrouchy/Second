@@ -1,0 +1,157 @@
+{
+  "verifiedAt": "2026-11-26T05:59:07.849715+00:00",
+  "status": "PARTIAL_NATIVE_PASS_WITH_EXIT_FAILURE",
+  "previousHistoricalReport": "ANDROID_EXTENDED_FLOWS.json",
+  "runs": [
+    {
+      "qaSourceSha256": "2c324f023eccc9a7588ec42b615e1f757876fd2ba0c048ccf948c141ce25bdae",
+      "runtimeFiles": 1063,
+      "status": "FROZEN_OBSERVATIONS_PENDING_EXIT_DIAGNOSIS",
+      "provenance": {
+        "appRestartedWithoutUninstall": true,
+        "devLauncherRecentRootMetroSelectedAtMs": 1795672459192,
+        "metroUrl": "http://127.0.0.1:8091",
+        "debuggerTarget": {
+          "projectRoot": "/Users/aurelien/dev/Second",
+          "app": "com.seconde.app.dev",
+          "device": "sdk_gphone64_arm64-14-API34",
+          "port": 8091,
+          "logicalDeviceId": "c8b145f4f1977a44c459ca8871811fd80e5740a3",
+          "loadedScripts": 21
+        },
+        "reactTreeIncludes": [
+          "sell-admission-routes",
+          "sell-capture-screen",
+          "CameraView",
+          "ThumbnailStrip",
+          "PrivateStorageImage"
+        ],
+        "onlyAndroidArgentAccessibilityTransportRecycledAfterRestart": true
+      },
+      "target": {
+        "device": "emulator-5554",
+        "bundleIdentifier": "com.seconde.app.dev",
+        "backend": "seconde-dev",
+        "actor": "android-b",
+        "productionBinary": false
+      },
+      "publicPhoto": {
+        "file": "v1-qa-public-icon.jpg",
+        "bytes": 48787,
+        "sha256": "dce345a64948222497c119f0cd408f873149b5e3d91f554465b2a9d5870e1f4b",
+        "deviceMediaId": "1000000063",
+        "mtimeSeconds": 1795651725,
+        "onlyThisPhotoSelected": true
+      },
+      "cases": [
+        {
+          "ids": [
+            "L02",
+            "T06"
+          ],
+          "status": "PASS_NATIVE_PHOTO_RETENTION_BOUNDED",
+          "observations": [
+            {
+              "tree": "pcl-63",
+              "observation": "NormalVendretab openedCamera0/5."
+            },
+            {
+              "tree": "pcl-64",
+              "observation": "ExplicitGalleryopenedAndroidsystempicker."
+            },
+            {
+              "tree": "pcl-65",
+              "observation": "OnlyexactpreviouslyverifiedpublicQAlogo selected; Add1visible."
+            },
+            {
+              "timestampMs": 1795672584111,
+              "tree": "pcl-66",
+              "observation": "Add1confirmed; immediatecamera0/5 was onlytransitional."
+            },
+            {
+              "timestampMs": 1795672591203,
+              "tree": "pcl-67",
+              "observation": "Afterforegroundrevalidation,photo1/5,logo thumbnail and enabledContinuer visible."
+            },
+            {
+              "timestampMs": 1795672614007,
+              "tree": "pcl-68",
+              "observation": "Freshread22seconds later retained1/5/enabledContinuer. Reacttree confirmednewparent sell-admission-routes."
+            }
+          ],
+          "limits": [
+            "Onlysameactorforegroundgalleryreturnexercised;notallaccountswitchracesnative."
+          ]
+        },
+        {
+          "name": "close_save_draft_exit",
+          "status": "FAIL_NATIVE_NAVIGATION_EXIT",
+          "observations": [
+            {
+              "timestampMs": 1795672624502,
+              "tree": "pcl-69",
+              "observation": "XopenedQuitter with Tonbrouillonserasauvegardé."
+            },
+            {
+              "timestampMs": 1795672634219,
+              "tree": "pcl-70",
+              "observation": "FirstQuitter openedasecondQuitter withVosphotosserontsauvegardéesenbrouillon."
+            },
+            {
+              "timestampMs": 1795672656457,
+              "tree": "pcl-71",
+              "observation": "SecondQuitterclosedalert butcamera1/5remained; noBrouillonnonsauvegardé alert."
+            },
+            {
+              "timestampMs": 1795672713455,
+              "tree": "pcl-72",
+              "observation": "Freshread57seconds later stillcamera1/5. Noarrivalatcatalogue/profile andnodraftresumeproved."
+            }
+          ],
+          "rootCauseClaimed": false,
+          "limits": [
+            "No newrestart or codechange used to hide failure.",
+            "Draftpersistenceitselfnotindependentlyread;failureis observednavigationexit,notdata-lossassertion."
+          ]
+        },
+        {
+          "ids": [
+            "L03",
+            "L06",
+            "L07",
+            "L08",
+            "L09"
+          ],
+          "status": "NOT_EXECUTED_PENDING_EXIT_RESOLUTION",
+          "limits": [
+            "NoAIrequest,newlisting,edit,sold,relist,deleteoroldlinktestyet.",
+            "NoexistingcontractualBfixturemodified."
+          ]
+        }
+      ],
+      "logs": {
+        "path": "/tmp/seconde-v1-local-app-20261125/metro-8091.log",
+        "startByte": 88200,
+        "endByte": 88242,
+        "newErrorLines": 0,
+        "newQueryErrors": 0,
+        "newWarningLines": 0,
+        "limits": [
+          "SharedMetrologwindow,notdevice-exclusiveproof.",
+          "Zeroerrorlogdoesnotnegateobservedexitfailure."
+        ]
+      },
+      "finalDeviceState": {
+        "tree": "pcl-72",
+        "screen": "Camera1/5withpubliclogo",
+        "actor": "android-b",
+        "gesturesStoppedPendingRootDirection": true
+      }
+    }
+  ],
+  "limits": [
+    "Historical0454failureispreservedunchanged.",
+    "NoProduction,iPhone,otheridentity,money,realshipmentorrealmailtouched.",
+    "Noexhaustive117casePASS."
+  ]
+}

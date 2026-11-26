@@ -1,0 +1,73 @@
+{
+  "protocol": "phase1_post_gallery_root_verification_v1",
+  "verifiedAt": "2026-11-26T05:58:20.399594+00:00",
+  "qaSourceSha256": "2c324f023eccc9a7588ec42b615e1f757876fd2ba0c048ccf948c141ce25bdae",
+  "runtimeFileCount": 1063,
+  "baselineGitCommit": "f7cde9825e0b29a55808b3d7a4b0da2863c18041",
+  "baselineQaSourceSha256": "0454cb10074e5808188981da699e4cde3884ee726a9ef21eba970e8a01602a55",
+  "runtimeDelta": [
+    {
+      "path": "app/sell/_layout.tsx",
+      "sha256": "04788abcf34b66ba9b209bbcb1b8d386e9d24b4488bd180b8864a1dd0b712930",
+      "kind": "runtime"
+    },
+    {
+      "path": "app/sell/capture.tsx",
+      "sha256": "bba3066c08b2a1617fad3e2d88a849835ed1e041a23995777b7e49ce27e5ccd7",
+      "kind": "runtime"
+    },
+    {
+      "path": "features/sell/hooks/useSellActorSource.ts",
+      "sha256": "51b63b44e9d86d0a8b1d19e01582c4e2c91ae2752a9fbaa72e1adc48852bdde0",
+      "kind": "runtime"
+    }
+  ],
+  "rootVerifiedChangedFileDigests": true,
+  "rootVerifiedTwelveCoreFilesAgainstImmutableF7": true,
+  "fixProof": {
+    "file": "ANDROID_GALLERY_FIX_VERIFICATION.json",
+    "sha256": "ee0577265129f93640380b8081f76b6d38a8bcd35972057b82f6ca4253f58d06"
+  },
+  "automated": {
+    "jest": {
+      "numTotalTestSuites": 223,
+      "numPassedTestSuites": 223,
+      "numTotalTests": 2188,
+      "numPassedTests": 2188,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "files": 223,
+      "normalExitCode": 0,
+      "rawInventoryFile": "gallery-root-final-jest.json",
+      "rawInventorySha256": "dc9b1bae2775e67f3a467ed5686574de20d7c59421b28b63d8733cea09eca3ba",
+      "openHandles": [],
+      "detectOpenHandles": true,
+      "forceExit": false,
+      "watchman": false
+    },
+    "vitest": {
+      "numTotalTestSuites": 96,
+      "numPassedTestSuites": 96,
+      "numTotalTests": 329,
+      "numPassedTests": 329,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "files": 31,
+      "normalExitCode": 0,
+      "rawInventoryFile": "gallery-root-final-vitest.json",
+      "rawInventorySha256": "fb4085a5403299f650daa9e0765825b26ebb82ea3c872976d942a0c032ae4ed0"
+    }
+  },
+  "staticChecks": {
+    "appTypecheckExitCode": 0,
+    "boundariesExitCode": 0,
+    "targetedReactCompilerLintExitCode": 0,
+    "extendedTestsTypecheckExitCode": 2,
+    "extendedTestsInheritedDiagnostics": 104,
+    "diagnosticsInChangedFiles": 0
+  },
+  "nativePostfix": "IN_PROGRESS_SEPARATE_PROOF_REQUIRED",
+  "historicalNativeFailurePreserved": "ANDROID_EXTENDED_FLOWS.json",
+  "runtimeConfiguration": "Seconde Dev remote; production archive and compiled proof are separate",
+  "exhaustive117NativePassClaimed": false
+}

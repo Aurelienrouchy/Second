@@ -1,0 +1,75 @@
+{
+  "protocol": "phase1_late_storage_explicit_cross_environment_basis_v1",
+  "currentProductionPackageSourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+  "actualDevGuardExecutionSourceSha256": "dd32855661871f6d5f0c75c811a0cd4744c97518d6453f20c9b5d5d16fb2ac4f",
+  "guardExecutionEvidence": {
+    "project": "seconde-dev",
+    "proofFile": "BACKEND_ERASURE_LATE_STORAGE_DEV.json",
+    "proofSha256": "3639e0b9f6550f6db353f06c0f8eff1f749f73b620984553a071d6029768251a",
+    "nativePostFenceReceipt": true,
+    "exactGcsIntentEffectAndGenerationAbsenceVerified": true,
+    "nativeCompletedSubjects": 2,
+    "postconditionProofSha256": "5745f7cee808ae49ed39e7c3cd4e4a26fcc6735f5e1082007e2fbb67257845c5",
+    "originalSdkTaskOutcome": "unobserved_after_harness_interruption"
+  },
+  "componentIdentity": [
+    {
+      "path": "utils/accountErasureRuntime.ts",
+      "sha256": "6cb1b702b040dcbd023eae1d8b3730d514398f7328fda169502650e30ace046e",
+      "byteIdenticalCandidate3eToActualDevDD": true
+    },
+    {
+      "path": "triggers/accountErasureStorage.ts",
+      "sha256": "6d1523084bfc3e82f88b13f1e40fd1f24047bd9e8f94f4166fbb2bb704d038db",
+      "byteIdenticalCandidate3eToActualDevDD": true
+    },
+    {
+      "path": "utils/accountErasureScope.ts",
+      "sha256": "de2b78e90a82d8ddf09ee6637d9a4bafc6cd638edeb9a0b764d5209428b605c1",
+      "byteIdenticalCandidate3eToActualDevDD": true
+    },
+    {
+      "path": "utils/accountErasure.ts",
+      "sha256": "db6fa86d226a1f7e7d14a35641b7e1a491de4f014bd92b8ace3d6f47c6d465a2",
+      "byteIdenticalCandidate3eToActualDevDD": true
+    },
+    {
+      "path": "utils/accountErasureQualification.ts",
+      "sha256": "97b46089da9328d9c85b1b0ba5936ebd7c1ef7cedf592cebe212e421ff8cafc4",
+      "byteIdenticalCandidate3eToActualDevDD": true
+    },
+    {
+      "path": "utils/accountErasureProviders.ts",
+      "sha256": "da8c7cf1539897900f44884f9b7afe5e940927372f8bd2af0eb7f20de854a61e",
+      "byteIdenticalCandidate3eToActualDevDD": true
+    },
+    {
+      "path": "utils/accountErasurePolicy.ts",
+      "sha256": "b9d0caec6e550bb2f05b6b367a7add41871edb46f50f7fdf9cd5f3d705f9049e",
+      "byteIdenticalCandidate3eToActualDevDD": true
+    },
+    {
+      "path": "utils/swapProofMedia.ts",
+      "sha256": "b222868fcd0d02c97eaef5c52e75bdc1855ecd361289215a27a569688bac9df6",
+      "byteIdenticalCandidate3eToActualDevDD": true
+    }
+  ],
+  "productionTransportEvidence": {
+    "project": "seconde-b47a6",
+    "proofFile": "PRODUCTION_EVENTARC_PROBE_PROOF.json",
+    "proofSha256": "d63f952e822ff3a9df025b98ab796d4aa173141d7985935fd026037534bc4430",
+    "revision": "eraselateaccountstorage-00004-yun",
+    "successfulGooglePostAcknowledgements": 1,
+    "httpStatus": 204,
+    "nativeObjectGeneration": "1795669204479633",
+    "operatorCleanupCAS": true,
+    "exactPerEventIdCorrelation": false,
+    "inference": "same_private_bucket_trigger_new_revision_and_narrow_before_after_window; no_business_fence_receipt",
+    "bothReviewAuthPreservedAfterCleanup": true
+  },
+  "productionDestructiveErasureTested": false,
+  "productionFinalizerDeletionObserved": false,
+  "noManualHandlerInvocation": true,
+  "readyForRootReview": true,
+  "financialAuthority": "not_asserted"
+}

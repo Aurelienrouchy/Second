@@ -1,0 +1,45 @@
+{
+  "project": "seconde-b47a6",
+  "verifiedAt": "2026-11-26T05:15:50.667774+00:00",
+  "newQualificationActiveInProduction": false,
+  "localQualificationOnly": true,
+  "automaticReviewRejectedBeforeProcessLaunch": true,
+  "newReceiptObjectAbsent404": true,
+  "newExactReaderBindingAbsent": true,
+  "fiveNativePinsRemainOld": true,
+  "controlGenerationUnchanged": true,
+  "functions": [
+    {
+      "name": "deleteUserAccountV2",
+      "active": true,
+      "oldPinUnchanged": true,
+      "newPinActive": false
+    },
+    {
+      "name": "manageAccountErasure",
+      "active": true,
+      "oldPinUnchanged": true,
+      "newPinActive": false
+    },
+    {
+      "name": "continueAccountErasure",
+      "active": true,
+      "oldPinUnchanged": true,
+      "newPinActive": false
+    },
+    {
+      "name": "resumeAccountErasures",
+      "active": true,
+      "oldPinUnchanged": true,
+      "newPinActive": false
+    },
+    {
+      "name": "eraseLateAccountStorage",
+      "active": true,
+      "oldPinUnchanged": true,
+      "newPinActive": false
+    }
+  ],
+  "retryOrWorkaroundPerformed": false,
+  "awaitingExplicitUserApproval": true
+}

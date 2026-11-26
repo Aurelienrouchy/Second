@@ -1,0 +1,736 @@
+{
+  "project": "seconde-b47a6",
+  "verifiedAt": "2026-11-26T04:41:53.343382+00:00",
+  "all26Active": true,
+  "selectedFunctionCount": 26,
+  "newFunctionCount": 3,
+  "retainedFunctionCount": 89,
+  "allOtherExistingFunctionMetadataUnchanged": true,
+  "metadataComparisonRegion": "northamerica-northeast1",
+  "all19EventarcPrivateExactInvoker": true,
+  "all5CronPrivateExactOidc": true,
+  "all17ObsoleteJobsRemainPaused": true,
+  "serverSourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+  "inventoryHash": "48d6f6313c9d5e77cca62191ee7e4ef86f15e0e9e3a2d1727d97fc5380fbe617",
+  "sourceGroupsExplicit": {
+    "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde": 26,
+    "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a": 89
+  },
+  "providerBindingsPreservedExactVersion1OnlyThree": true,
+  "sourceArchiveProof": [
+    {
+      "functions": [
+        "acceptMeetupOfferV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "acceptSwapV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "addItemToPartySecureV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "cancelSwapV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "confirmSwapReceptionV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "confirmSwapShippingV2"
+      ],
+      "group": "core",
+      "archiveMd5": "/+3W21OhwgvbONbYDjJcUw==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "continueAccountErasure"
+      ],
+      "group": "erasure_provider",
+      "archiveMd5": "pEj8IBAfvxo8R5poKlf4xQ==",
+      "archiveSize": "6133623",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "declineSwapV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "deleteUserAccountV2"
+      ],
+      "group": "erasure_provider",
+      "archiveMd5": "pEj8IBAfvxo8R5poKlf4xQ==",
+      "archiveSize": "6133623",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "ensureGeneralistZoneV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "eraseLateAccountStorage"
+      ],
+      "group": "erasure_without_provider",
+      "archiveMd5": "+ByuhBouBnvQO4Epgls+FA==",
+      "archiveSize": "6133617",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "expirePhase1LocalProposals"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "getActiveSwapPartyInfoV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "manageAccountErasure"
+      ],
+      "group": "erasure_without_provider",
+      "archiveMd5": "+ByuhBouBnvQO4Epgls+FA==",
+      "archiveSize": "6133617",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "onArticleSold"
+      ],
+      "group": "core",
+      "archiveMd5": "2U92C6nu4esdT2sc092zoQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "openSwapDispute"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "proposeMultiSwapV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "rateSwapV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "readPrivateArticleEvidence"
+      ],
+      "group": "core",
+      "archiveMd5": "2U92C6nu4esdT2sc092zoQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "readPrivateArticleMedia"
+      ],
+      "group": "core",
+      "archiveMd5": "2U92C6nu4esdT2sc092zoQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "removeItemFromPartySecureV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "resolveSwapDispute"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "resumeAccountErasures"
+      ],
+      "group": "erasure_provider",
+      "archiveMd5": "pEj8IBAfvxo8R5poKlf4xQ==",
+      "archiveSize": "6133623",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "sendMeetupProposalV2"
+      ],
+      "group": "core",
+      "archiveMd5": "EuAftEvGdAnvgg79f4y3qQ==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "setSwapExchangeModeV2"
+      ],
+      "group": "core",
+      "archiveMd5": "/+3W21OhwgvbONbYDjJcUw==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    },
+    {
+      "functions": [
+        "uploadSwapPhotosV2"
+      ],
+      "group": "core",
+      "archiveMd5": "/+3W21OhwgvbONbYDjJcUw==",
+      "archiveSize": "6133670",
+      "allSourceAndCompiledFilesMatchFrozenStage": true,
+      "exportWrapperMatch": true,
+      "environmentEntriesNeverRead": true
+    }
+  ],
+  "functions": [
+    {
+      "name": "acceptMeetupOfferV2",
+      "active": true,
+      "revision": "acceptmeetupofferv2-00002-vub",
+      "updatedAt": "2026-11-26T04:38:20.032029358Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "acceptSwapV2",
+      "active": true,
+      "revision": "acceptswapv2-00002-quv",
+      "updatedAt": "2026-11-26T04:38:18.814645107Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "addItemToPartySecureV2",
+      "active": true,
+      "revision": "additemtopartysecurev2-00002-mok",
+      "updatedAt": "2026-11-26T04:38:17.965744430Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "cancelSwapV2",
+      "active": true,
+      "revision": "cancelswapv2-00002-kam",
+      "updatedAt": "2026-11-26T04:38:20.253896892Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "confirmSwapReceptionV2",
+      "active": true,
+      "revision": "confirmswapreceptionv2-00002-zup",
+      "updatedAt": "2026-11-26T04:38:23.573161044Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "confirmSwapShippingV2",
+      "active": true,
+      "revision": "confirmswapshippingv2-00001-lal",
+      "updatedAt": "2026-11-26T04:40:43.166020685Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "continueAccountErasure",
+      "active": true,
+      "revision": "continueaccounterasure-00005-cug",
+      "updatedAt": "2026-11-26T04:36:59.334672088Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 120,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "declineSwapV2",
+      "active": true,
+      "revision": "declineswapv2-00002-yux",
+      "updatedAt": "2026-11-26T04:38:21.019526235Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "deleteUserAccountV2",
+      "active": true,
+      "revision": "deleteuseraccountv2-00005-fen",
+      "updatedAt": "2026-11-26T04:36:57.747163254Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 120,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "ensureGeneralistZoneV2",
+      "active": true,
+      "revision": "ensuregeneralistzonev2-00002-jen",
+      "updatedAt": "2026-11-26T04:38:18.744904631Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "eraseLateAccountStorage",
+      "active": true,
+      "revision": "eraselateaccountstorage-00004-yun",
+      "updatedAt": "2026-11-26T04:37:08.728869034Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 120,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "expirePhase1LocalProposals",
+      "active": true,
+      "revision": "expirephase1localproposals-00002-qen",
+      "updatedAt": "2026-11-26T04:38:20.426898618Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "getActiveSwapPartyInfoV2",
+      "active": true,
+      "revision": "getactiveswappartyinfov2-00002-nax",
+      "updatedAt": "2026-11-26T04:38:20.645793861Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "manageAccountErasure",
+      "active": true,
+      "revision": "manageaccounterasure-00004-zop",
+      "updatedAt": "2026-11-26T04:37:07.556497357Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 120,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "onArticleSold",
+      "active": true,
+      "revision": "onarticlesold-00024-fih",
+      "updatedAt": "2026-11-26T04:35:36.484287338Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "openSwapDispute",
+      "active": true,
+      "revision": "openswapdispute-00022-cas",
+      "updatedAt": "2026-11-26T04:38:26.144724680Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "proposeMultiSwapV2",
+      "active": true,
+      "revision": "proposemultiswapv2-00002-lat",
+      "updatedAt": "2026-11-26T04:38:24.445028456Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "rateSwapV2",
+      "active": true,
+      "revision": "rateswapv2-00002-leg",
+      "updatedAt": "2026-11-26T04:38:20.096828918Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "readPrivateArticleEvidence",
+      "active": true,
+      "revision": "readprivatearticleevidence-00002-rup",
+      "updatedAt": "2026-11-26T04:35:38.910369565Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 120,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "readPrivateArticleMedia",
+      "active": true,
+      "revision": "readprivatearticlemedia-00002-yos",
+      "updatedAt": "2026-11-26T04:35:34.298396384Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 120,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "removeItemFromPartySecureV2",
+      "active": true,
+      "revision": "removeitemfrompartysecurev2-00002-cag",
+      "updatedAt": "2026-11-26T04:38:20.519800132Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "resolveSwapDispute",
+      "active": true,
+      "revision": "resolveswapdispute-00007-luw",
+      "updatedAt": "2026-11-26T04:38:19.822054152Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "resumeAccountErasures",
+      "active": true,
+      "revision": "resumeaccounterasures-00005-jez",
+      "updatedAt": "2026-11-26T04:36:58.070555692Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 540,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "sendMeetupProposalV2",
+      "active": true,
+      "revision": "sendmeetupproposalv2-00002-qep",
+      "updatedAt": "2026-11-26T04:38:20.306953846Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "setSwapExchangeModeV2",
+      "active": true,
+      "revision": "setswapexchangemodev2-00001-zid",
+      "updatedAt": "2026-11-26T04:40:36.113161032Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    },
+    {
+      "name": "uploadSwapPhotosV2",
+      "active": true,
+      "revision": "uploadswapphotosv2-00001-yit",
+      "updatedAt": "2026-11-26T04:40:43.125557220Z",
+      "region": "northamerica-northeast1",
+      "memory": "512Mi",
+      "timeoutSeconds": 60,
+      "nativeParametersPreserved": true,
+      "nativeSecretRefsPreserved": true,
+      "iamPreservedOrNewCallableExact": true,
+      "100PercentTraffic": true,
+      "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde"
+    }
+  ],
+  "latestSuccessfulUpdate": "2026-11-26T04:40:43.166020+00:00",
+  "maximumPreviousTimeoutSeconds": 540,
+  "drainNotBefore": "2026-11-26T04:49:43.167020+00:00",
+  "oldQualification": {
+    "pinUnchanged": true,
+    "sha256Verified": true,
+    "sourceMismatch": true,
+    "inventoryMismatch": true,
+    "admissionQualified": false,
+    "completionQualified": false
+  },
+  "newReceiptPublished": false,
+  "controlTransitionPerformed": false,
+  "index": {
+    "project": "seconde-b47a6",
+    "verifiedAt": "2026-11-26T04:39:20.742265+00:00",
+    "field": "searchHistory.timestamp",
+    "indexes": [
+      {
+        "queryScope": "COLLECTION",
+        "order": "DESCENDING",
+        "state": "READY"
+      },
+      {
+        "queryScope": "COLLECTION_GROUP",
+        "order": "ASCENDING",
+        "state": "READY"
+      }
+    ],
+    "onlyAdditiveDESC": true,
+    "ready": true
+  },
+  "controlAndProviderReadback": {
+    "project": "seconde-b47a6",
+    "verifiedAt": "2026-11-26T04:43:30.470087+00:00",
+    "controlGeneration": "1795639824843632",
+    "controlSha256": "4c2a5d43482be7bb49dd476a836e8fe403cd725d90952d5a945d00fa68596669",
+    "controlNormalUnconfiguredAndUnchanged": true,
+    "posthogSecretResourceAccessorExactRuntimePresent": true,
+    "posthogLatestSecretVersionStill1": true,
+    "secretValueAccessed": false,
+    "newReceiptOrPinPublished": false
+  },
+  "legacyClosureReadback": {
+    "project": "seconde-b47a6",
+    "verifiedAt": "2026-11-26T04:41:27.876969+00:00",
+    "legacyServiceCount": 77,
+    "all77RemainWithoutPublicPrincipal": true,
+    "obsoleteJobCount": 17,
+    "all17RemainPaused": true,
+    "noBusinessEndpointInvoked": true,
+    "noClosureOrJobMutationPerformed": true
+  },
+  "rollBackPreparation": {
+    "exactNativeBackups": 23,
+    "privateManifest": "/tmp/seconde-v1-prod-alignment-deployment-20261126/rollback23-private.json",
+    "automaticRollbackPermitted": false,
+    "newPostalAdmissionRequiresForwardRepairOrRootReview": true,
+    "newEndpointsNeverDeleted": true
+  },
+  "drainObserved": true,
+  "drainCheckedAt": "2026-11-26T04:50:12.062840+00:00"
+}

@@ -1,5 +1,5 @@
 import { auth } from '@/config/firebaseConfig';
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -36,14 +36,27 @@ import { colors, fonts, spacing } from '@/constants/theme';
 import { SHIPPING_ENABLED, SHIPPING_LISTINGS_ENABLED } from '@/config/featureFlags';
 import { isValidArticlePrice } from '@/functions/src/shared/article';
 import { automaticShippingEstimate } from '@/functions/src/shared/automaticShippingEstimate';
+import { useSellActorSource, isSellActorSourceCurrent } from '@/features/sell/hooks/useSellActorSource';
+import { useSellExitGuard } from '@/features/sell/hooks/useSellExitGuard';
+import { captureTradeSession, assertTradeSessionCurrent, staleTradeOperation } from '@/services/tradeOperation';
 
 export default function PricingScreen() {
   const router = useRouter();
   const [photoOwnerUid] = useState(() => auth.currentUser?.uid);
   const navigation = useNavigation();
-  const allowLeaveRef = useRef(false);
+  const { source: actorSource, getCurrentSource } = useSellActorSource();
+  const [pricingSource] = useState(actorSource);
+  const mounted = useRef(true);
+  const inputRevision = useRef(0);
+  const [renderedInputRevision, setRenderedInputRevision] = useState(0);
+  const loadedDraft = useRef<ArticleDraft | null>(null);
+  const draftReady = useRef<Promise<void>>(Promise.resolve());
   const advancingRef = useRef(false);
   useFocusEffect(useCallback(() => { advancingRef.current = false; }, []));
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; inputRevision.current += 1; };
+  }, []);
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const priceInputRef = useRef<TextInput>(null);
@@ -65,20 +78,29 @@ export default function PricingScreen() {
   const parcelEstimate = automaticShippingEstimate({categoryIds: fields?.categoryIds ?? []});
   const packageSize = parcelEstimate.profileSize;
   const [errors, setErrors] = useState<string[]>([]);
-  const [isInitialized, setIsInitialized] = useState(!isResuming);
-  const [draft, setDraft] = useState<ArticleDraft | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   // Le KeyboardAvoidingView de l'écran rétrécirait la feuille pleine page dès que
   // sa recherche ouvre le clavier : on le neutralise tant qu'elle est ouverte.
   const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
+  const isPricingSourceCurrent = useCallback(() => mounted.current &&
+    isSellActorSourceCurrent(getCurrentSource(), pricingSource), [getCurrentSource, pricingSource]);
+  const assertPricingSourceCurrent = useCallback(() => {
+    if (!isPricingSourceCurrent()) throw staleTradeOperation();
+    draftService.assertCurrentOwner(photoOwnerUid);
+  }, [isPricingSourceCurrent, photoOwnerUid]);
+  const markEdited = () => {
+    const next = ++inputRevision.current;
+    setRenderedInputRevision(next);
+  };
 
   // Load draft on mount
   useEffect(() => {
     const loadDraft = async () => {
-      draftService.assertCurrentOwner(photoOwnerUid);
+      assertPricingSourceCurrent();
       const existingDraft = await draftService.loadDraft();
-      draftService.assertCurrentOwner(photoOwnerUid);
+      assertPricingSourceCurrent();
       if (existingDraft) {
-        setDraft(existingDraft);
+        loadedDraft.current = existingDraft;
         if (isResuming) {
           setPhotos(existingDraft.photos);
           setStorageUrls(existingDraft.storageUrls ?? []);
@@ -106,69 +128,85 @@ export default function PricingScreen() {
         setIsInitialized(true);
         if (existingDraft.currentStep < 3) {
           const updated = await draftService.updateDraftStep(existingDraft, 3);
-          setDraft(updated);
+          assertPricingSourceCurrent();
+          loadedDraft.current = updated;
         }
       } else {
         setIsInitialized(true);
       }
     };
-    void loadDraft().catch(() => {
+    const ready = loadDraft();
+    draftReady.current = ready;
+    void ready.catch(() => {
       if (__DEV__) console.warn('Draft initialization interrupted');
     });
-  }, [isResuming, photoOwnerUid]);
+  }, [isResuming, assertPricingSourceCurrent]);
 
-  const draftId = draft?.id;
-  const persistPricing = useCallback(async () => {
-    draftService.assertCurrentOwner(photoOwnerUid);
+  const capturePricingOrigin = () => {
+    assertPricingSourceCurrent();
+    const session = captureTradeSession(photoOwnerUid!);
+    const revision = renderedInputRevision;
+    const draftId = loadedDraft.current?.id;
+    const assertCurrent = () => {
+      assertPricingSourceCurrent();
+      assertTradeSessionCurrent(session);
+      if (!navigation.isFocused() || inputRevision.current !== revision ||
+        draftId !== undefined && loadedDraft.current?.id !== draftId) throw staleTradeOperation();
+    };
+    assertCurrent();
+    return assertCurrent;
+  };
+  const persistPricing = useCallback(async (assertCurrent: () => void) => {
+    assertCurrent();
+    try { await draftReady.current; } catch (error) {
+      assertCurrent();
+      // An unsuccessful step marker must not poison a later explicit save of
+      // the draft already read for this actor. Never bind an unknown draft here.
+      if (!loadedDraft.current) throw error;
+    }
+    assertCurrent();
+    // No editing is admitted before initialization; leaving that early only
+    // waits for the existing draft, and must not replace its values by blanks.
+    if (!isInitialized) return;
     const latest = await draftService.loadDraft();
-    draftService.assertCurrentOwner(photoOwnerUid);
-    if (!latest) throw new Error('Draft unavailable');
+    assertCurrent();
+    if (!latest || latest.id !== loadedDraft.current?.id) throw new Error('Draft unavailable');
     const pricingData: DraftPricing = {
       price: price ? parseFloat(price) : null, isHandDelivery, isShipping,
       neighborhood: selectedNeighborhoods[0] || null,
       neighborhoods: selectedNeighborhoods, packageSize,
     };
-    setDraft(await draftService.updateDraftPricing(latest, pricingData));
-  }, [price, isHandDelivery, isShipping, selectedNeighborhoods, packageSize, photoOwnerUid]);
+    const updated = await draftService.updateDraftPricing(latest, pricingData);
+    assertCurrent();
+    loadedDraft.current = updated;
+  }, [price, isHandDelivery, isShipping, selectedNeighborhoods, packageSize, isInitialized]);
 
-  // Going back only returns to the details: no « Quitter ? » alert. What is
-  // typed is saved right away — the auto-save waits 500 ms, and unmounting
-  // cancels it.
-  const handleBack = async () => {
-    if (draft && isInitialized) {
-      try {
-        const updated = await draftService.updateDraftPricing(draft, {
-          price: price ? parseFloat(price) : null,
-          isHandDelivery,
-          isShipping,
-          neighborhood: selectedNeighborhoods[0] || null,
-          neighborhoods: selectedNeighborhoods,
-          packageSize,
-        });
-        setDraft(updated);
-      } catch (error) {
-        if (__DEV__) console.error('Failed to save draft pricing:', error);
-      }
-    }
-    router.back();
-  };
+  // Header, hardware back and swipe share the same owned native action.
+  // The exact removal is replayed only after persistence, without a Quitter prompt.
+  useSellExitGuard({ captureOrigin: capturePricingOrigin, save: persistPricing,
+    hasWork: () => true, confirmExit: false,
+    errorMessage: 'Réessayez avant de revenir aux détails pour conserver votre saisie.' });
+  const handleBack = () => { router.back(); };
 
   const handlePriceChange = (value: string) => {
+    if (!isInitialized || !isPricingSourceCurrent()) return;
     const cleaned = value.replace(',', '.').replace(/[^0-9.]/g, '');
     const parts = cleaned.split('.');
     if (parts.length > 2) return;
     if (parts[1] && parts[1].length > 2) return;
+    markEdited();
     setPrice(cleaned);
   };
 
   const handleNeighborhoodToggle = (neighborhood: MeetupNeighborhood) => {
+    if (!isInitialized || !isPricingSourceCurrent()) return;
     Keyboard.dismiss();
     const { next, capped } = toggleNeighborhood(selectedNeighborhoods, neighborhood);
     if (capped) {
       Alert.alert('10 quartiers maximum', 'Retire un quartier pour en choisir un autre.');
       return;
     }
-    setSelectedNeighborhoods(next);
+    markEdited(); setSelectedNeighborhoods(next);
     track('sell_field_edited', {
       screen: 'sell',
       field: 'neighborhoods',
@@ -178,7 +216,8 @@ export default function PricingScreen() {
   };
 
   const handleNeighborhoodsConfirm = (neighborhoods: MeetupNeighborhood[]) => {
-    setSelectedNeighborhoods(neighborhoods);
+    if (!isInitialized || !isPricingSourceCurrent()) return;
+    markEdited(); setSelectedNeighborhoods(neighborhoods);
     track('sell_field_edited', {
       screen: 'sell',
       field: 'neighborhoods',
@@ -189,6 +228,7 @@ export default function PricingScreen() {
   // Le prix se saisit au pavé décimal : sans ce repli, le clavier restait ouvert
   // par-dessus la feuille des quartiers.
   const openNeighborhoodSheet = () => {
+    if (!isInitialized || !isPricingSourceCurrent()) return;
     Keyboard.dismiss();
     neighborhoodSheetRef.current?.show();
   };
@@ -210,7 +250,7 @@ export default function PricingScreen() {
   };
 
   const handleContinue = async () => {
-    if (advancingRef.current) return;
+    if (advancingRef.current || !isInitialized || !isPricingSourceCurrent()) return;
     if (!validateForm()) {
       const missingKeys: string[] = [];
       const priceValue = parseFloat(price);
@@ -225,8 +265,10 @@ export default function PricingScreen() {
       return;
     }
     advancingRef.current = true;
-    try { await persistPricing(); } catch {
+    let assertCurrent: (() => void) | undefined;
+    try { assertCurrent = capturePricingOrigin(); await persistPricing(assertCurrent); assertCurrent(); } catch {
       advancingRef.current = false;
+      try { if (!assertCurrent) return; assertCurrent(); } catch { return; }
       Alert.alert('Brouillon non sauvegardé', 'Réessayez avant de continuer.');
       return;
     }
@@ -303,9 +345,10 @@ export default function PricingScreen() {
         <HandDeliveryCard
           isActive={isHandDelivery}
           onToggle={() => {
+            if (!isInitialized || !isPricingSourceCurrent()) return;
             Keyboard.dismiss();
             const enabled = !isHandDelivery;
-            setIsHandDelivery(enabled);
+            markEdited(); setIsHandDelivery(enabled);
             track('sell_field_edited', { screen: 'sell', field: 'hand_delivery', enabled });
           }}
           selectedNeighborhoods={selectedNeighborhoods}
@@ -317,8 +360,9 @@ export default function PricingScreen() {
           <ShippingCard
             isActive={isShipping}
             onToggle={() => {
+              if (!isInitialized || !isPricingSourceCurrent()) return;
               const enabled = !isShipping;
-              setIsShipping(enabled);
+              markEdited(); setIsShipping(enabled);
               track('sell_field_edited', { screen: 'sell', field: 'shipping', enabled });
             }}
             estimate={parcelEstimate}

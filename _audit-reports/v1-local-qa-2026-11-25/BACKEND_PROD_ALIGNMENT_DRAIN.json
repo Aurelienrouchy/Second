@@ -1,0 +1,144 @@
+{
+  "project": "seconde-b47a6",
+  "verifiedAt": "2026-11-26T04:50:12.062840+00:00",
+  "drainNotBefore": "2026-11-26T04:49:43.167020+00:00",
+  "boundObservedPassed": true,
+  "basis": "actual successful ready update times plus previous function timeout;26latest targets100percent with no old tagged target",
+  "currentTraffic": [
+    {
+      "name": "acceptMeetupOfferV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "acceptSwapV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "addItemToPartySecureV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "cancelSwapV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "confirmSwapReceptionV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "confirmSwapShippingV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "continueAccountErasure",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "declineSwapV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "deleteUserAccountV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "ensureGeneralistZoneV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "eraseLateAccountStorage",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "expirePhase1LocalProposals",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "getActiveSwapPartyInfoV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "manageAccountErasure",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "onArticleSold",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "openSwapDispute",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "proposeMultiSwapV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "rateSwapV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "readPrivateArticleEvidence",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "readPrivateArticleMedia",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "removeItemFromPartySecureV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "resolveSwapDispute",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "resumeAccountErasures",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "sendMeetupProposalV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "setSwapExchangeModeV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    },
+    {
+      "name": "uploadSwapPhotosV2",
+      "currentRevision100Percent": true,
+      "noOldRevisionTaggedTarget": true
+    }
+  ],
+  "oldCodeInFlightByTimeoutBound": false,
+  "outstandingStorageSessionsClaimedAbsent": false,
+  "controlGenerationUnchanged": true,
+  "newReceiptPublished": false,
+  "newPinsPublished": false
+}
