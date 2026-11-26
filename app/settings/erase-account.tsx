@@ -2,6 +2,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {AppState, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TextInput, View} from 'react-native';
 import {useRouter} from 'expo-router';
 import {useQuery} from '@tanstack/react-query';
+import {readScopedQuery} from '@/utils/readScopedQuery';
 import {auth} from '@/config/firebaseConfig';
 import {colors, fonts, radius, spacing, typography} from '@/constants/theme';
 import {Button, Caption, Label, ScreenHeader, Text} from '@/components/ui';
@@ -51,13 +52,11 @@ export default function EraseAccountScreen() {
   }, [proofDisplay]);
   const observation = useQuery({
     queryKey: ['account-erasure-owner-observation', attempt && intention(attempt), local.contextKey],
-    queryFn: async () => {
+    queryFn: ({signal}) => readScopedQuery(signal, () => local.capture().assertCurrent, assertCurrent => {
       if (!attempt) throw new Error('Demande à relire.');
-      const scope = local.capture();
-      const result = isAccountErasureAttempt(attempt) ? await AccountErasureService.observe(attempt, scope.assertCurrent)
-        : await AccountErasureService.observeRecovery(attempt, scope.assertCurrent);
-      scope.assertCurrent(); return result;
-    },
+      return isAccountErasureAttempt(attempt) ? AccountErasureService.observe(attempt, assertCurrent)
+        : AccountErasureService.observeRecovery(attempt, assertCurrent);
+    }),
     enabled: local.ready && attempt?.phase === 'submitted' && !busy &&
       !(webWaiting?.ownerId === local.uid && isAccountErasureAttempt(attempt) && webWaiting.commandId === attempt.commandId),
     staleTime: 0, gcTime: 0, retry: false,

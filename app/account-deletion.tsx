@@ -1,6 +1,7 @@
 import {StyleSheet, ScrollView, View} from 'react-native';
 import {useRouter} from 'expo-router';
 import {useQuery} from '@tanstack/react-query';
+import {readScopedQuery} from '@/utils/readScopedQuery';
 import {Button, Caption, Text, ScreenHeader} from '@/components/ui';
 import {AccountErasureStatus} from '@/features/account';
 import {useAccountErasureRecovery} from '@/hooks/useAccountErasureRecovery';
@@ -14,13 +15,11 @@ export default function AccountDeletionTrackingScreen() {
   const router = useRouter(), local = useAccountErasureRecovery(), attempt = local.attempt;
   const observation = useQuery({
     queryKey: ['account-erasure-observation', attempt && ('commandId' in attempt ? attempt.commandId : attempt.recoveryId), local.contextKey],
-    queryFn: async () => {
+    queryFn: ({signal}) => readScopedQuery(signal, () => local.capture().assertCurrent, assertCurrent => {
       if (!attempt) throw new Error('Suivi indisponible sur cet appareil.');
-      const frame = local.capture();
-      const result = isAccountErasureAttempt(attempt) ? await AccountErasureService.observe(attempt, frame.assertCurrent)
-        : await AccountErasureService.observeRecovery(attempt, frame.assertCurrent);
-      frame.assertCurrent(); return result;
-    },
+      return isAccountErasureAttempt(attempt) ? AccountErasureService.observe(attempt, assertCurrent)
+        : AccountErasureService.observeRecovery(attempt, assertCurrent);
+    }),
     enabled: local.ready && attempt?.phase === 'submitted', staleTime: 0, gcTime: 0, retry: false,
     refetchOnReconnect: false, refetchOnWindowFocus: false,
   });

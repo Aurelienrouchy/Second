@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { auth } from '@/config/firebaseConfig';
 
 import { ChatService } from '@/services/chatService';
-import { useAuthStore } from '@/store/authStore';
+import { getAuthSessionGeneration, useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 
 /**
@@ -13,7 +15,7 @@ import { useChatStore } from '@/store/chatStore';
  * same data.
  */
 export function useChatListener(): void {
-  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const {userId, generation} = useAuthStore(useShallow(s => ({userId: s.user?.id ?? null, generation: getAuthSessionGeneration()})));
 
   useEffect(() => {
     const store = useChatStore.getState();
@@ -27,17 +29,22 @@ export function useChatListener(): void {
     store.setLoading(true);
     store.setError(null);
 
+    const owner = auth.currentUser;
     let cancelled = false;
+    const current = () => !cancelled && auth.currentUser === owner && owner?.uid === userId &&
+      useAuthStore.getState().authenticatedUid === userId && getAuthSessionGeneration() === generation;
     const unsubscribe = ChatService.listenToUserChats(
       userId,
       (chats) => {
-        if (!cancelled) {
+        if (current()) {
           store.setChats(chats);
           store.setLoading(false);
         }
       },
       (error) => {
-        if (!cancelled) {
+        if (current()) {
+          const code = (error as Error & {code?: unknown}).code;
+          if (code === 'permission-denied' || code === 'firestore/permission-denied') store.setChats([]);
           console.error('[useChatListener] error:', error);
           store.setError('Erreur lors du chargement des conversations');
           store.setLoading(false);
@@ -49,5 +56,5 @@ export function useChatListener(): void {
       cancelled = true;
       unsubscribe();
     };
-  }, [userId]);
+  }, [userId, generation]);
 }
