@@ -16,10 +16,12 @@ const UNDERWEAR = new Set([
 const COSMETICS = new Set([
   'women_beauty_makeup', 'women_beauty_perfume', 'women_beauty_skincare', 'women_beauty_handcare',
   'women_beauty_bodycare', 'women_beauty_haircare', 'kids_nursery_bathing_hygiene_skincare',
+  'men_grooming_perfume', 'men_grooming_skincare', 'men_grooming_bodycare',
 ]);
 const MIXED_UNDERWEAR = new Set(['women_clothing_lingerie_other', 'men_clothing_underwear_other',
   'kids_girls_underwear_other', 'kids_boys_underwear_other']);
-const MIXED_COSMETICS = new Set(['women_beauty_manicure', 'women_beauty_other', 'kids_nursery_bathing_hygiene_wipes']);
+const MIXED_COSMETICS = new Set(['women_beauty_manicure', 'women_beauty_other', 'kids_nursery_bathing_hygiene_wipes',
+  'men_grooming_other']);
 
 /** A fabricated chain or a broad parent cannot bypass a hygiene leaf. */
 export function articleHygieneRequirement(categoryIds: unknown): ArticleHygieneRequirement {

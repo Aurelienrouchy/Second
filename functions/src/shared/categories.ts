@@ -636,9 +636,87 @@ export const CATEGORIES: CategoryNode[] = [
           { id: 'men_clothing_other', label: 'Autres' },
         ]
       },
-      { id: 'men_shoes', label: 'Chaussures' },
-      { id: 'men_accessories', label: 'Accessoires' },
-      { id: 'men_grooming', label: 'Soins' },
+      {
+        id: 'men_shoes',
+        label: 'Chaussures',
+        children: [
+          { id: 'men_shoes_sneakers', label: 'Baskets' },
+          {
+            id: 'men_shoes_boots',
+            label: 'Bottes',
+            children: [
+              { id: 'men_shoes_boots_ankle', label: 'Bottines' },
+              { id: 'men_shoes_boots_mid', label: 'Bottes mi-hautes' },
+              { id: 'men_shoes_boots_snow', label: 'Bottes de neige' },
+              { id: 'men_shoes_boots_rain', label: 'Bottes de pluie' },
+              { id: 'men_shoes_boots_work', label: 'Bottes de travail' },
+            ]
+          },
+          { id: 'men_shoes_dress', label: 'Chaussures habillées' },
+          { id: 'men_shoes_loafers', label: 'Mocassins et chaussures bateau' },
+          { id: 'men_shoes_sandals', label: 'Sandales' },
+          { id: 'men_shoes_flipflops', label: 'Claquettes et tongs' },
+          { id: 'men_shoes_slippers', label: 'Chaussons et pantoufles' },
+          {
+            id: 'men_shoes_sport',
+            label: 'Chaussures de sport',
+            children: [
+              { id: 'men_shoes_sport_basketball', label: 'Basket' },
+              { id: 'men_shoes_sport_running', label: 'Course' },
+              { id: 'men_shoes_sport_hiking', label: 'Randonnée' },
+              { id: 'men_shoes_sport_football', label: 'Foot' },
+              { id: 'men_shoes_sport_tennis', label: 'Tennis' },
+              { id: 'men_shoes_sport_ski', label: 'Ski' },
+              { id: 'men_shoes_sport_cycling', label: 'Cyclisme' },
+            ]
+          },
+          { id: 'men_shoes_other', label: 'Autres' },
+        ]
+      },
+      {
+        id: 'men_accessories',
+        label: 'Accessoires',
+        children: [
+          { id: 'men_accessories_bags', label: 'Sacs' },
+          { id: 'men_accessories_belts', label: 'Ceintures' },
+          { id: 'men_accessories_watches', label: 'Montres' },
+          {
+            id: 'men_accessories_jewelry',
+            label: 'Bijoux',
+            children: [
+              { id: 'men_accessories_jewelry_bracelets', label: 'Bracelets' },
+              { id: 'men_accessories_jewelry_necklaces', label: 'Colliers' },
+              { id: 'men_accessories_jewelry_rings', label: 'Bagues' },
+              { id: 'men_accessories_jewelry_other', label: 'Autres bijoux' },
+            ]
+          },
+          {
+            id: 'men_accessories_hats',
+            label: 'Chapeaux et casquettes',
+            children: [
+              { id: 'men_accessories_hats_caps', label: 'Casquettes' },
+              { id: 'men_accessories_hats_beanies', label: 'Bonnets' },
+              { id: 'men_accessories_hats_hats', label: 'Chapeaux' },
+            ]
+          },
+          { id: 'men_accessories_scarves', label: 'Écharpes et foulards' },
+          { id: 'men_accessories_sunglasses', label: 'Lunettes de soleil' },
+          { id: 'men_accessories_gloves', label: 'Gants' },
+          { id: 'men_accessories_ties', label: 'Cravates et noeuds papillon' },
+          { id: 'men_accessories_wallets', label: 'Portefeuilles' },
+          { id: 'men_accessories_other', label: 'Autres accessoires' },
+        ]
+      },
+      {
+        id: 'men_grooming',
+        label: 'Soins',
+        children: [
+          { id: 'men_grooming_perfume', label: 'Parfums' },
+          { id: 'men_grooming_skincare', label: 'Soins du visage' },
+          { id: 'men_grooming_bodycare', label: 'Soins du corps' },
+          { id: 'men_grooming_other', label: 'Autres' },
+        ]
+      },
     ]
   },
   {
@@ -1986,6 +2064,599 @@ export const CATEGORIES: CategoryNode[] = [
       },
     ]
   },
+  // ============================================
+  // MAISON
+  // ============================================
+  {
+    id: 'home',
+    label: 'Maison',
+    icon: 'home',
+    children: [
+      {
+        id: 'home_small_appliances',
+        label: 'Petits appareils de cuisine',
+        children: [
+          {
+            id: 'home_small_appliances_drinks',
+            label: 'Préparation boissons',
+            children: [
+              { id: 'home_small_appliances_drinks_kettles', label: 'Bouilloires' },
+              { id: 'home_small_appliances_drinks_coffee', label: 'Préparation du café, du thé et de l\'expresso (Machines à café, Moulins, Mousseurs...)' },
+              { id: 'home_small_appliances_drinks_dispensers', label: 'Distributeurs d\'eau et de boissons (Filtres, Machines à soda)' },
+              { id: 'home_small_appliances_drinks_juicers', label: 'Extracteurs de jus' },
+            ]
+          },
+          {
+            id: 'home_small_appliances_cooking',
+            label: 'Cuisson & Préparation',
+            children: [
+              { id: 'home_small_appliances_cooking_toasters', label: 'Grille-pain' },
+              { id: 'home_small_appliances_cooking_blenders', label: 'Blenders, mixeurs et robots (Mixeurs plongeants, Robots pâtissiers, Batteurs)' },
+              { id: 'home_small_appliances_cooking_microwaves', label: 'Micro-ondes' },
+              { id: 'home_small_appliances_cooking_fryers', label: 'Friteuses' },
+              { id: 'home_small_appliances_cooking_hotplates', label: 'Plaques de cuisson' },
+              { id: 'home_small_appliances_cooking_grills', label: 'Grils et planchas' },
+              { id: 'home_small_appliances_cooking_specialized', label: 'Appareils spécialisés' },
+            ]
+          },
+          {
+            id: 'home_small_appliances_accessories',
+            label: 'Accessoires',
+            children: [
+              { id: 'home_small_appliances_accessories_general', label: 'Accessoires pour petits appareils de cuisine' },
+              { id: 'home_small_appliances_accessories_parts', label: 'Pièces détachées' },
+            ]
+          },
+        ]
+      },
+      {
+        id: 'home_cooking_baking',
+        label: 'Cuisson et pâtisserie',
+        children: [
+          { id: 'home_cooking_baking_pots', label: 'Casseroles' },
+          { id: 'home_cooking_baking_pans', label: 'Poêles' },
+          { id: 'home_cooking_baking_baking_sheets', label: 'Plaques pour la cuisson' },
+          { id: 'home_cooking_baking_oven_dishes', label: 'Plats pour le four' },
+          { id: 'home_cooking_baking_molds', label: 'Moules de cuisson' },
+          { id: 'home_cooking_baking_specialized', label: 'Matériel de cuisson et de pâtisserie spécialisé' },
+          { id: 'home_cooking_baking_sets', label: 'Batteries de cuisine' },
+          { id: 'home_cooking_baking_accessories', label: 'Accessoires pour la cuisine et la pâtisserie' },
+        ]
+      },
+      {
+        id: 'home_kitchen_tools',
+        label: 'Outils de cuisine',
+        children: [
+          { id: 'home_kitchen_tools_cutting_boards', label: 'Planches à découper' },
+          { id: 'home_kitchen_tools_utensils', label: 'Ustensiles de cuisine' },
+          { id: 'home_kitchen_tools_scales', label: 'Balances de cuisine' },
+          { id: 'home_kitchen_tools_measuring', label: 'Tasses et cuillères à mesurer' },
+          { id: 'home_kitchen_tools_thermometers', label: 'Thermomètres alimentaires' },
+          { id: 'home_kitchen_tools_mixing_bowls', label: 'Bols à mélanger' },
+          { id: 'home_kitchen_tools_strainers', label: 'Passoires, tamis et chinois' },
+          { id: 'home_kitchen_tools_storage', label: 'Stockage alimentaire' },
+          { id: 'home_kitchen_tools_bar', label: 'Accessoires de bar' },
+          { id: 'home_kitchen_tools_specialized', label: 'Ustensiles de cuisine spécialisés' },
+        ]
+      },
+      {
+        id: 'home_tableware',
+        label: 'Arts de la table',
+        children: [
+          {
+            id: 'home_tableware_cutlery',
+            label: 'Couverts',
+            children: [
+              { id: 'home_tableware_cutlery_sets', label: 'Sets de couverts' },
+              { id: 'home_tableware_cutlery_forks', label: 'Fourchettes' },
+              { id: 'home_tableware_cutlery_knives', label: 'Couteaux de table' },
+              { id: 'home_tableware_cutlery_spoons', label: 'Cuillères' },
+            ]
+          },
+          {
+            id: 'home_tableware_dishes',
+            label: 'Vaisselle',
+            children: [
+              { id: 'home_tableware_dishes_sets', label: 'Services de table' },
+              { id: 'home_tableware_dishes_bowls', label: 'Bols' },
+              { id: 'home_tableware_dishes_plates', label: 'Assiettes' },
+            ]
+          },
+          {
+            id: 'home_tableware_glasses',
+            label: 'Verres',
+            children: [
+              { id: 'home_tableware_glasses_cups', label: 'Tasses et tasses à café' },
+              { id: 'home_tableware_glasses_stemware', label: 'Verres à pied' },
+              { id: 'home_tableware_glasses_water', label: 'Verres à eau' },
+              { id: 'home_tableware_glasses_sets', label: 'Sets de verres' },
+            ]
+          },
+          {
+            id: 'home_tableware_serving',
+            label: 'Vaisselle de service',
+            children: [
+              { id: 'home_tableware_serving_coasters', label: 'Sous-verres' },
+              { id: 'home_tableware_serving_teapots', label: 'Cafetières et théières' },
+              { id: 'home_tableware_serving_carafes', label: 'Carafes' },
+              { id: 'home_tableware_serving_salt_pepper', label: 'Sets salière/poivrière' },
+              { id: 'home_tableware_serving_dishes', label: 'Plats de service' },
+              { id: 'home_tableware_serving_sugar_milk', label: 'Sucriers et pots à lait' },
+              { id: 'home_tableware_serving_trays', label: 'Plateaux' },
+              { id: 'home_tableware_serving_trivets', label: 'Dessous de plat' },
+              { id: 'home_tableware_serving_sets', label: 'Sets de service' },
+              { id: 'home_tableware_serving_specialized', label: 'Accessoires spécialisés' },
+            ]
+          },
+        ]
+      },
+      {
+        id: 'home_maintenance',
+        label: 'Entretien de la maison',
+        children: [
+          {
+            id: 'home_maintenance_climate',
+            label: 'Chauffage, climatisation et ventilation',
+            children: [
+              { id: 'home_maintenance_climate_heaters', label: 'Chauffages et radiateurs' },
+              { id: 'home_maintenance_climate_fans', label: 'Ventilateurs' },
+              { id: 'home_maintenance_climate_ac', label: 'Climatiseurs' },
+              { id: 'home_maintenance_climate_purifiers', label: 'Purificateurs d\'air' },
+              { id: 'home_maintenance_climate_humidifiers', label: 'Humidificateurs' },
+              { id: 'home_maintenance_climate_dehumidifiers', label: 'Déshumidificateurs' },
+              { id: 'home_maintenance_climate_management', label: 'Appareils de gestion' },
+              { id: 'home_maintenance_climate_accessories', label: 'Accessoires' },
+            ]
+          },
+          {
+            id: 'home_maintenance_ironing',
+            label: 'Fers à repasser et entretien du linge',
+            children: [
+              { id: 'home_maintenance_ironing_irons', label: 'Fers à repasser' },
+              { id: 'home_maintenance_ironing_steamers', label: 'Défroisseurs' },
+              { id: 'home_maintenance_ironing_boards', label: 'Tables à repasser' },
+              { id: 'home_maintenance_ironing_drying_racks', label: 'Séchoirs à linge' },
+              { id: 'home_maintenance_ironing_specialized', label: 'Appareils spécialisés' },
+              { id: 'home_maintenance_ironing_accessories', label: 'Accessoires' },
+            ]
+          },
+          {
+            id: 'home_maintenance_cleaning',
+            label: 'Aspirateurs et nettoyage',
+            children: [
+              { id: 'home_maintenance_cleaning_vacuums', label: 'Aspirateurs' },
+              { id: 'home_maintenance_cleaning_steam', label: 'Nettoyeurs vapeur' },
+              { id: 'home_maintenance_cleaning_carpet', label: 'Nettoyeurs de tapis' },
+              { id: 'home_maintenance_cleaning_mops', label: 'Serpillières' },
+              { id: 'home_maintenance_cleaning_specialized', label: 'Appareils spécialisés' },
+              { id: 'home_maintenance_cleaning_accessories', label: 'Accessoires' },
+            ]
+          },
+        ]
+      },
+      {
+        id: 'home_textiles',
+        label: 'Textiles',
+        children: [
+          {
+            id: 'home_textiles_bedding',
+            label: 'Linge de lit',
+            children: [
+              { id: 'home_textiles_bedding_sets', label: 'Parures de lit' },
+              { id: 'home_textiles_bedding_duvet_covers', label: 'Housses de couette' },
+              { id: 'home_textiles_bedding_pillowcases', label: 'Taies d\'oreiller' },
+              { id: 'home_textiles_bedding_sheets', label: 'Draps' },
+            ]
+          },
+          {
+            id: 'home_textiles_curtains',
+            label: 'Rideaux et stores',
+            children: [
+              { id: 'home_textiles_curtains_blinds', label: 'Stores' },
+              { id: 'home_textiles_curtains_tiebacks', label: 'Embrasses' },
+              { id: 'home_textiles_curtains_blackout', label: 'Rideaux opaques' },
+              { id: 'home_textiles_curtains_sheers', label: 'Voilages' },
+              { id: 'home_textiles_curtains_valances', label: 'Cantonnières' },
+            ]
+          },
+          {
+            id: 'home_textiles_rugs',
+            label: 'Tapis',
+            children: [
+              { id: 'home_textiles_rugs_outdoor', label: 'Tapis d\'extérieur' },
+              { id: 'home_textiles_rugs_small', label: 'Petits tapis' },
+            ]
+          },
+          {
+            id: 'home_textiles_table_linen',
+            label: 'Linge de table',
+            children: [
+              { id: 'home_textiles_table_linen_napkins', label: 'Serviettes de table' },
+              { id: 'home_textiles_table_linen_doilies', label: 'Napperons' },
+              { id: 'home_textiles_table_linen_placemats', label: 'Sets de table' },
+              { id: 'home_textiles_table_linen_tablecloths', label: 'Nappes' },
+              { id: 'home_textiles_table_linen_runners', label: 'Chemins de table' },
+            ]
+          },
+          {
+            id: 'home_textiles_towels',
+            label: 'Serviettes',
+            children: [
+              { id: 'home_textiles_towels_bath', label: 'Serviettes de bain' },
+              { id: 'home_textiles_towels_beach', label: 'Serviettes de plage' },
+              { id: 'home_textiles_towels_hand', label: 'Essuie-mains' },
+            ]
+          },
+          {
+            id: 'home_textiles_other',
+            label: 'Autres',
+            children: [
+              { id: 'home_textiles_other_blankets', label: 'Couvertures' },
+              { id: 'home_textiles_other_cushions', label: 'Coussins décoratifs' },
+              { id: 'home_textiles_other_covers', label: 'Housses' },
+              { id: 'home_textiles_other_tapestries', label: 'Tapisseries' },
+            ]
+          },
+        ]
+      },
+      {
+        id: 'home_decor',
+        label: 'Décoration',
+        children: [
+          {
+            id: 'home_decor_candles',
+            label: 'Bougies et parfums',
+            children: [
+              { id: 'home_decor_candles_holders', label: 'Bougeoirs' },
+              { id: 'home_decor_candles_candles', label: 'Bougies' },
+              { id: 'home_decor_candles_wax_melts', label: 'Fondants de cire' },
+              { id: 'home_decor_candles_diffusers', label: 'Diffuseurs et bâtonnets' },
+              { id: 'home_decor_candles_oil_diffusers', label: 'Diffuseurs d\'huiles essentielles' },
+              { id: 'home_decor_candles_incense_holders', label: 'Porte-encens' },
+              { id: 'home_decor_candles_incense_sticks', label: 'Bâtons d\'encens' },
+            ]
+          },
+          {
+            id: 'home_decor_clocks',
+            label: 'Horloges',
+            children: [
+              { id: 'home_decor_clocks_table', label: 'Horloges de table' },
+              { id: 'home_decor_clocks_wall', label: 'Horloges murales' },
+            ]
+          },
+          {
+            id: 'home_decor_accessories',
+            label: 'Accessoires décoratifs',
+            children: [
+              { id: 'home_decor_accessories_ashtrays', label: 'Cendriers' },
+              { id: 'home_decor_accessories_bookends', label: 'Serre-livres' },
+              { id: 'home_decor_accessories_doorstops', label: 'Cale-portes' },
+              { id: 'home_decor_accessories_magnets', label: 'Aimants' },
+              { id: 'home_decor_accessories_snowglobes', label: 'Boules à neige' },
+              { id: 'home_decor_accessories_trinkets', label: 'Bibelots' },
+            ]
+          },
+          {
+            id: 'home_decor_plants',
+            label: 'Plantes et fleurs artificielles',
+            children: [
+              { id: 'home_decor_plants_artificial_plants', label: 'Plantes artificielles' },
+              { id: 'home_decor_plants_artificial_flowers', label: 'Fleurs artificielles' },
+            ]
+          },
+          {
+            id: 'home_decor_lighting',
+            label: 'Éclairage',
+            children: [
+              { id: 'home_decor_lighting_floor_lamps', label: 'Lampadaires' },
+              { id: 'home_decor_lighting_lamps', label: 'Lampes' },
+              { id: 'home_decor_lighting_string_lights', label: 'Guirlandes lumineuses' },
+              { id: 'home_decor_lighting_ceiling', label: 'Plafonniers' },
+              { id: 'home_decor_lighting_wall_sconces', label: 'Appliques murales' },
+              { id: 'home_decor_lighting_lampshades', label: 'Abat-jours' },
+              { id: 'home_decor_lighting_spotlights', label: 'Spots' },
+              { id: 'home_decor_lighting_nightlights', label: 'Veilleuses' },
+              { id: 'home_decor_lighting_decorative', label: 'Éclairage décoratif' },
+            ]
+          },
+          {
+            id: 'home_decor_mirrors',
+            label: 'Miroirs',
+            children: [
+              { id: 'home_decor_mirrors_table', label: 'Miroirs de table' },
+              { id: 'home_decor_mirrors_wall', label: 'Miroirs muraux' },
+            ]
+          },
+          {
+            id: 'home_decor_storage',
+            label: 'Rangement et organisation',
+            children: [
+              { id: 'home_decor_storage_baskets', label: 'Paniers' },
+              { id: 'home_decor_storage_boxes', label: 'Boîtes' },
+              { id: 'home_decor_storage_hangers', label: 'Protections vêtements & cintres' },
+              { id: 'home_decor_storage_drawer_organizers', label: 'Organiseurs de tiroirs' },
+              { id: 'home_decor_storage_jewelry_boxes', label: 'Coffres à bijoux' },
+              { id: 'home_decor_storage_soap_dishes', label: 'Porte-savons' },
+              { id: 'home_decor_storage_makeup', label: 'Rangements maquillage' },
+            ]
+          },
+          {
+            id: 'home_decor_wall',
+            label: 'Décorations murales',
+            children: [
+              { id: 'home_decor_wall_paintings', label: 'Peintures' },
+              { id: 'home_decor_wall_photographs', label: 'Photographies' },
+              { id: 'home_decor_wall_posters', label: 'Affiches' },
+              { id: 'home_decor_wall_panels', label: 'Panneaux' },
+              { id: 'home_decor_wall_plaques', label: 'Plaques' },
+              { id: 'home_decor_wall_decals', label: 'Décalcomanies' },
+              { id: 'home_decor_wall_hangings', label: 'Tentures' },
+            ]
+          },
+          {
+            id: 'home_decor_other',
+            label: 'Autres',
+            children: [
+              { id: 'home_decor_other_sculptures', label: 'Sculptures et figurines' },
+              { id: 'home_decor_other_fireplace', label: 'Accessoires pour cheminées' },
+              { id: 'home_decor_other_shelves', label: 'Étagères murales' },
+              { id: 'home_decor_other_frames', label: 'Encadrements' },
+              { id: 'home_decor_other_vases', label: 'Vases' },
+            ]
+          },
+        ]
+      },
+      {
+        id: 'home_office',
+        label: 'Fournitures de bureau',
+        children: [
+          {
+            id: 'home_office_stationery',
+            label: 'Papeterie',
+            children: [
+              { id: 'home_office_stationery_planners', label: 'Agendas et organiseurs' },
+              { id: 'home_office_stationery_notebooks', label: 'Carnets et blocs-notes' },
+              { id: 'home_office_stationery_bookmarks', label: 'Marque-pages' },
+            ]
+          },
+          {
+            id: 'home_office_storage',
+            label: 'Rangement & Accessoires',
+            children: [
+              { id: 'home_office_storage_pencil_cases', label: 'Trousses' },
+              { id: 'home_office_storage_desk_accessories', label: 'Accessoires de bureau (Organiseurs, Pots à crayons...)' },
+              { id: 'home_office_storage_document_organizers', label: 'Organiseurs de documents (Chemises, Classeurs...)' },
+            ]
+          },
+          {
+            id: 'home_office_writing',
+            label: 'Écriture & Correction',
+            children: [
+              { id: 'home_office_writing_pens', label: 'Stylos' },
+              { id: 'home_office_writing_pencils', label: 'Crayons' },
+              { id: 'home_office_writing_leads', label: 'Mines' },
+              { id: 'home_office_writing_highlighters', label: 'Surligneurs' },
+              { id: 'home_office_writing_sharpeners', label: 'Taille-crayons' },
+              { id: 'home_office_writing_erasers', label: 'Gommes' },
+            ]
+          },
+          {
+            id: 'home_office_technical',
+            label: 'Technique & Matériel',
+            children: [
+              { id: 'home_office_technical_calculators', label: 'Calculatrices' },
+              { id: 'home_office_technical_drawing', label: 'Outils de dessin technique (Règles, Compas...)' },
+              { id: 'home_office_technical_tapes', label: 'Rubans adhésifs, pinces et attaches' },
+              { id: 'home_office_technical_staplers', label: 'Agrafeuses et perforatrices' },
+              { id: 'home_office_technical_presentation', label: 'Matériel de présentation (Tableaux, Marqueurs...)' },
+              { id: 'home_office_technical_electronics', label: 'Matériel électronique (Plastifieuses, Destructeurs...)' },
+            ]
+          },
+        ]
+      },
+      {
+        id: 'home_celebrations',
+        label: 'Célébrations et fêtes',
+        children: [
+          { id: 'home_celebrations_banners', label: 'Banderoles, drapeaux et guirlandes' },
+          { id: 'home_celebrations_cards', label: 'Cartes et enveloppes' },
+          { id: 'home_celebrations_gift_wrap', label: 'Papier cadeau et sacs' },
+          { id: 'home_celebrations_seasonal', label: 'Décorations saisonnières' },
+          { id: 'home_celebrations_party', label: 'Accessoires de fête' },
+          { id: 'home_celebrations_table', label: 'Décorations de table' },
+          { id: 'home_celebrations_tree', label: 'Décorations pour le sapin' },
+          { id: 'home_celebrations_wreaths', label: 'Couronnes' },
+        ]
+      },
+      {
+        id: 'home_tools',
+        label: 'Outils et bricolage',
+        children: [
+          {
+            id: 'home_tools_power',
+            label: 'Outils électriques',
+            children: [
+              { id: 'home_tools_power_drills', label: 'Perceuses' },
+              { id: 'home_tools_power_saws', label: 'Scies électriques' },
+              { id: 'home_tools_power_sanders', label: 'Ponceuses' },
+              { id: 'home_tools_power_grinders', label: 'Meuleuses' },
+              { id: 'home_tools_power_pneumatic', label: 'Outils pneumatiques' },
+              { id: 'home_tools_power_kits', label: 'Kits d\'outils' },
+              { id: 'home_tools_power_other', label: 'Compresseurs, Outils rotatifs, Oscillants, Rabots, Défonceuses...' },
+            ]
+          },
+          {
+            id: 'home_tools_hand',
+            label: 'Outils à main',
+            children: [
+              { id: 'home_tools_hand_hammers', label: 'Marteaux' },
+              { id: 'home_tools_hand_saws', label: 'Scies à main' },
+              { id: 'home_tools_hand_screwdrivers', label: 'Tournevis' },
+              { id: 'home_tools_hand_wrenches', label: 'Clés' },
+              { id: 'home_tools_hand_pliers', label: 'Pinces' },
+              { id: 'home_tools_hand_shears', label: 'Cisailles' },
+              { id: 'home_tools_hand_scissors', label: 'Ciseaux' },
+              { id: 'home_tools_hand_files', label: 'Limes' },
+              { id: 'home_tools_hand_planes', label: 'Rabots' },
+              { id: 'home_tools_hand_staplers', label: 'Agrafeuses manuelles' },
+              { id: 'home_tools_hand_riveters', label: 'Riveteuses' },
+              { id: 'home_tools_hand_sledgehammers', label: 'Masses' },
+            ]
+          },
+          {
+            id: 'home_tools_measuring',
+            label: 'Outils de mesure',
+            children: [
+              { id: 'home_tools_measuring_levels', label: 'Niveaux' },
+              { id: 'home_tools_measuring_tape', label: 'Mètres rubans' },
+              { id: 'home_tools_measuring_squares', label: 'Équerres' },
+              { id: 'home_tools_measuring_calipers', label: 'Pieds à coulisse' },
+              { id: 'home_tools_measuring_detectors', label: 'Détecteurs' },
+              { id: 'home_tools_measuring_rangefinders', label: 'Télémètres' },
+              { id: 'home_tools_measuring_thermal', label: 'Caméras thermiques' },
+              { id: 'home_tools_measuring_moisture', label: 'Humidimètres' },
+            ]
+          },
+          {
+            id: 'home_tools_painting',
+            label: 'Peinture',
+            children: [
+              { id: 'home_tools_painting_brushes', label: 'Pinceaux' },
+              { id: 'home_tools_painting_rollers', label: 'Rouleaux' },
+              { id: 'home_tools_painting_trays', label: 'Bacs' },
+              { id: 'home_tools_painting_poles', label: 'Perches' },
+              { id: 'home_tools_painting_wallpaper', label: 'Papiers peints' },
+              { id: 'home_tools_painting_sprayers', label: 'Pistolets' },
+              { id: 'home_tools_painting_tarps', label: 'Bâches' },
+            ]
+          },
+          {
+            id: 'home_tools_plumbing',
+            label: 'Plomberie',
+            children: [
+              { id: 'home_tools_plumbing_snakes', label: 'Furets' },
+              { id: 'home_tools_plumbing_plungers', label: 'Ventouses' },
+              { id: 'home_tools_plumbing_basin_wrenches', label: 'Clés à lavabo' },
+              { id: 'home_tools_plumbing_pipe_cutters', label: 'Coupe-tubes' },
+              { id: 'home_tools_plumbing_benders', label: 'Cintreuses' },
+            ]
+          },
+          {
+            id: 'home_tools_electrical',
+            label: 'Électricité',
+            children: [
+              { id: 'home_tools_electrical_multimeters', label: 'Multimètres' },
+              { id: 'home_tools_electrical_testers', label: 'Testeurs' },
+              { id: 'home_tools_electrical_strippers', label: 'Pinces à dénuder' },
+              { id: 'home_tools_electrical_crimpers', label: 'Pinces à sertir' },
+              { id: 'home_tools_electrical_fish_tapes', label: 'Tire-fils' },
+            ]
+          },
+          {
+            id: 'home_tools_masonry',
+            label: 'Maçonnerie',
+            children: [
+              { id: 'home_tools_masonry_floats', label: 'Taloches' },
+              { id: 'home_tools_masonry_trowels', label: 'Truelles' },
+              { id: 'home_tools_masonry_tile_cutters', label: 'Coupe-carreaux' },
+            ]
+          },
+          {
+            id: 'home_tools_accessories',
+            label: 'Accessoires pour outils',
+            children: [
+              { id: 'home_tools_accessories_bits', label: 'Forets' },
+              { id: 'home_tools_accessories_blades', label: 'Lames de scie' },
+              { id: 'home_tools_accessories_sandpaper', label: 'Papier de verre' },
+              { id: 'home_tools_accessories_discs', label: 'Disques (Wheels & discs)' },
+              { id: 'home_tools_accessories_batteries', label: 'Batteries & Chargeurs' },
+              { id: 'home_tools_accessories_pneumatic', label: 'Accessoires pneumatiques' },
+              { id: 'home_tools_accessories_sockets', label: 'Douilles, Fraises' },
+            ]
+          },
+          {
+            id: 'home_tools_equipment',
+            label: 'Équipement',
+            children: [
+              { id: 'home_tools_equipment_protection', label: 'Protection (Gants, Lunettes, Casques...)' },
+              { id: 'home_tools_equipment_transport', label: 'Transport et rangement (Boîtes, Ceintures...)' },
+              { id: 'home_tools_equipment_workshop', label: 'Atelier et chantier (Échelles, Lampes, Tréteaux...)' },
+            ]
+          },
+          {
+            id: 'home_tools_hardware',
+            label: 'Quincaillerie',
+            children: [
+              { id: 'home_tools_hardware_handles', label: 'Poignées' },
+              { id: 'home_tools_hardware_locks', label: 'Verrous' },
+              { id: 'home_tools_hardware_hinges', label: 'Charnières' },
+              { id: 'home_tools_hardware_doorbells', label: 'Sonnettes' },
+              { id: 'home_tools_hardware_bathroom', label: 'Équipement salle de bains (Robinets, Lavabos...)' },
+              { id: 'home_tools_hardware_kitchen', label: 'Accessoires cuisine (Éviers, Robinets...)' },
+              { id: 'home_tools_hardware_chains', label: 'Chaînes et arrimage (Cordes, Sangles...)' },
+              { id: 'home_tools_hardware_mailboxes', label: 'Boîtes aux lettres' },
+              { id: 'home_tools_hardware_house_numbers', label: 'Numéros de maison' },
+            ]
+          },
+          {
+            id: 'home_tools_smart',
+            label: 'Maisons connectées et sécurité',
+            children: [
+              { id: 'home_tools_smart_locks', label: 'Serrures connectées' },
+              { id: 'home_tools_smart_doorbells', label: 'Sonnettes vidéo' },
+              { id: 'home_tools_smart_cameras', label: 'Caméras' },
+              { id: 'home_tools_smart_hubs', label: 'Hubs' },
+              { id: 'home_tools_smart_plugs', label: 'Prises intelligentes' },
+              { id: 'home_tools_smart_thermostats', label: 'Thermostats' },
+              { id: 'home_tools_smart_detectors', label: 'Détecteurs' },
+              { id: 'home_tools_smart_padlocks', label: 'Cadenas' },
+            ]
+          },
+        ]
+      },
+      {
+        id: 'home_garden',
+        label: 'Extérieur et jardin',
+        children: [
+          {
+            id: 'home_garden_tools',
+            label: 'Outils de jardin',
+            children: [
+              { id: 'home_garden_tools_power', label: 'Outils électriques (Coupe-bordures, Souffleurs, Nettoyeurs HP, Taille-haies...)' },
+              { id: 'home_garden_tools_power_accessories', label: 'Accessoires outils électriques (Batteries, pour Tondeuses, Tronçonneuses...)' },
+              { id: 'home_garden_tools_hand', label: 'Outils manuels (Râteaux, Pelles, Sécateurs, Haches...)' },
+              { id: 'home_garden_tools_protection', label: 'Protection jardinage (Gants, Genouillères...)' },
+              { id: 'home_garden_tools_snow', label: 'Outils de déneigement' },
+            ]
+          },
+          {
+            id: 'home_garden_decor',
+            label: 'Aménagement & Déco',
+            children: [
+              { id: 'home_garden_decor_planters', label: 'Pots, jardinières et accessoires' },
+              { id: 'home_garden_decor_watering', label: 'Équipement d\'arrosage' },
+              { id: 'home_garden_decor_decorations', label: 'Décorations (Parasols, Tapis, Éclairages, Mangeoires...)' },
+              { id: 'home_garden_decor_lighting', label: 'Éclairages de jardin (Projecteurs, Lampes, Lanternes...)' },
+              { id: 'home_garden_decor_weather', label: 'Instruments météorologiques' },
+            ]
+          },
+          {
+            id: 'home_garden_leisure',
+            label: 'Loisirs & Cuisine',
+            children: [
+              { id: 'home_garden_leisure_cooking', label: 'Cuisine et grillade (Friteuses, Barbecue)' },
+              { id: 'home_garden_leisure_cooking_tools', label: 'Outils de cuisson (Spatules, Brochettes...)' },
+              { id: 'home_garden_leisure_cooking_accessories', label: 'Accessoires cuisine extérieur (Housses, Grilles...)' },
+              { id: 'home_garden_leisure_pools_spas', label: 'Spas, piscines et équipements' },
+              { id: 'home_garden_leisure_sauna', label: 'Accessoires sauna' },
+              { id: 'home_garden_leisure_pool_accessories', label: 'Accessoires piscine' },
+              { id: 'home_garden_leisure_spa_accessories', label: 'Accessoires spa' },
+            ]
+          },
+        ]
+      },
+    ]
+  },
 ];
 
 // ============================================
@@ -2107,11 +2778,13 @@ export function generateCategoryPromptSection(): string {
 /**
  * Top-level category descriptions for Step 1 identification
  */
-// MODE UNIQUEMENT - App de vente de vêtements/accessoires
+// Keep the AI universes aligned with the catalogue offered by the app.
 export const TOP_LEVEL_CATEGORIES = [
-  { id: 'women', label: 'Femmes', description: 'Vêtements, chaussures, sacs, accessoires mode femmes' },
-  { id: 'men', label: 'Hommes', description: 'Vêtements, chaussures, sacs, accessoires mode hommes' },
-  { id: 'kids', label: 'Enfants', description: 'Vêtements, chaussures, accessoires mode enfants/bébés' },
+  { id: 'women', label: 'Femmes', description: 'Vêtements, chaussures, sacs, accessoires pour femmes' },
+  { id: 'men', label: 'Hommes', description: 'Vêtements, chaussures, accessoires pour hommes' },
+  { id: 'kids', label: 'Enfants', description: 'Vêtements bébés/enfants, jouets, puériculture' },
+  { id: 'home', label: 'Maison', description: 'Décoration, textile maison, vaisselle' },
+  { id: 'electronics', label: 'Électronique', description: 'Consoles, ordinateurs, smartphones, audio, photo, TV, objets connectés' },
 ];
 
 /**
@@ -2257,7 +2930,7 @@ export function findCategoryByLabelFuzzy(label: string, topLevelHint?: string): 
 
   // Determine candidates based on hint
   let candidates: FlatCategory[];
-  if (topLevelHint && ['women', 'men', 'kids'].includes(topLevelHint)) {
+  if (topLevelHint && TOP_LEVEL_CATEGORIES.some(category => category.id === topLevelHint)) {
     candidates = getLeafCategoriesForTopLevel(topLevelHint);
   } else {
     candidates = getLeafCategories();

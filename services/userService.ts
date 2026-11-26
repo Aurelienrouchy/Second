@@ -117,6 +117,13 @@ export class UserService {
         sellerLikesCount: p.sellerLikesCount,
       } as unknown as User;
     } catch (error) {
+      // A former chat participant may no longer have a profile. Match the
+      // callable's exact absence response, not an unavailable endpoint or read.
+      if (
+        typeof error === 'object' && error !== null &&
+        'code' in error && error.code === 'functions/not-found' &&
+        'message' in error && error.message === 'User not found'
+      ) return null;
       if (__DEV__) console.error('Error fetching public profile via callable:', error);
       return null;
     }

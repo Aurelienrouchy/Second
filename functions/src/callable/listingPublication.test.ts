@@ -117,6 +117,53 @@ describe('frozen return source after removal of the sale-unit question', () => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
+describe('canonical catalogue publication and new local trade admission', () => {
+  // The adapter supplies updateTime from Timestamp.now() at each read.
+  // Freeze server time so observe/set compares one stable native revision.
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-26T16:00:00Z')); });
+  afterEach(() => vi.useRealTimers());
+
+  it.each([
+    ['Affiches', ['home', 'home_decor', 'home_decor_wall', 'home_decor_wall_posters']],
+    ['Baskets', ['men', 'men_shoes', 'men_shoes_sneakers']],
+  ])('publishes, edits, relists and admits a new meetup for %s', async (title, categoryIds) => {
+    const { articleId } = await call(createArticle, { ...input(), title, categoryIds });
+    expect(fs.getDoc('articles/' + articleId)).toMatchObject({ categoryIds, sellerId: uid, isActive: true });
+    await call(updateArticle, { articleId, updates: { price: 24 } });
+    for (const [desiredIsSold, requestId] of [[true, 'catalogue-sold'], [false, 'catalogue-relist']] as const) {
+      const observed = await call(toggleArticleSold, { operation: 'observe', articleId });
+      await call(toggleArticleSold, { operation: 'set', articleId, desiredIsSold, requestId,
+        expectedIsSold: observed.isSold, expectedRevision: observed.revision });
+    }
+    await expect(withFinancialRecoveryScope({ operation: 'callable/products.updateArticle' }, () => fs.db.runTransaction(tx =>
+      assertNewMeetupAdmission(tx as any, 'buyer', uid, 'buyer', articleId)))).resolves.toMatchObject({ categoryIds, price: 24 });
+    expect(fs.getDoc('articles/' + articleId)?.hygieneDeclaration ?? null).toBeNull();
+    expect(fs.getDoc('articles/' + articleId)?.childSafetyDeclaration ?? null).toBeNull();
+  });
+
+  it('requires new sealed cosmetics before publication, then rechecks their witness for a new meetup', async () => {
+    const categoryIds = ['men', 'men_grooming', 'men_grooming_perfume'];
+    const data = { ...input(), title: 'Parfum homme scellé', categoryIds, condition: 'neuf' };
+    await expect(call(createArticle, data)).rejects.toMatchObject({ code: 'invalid-argument', details: { reason: 'article_hygiene_declaration_required' } });
+    expect(fs.writeOps.some(op => op.path.startsWith('articles/'))).toBe(false);
+    const { articleId } = await call(createArticle, { ...data, hygieneDeclaration: { schemaVersion: 1, kind: 'cosmetic', isNew: true, isSealed: true } });
+    await expect(withFinancialRecoveryScope({ operation: 'callable/products.updateArticle' }, () => fs.db.runTransaction(tx =>
+      assertNewMeetupAdmission(tx as any, 'buyer', uid, 'buyer', articleId)))).resolves.toMatchObject({ categoryIds });
+    const article = fs.getDoc('articles/' + articleId)!;
+    fs.setDoc('articles/' + articleId, { ...article, hygieneDeclaration: { ...article.hygieneDeclaration, isSealed: false } });
+    await expect(withFinancialRecoveryScope({ operation: 'callable/products.updateArticle' }, () => fs.db.runTransaction(tx =>
+      assertNewMeetupAdmission(tx as any, 'buyer', uid, 'buyer', articleId)))).rejects.toMatchObject({
+      code: 'failed-precondition', details: { reason: 'article_hygiene_declaration_required' },
+    });
+  });
+
+  it('keeps child clothing publication behind its explicit seller safety statement', async () => {
+    await expect(call(createArticle, { ...input(), categoryIds: ['kids', 'kids_girls', 'kids_girls_tops', 'kids_girls_tops_tshirts'] }))
+      .rejects.toMatchObject({ code: 'failed-precondition', details: { reason: 'article_child_safety_statement_required' } });
+    expect(fs.writeOps.some(op => op.path.startsWith('articles/'))).toBe(false);
+  });
+});
+
 describe('publication without a seller activity declaration', () => {
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-26T16:00:00Z')); });
   afterEach(() => vi.useRealTimers());

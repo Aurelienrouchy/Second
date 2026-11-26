@@ -388,10 +388,10 @@ describe('new article reports keep their stock witness under the native adapter'
   it('captures the exact native source with immutable report anchor and replays the same intention',()=>capture());
   it.each(['stock','witness','privacy'])('rejects injected %s mutation without partial report/evidence writes',kind=>capture(kind));
 });
-async function article(owner:string,requestId:string) {
+async function article(owner:string,requestId:string,categoryIds=['women','women_clothing','women_clothing_sweaters','women_clothing_sweaters_hoodies']) {
   const result=await invoke(createArticle,owner,{clientRequestId:requestId,quantity:1,title:'Pull en coton',description:'Un pull en coton bleu.',price:25,
     images:[{url:`https://firebasestorage.googleapis.com/v0/b/seconde-dev.firebasestorage.app/o/drafts%2F${owner}%2Fd%2Fa.jpg?alt=media`}],
-    categoryIds:['women','women_clothing','women_clothing_sweaters','women_clothing_sweaters_hoodies'],condition:'très bon état',
+    categoryIds,condition:'très bon état',
     size:{value:'M',system:'EU'},brand:null,isHandDelivery:true,isShipping:false,neighborhoods:[{id:'n',name:'Plateau',borough:'Montréal'}]});
   return result.articleId as string;
 }
@@ -451,6 +451,25 @@ beforeEach(()=>{
 });
 afterEach(()=>vi.unstubAllEnvs());
 describe('phase1 local agreements without a financial provider',()=>{
+  it.each([
+    ['Affiches',['home','home_decor','home_decor_wall','home_decor_wall_posters']],
+    ['Baskets',['men','men_shoes','men_shoes_sneakers']],
+  ])('keeps canonical %s available for SwapZone and a newly accepted local swap',async(label,categoryIds)=>{
+    const a=await article('alice','catalogue-own-'+label,categoryIds),b=await article('bob','catalogue-other-'+label);
+    h.fs.setDoc('swapParties/catalogue-zone',{isActive:true,itemsCount:0});
+    await expect(invoke(swaps.addItemToPartySecure,'alice',{partyId:'catalogue-zone',articleId:a,title:label,price:25}))
+      .resolves.toMatchObject({success:true});
+    const source=await h.db.runTransaction((tx:any)=>swaps.readSwapAgreementPreview(tx,'alice',{operation:'swap_proposal_preview',expectedUid:'alice',
+      receiverId:'bob',initiatorArticleIds:[a],receiverArticleIds:[b],exchangeMode:'hand_delivery',arrangements:'Samedi à Montréal.',message:null,cashTopUp:null}));
+    const result=await invoke(swaps.proposeMultiSwap,'alice',{initiatorId:'alice',initiatorName:'Alice',receiverId:'bob',receiverName:'Bob',
+      initiatorItems:[{articleId:a}],receiverItems:[{articleId:b}],exchangeMode:'hand_delivery',arrangements:'Samedi à Montréal.',message:null,cashTopUp:null,
+      clientRequestId:'catalogue-'+label,agreementProtocol:SWAP_AGREEMENT_PROTOCOL,expectedSourceHash:source.sourceHash});
+    await expect(accept(result.swapId)).resolves.toMatchObject({status:'accepted'});
+    expect(h.fs.getDoc('articles/'+a)!.categoryIds).toEqual(categoryIds);
+    expect(h.fs.getDoc('swaps/'+result.swapId)!.status).toBe('accepted');
+    expect(h.provider).not.toHaveBeenCalled();
+  });
+
   it.each(['cash_accept','swap_propose','swap_accept'])('records one own %s refusal atomically without changing a pending agreement',async kind=>{
     let actor:string,act:()=>Promise<any>,paths:string[];
     if(kind==='cash_accept'){

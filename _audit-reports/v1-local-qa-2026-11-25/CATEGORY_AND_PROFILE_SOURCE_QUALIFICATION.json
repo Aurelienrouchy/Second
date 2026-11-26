@@ -1,0 +1,60 @@
+{
+  "protocol": "phase1_category_profile_fix_source_qualification_v1",
+  "verifiedAt": "2026-11-26T15:38:33.656102+00:00",
+  "sourceRoot": "/tmp/seconde-v1-git-release-20261125",
+  "baselineCommit": "17d8b315f8c11d33d00f6855de396ddd91e8b5e5",
+  "qaSourceSha256": "fdfd9d6c0ab1575e4863d5115c18c192e9abbfaeabfc0df001791ef0a1a61ad7",
+  "runtimeFiles": 1063,
+  "changedRuntimePaths": [
+    "functions/src/shared/articleHygiene.ts",
+    "functions/src/shared/categories.ts",
+    "services/userService.ts"
+  ],
+  "sameNativeDependenciesAs17d8": true,
+  "checks": {
+    "final-categories-app-vitest": {
+      "file": "/tmp/seconde-v1-sdk57-device-qa-20261126/final-categories-app-vitest.json",
+      "sha256": "d8c45c9cc34c309d5451faf03e4ef938601927cc09ac97e0bac735561387b248",
+      "tests": 337,
+      "passed": 337,
+      "files": 32,
+      "openHandles": null
+    },
+    "final-categories-jest": {
+      "file": "/tmp/seconde-v1-sdk57-device-qa-20261126/final-categories-jest.json",
+      "sha256": "64b7d6572fbd854d5fa281f96e771070fab4d4757768c02a75abdfd928eda5e9",
+      "tests": 2208,
+      "passed": 2208,
+      "files": 224,
+      "openHandles": []
+    }
+  },
+  "backendRaw": {
+    "path": "/tmp/seconde-v1-sdk57-erasure-readiness-20261126/category-green.json",
+    "sha256": "78550c947e4e91a16af242633e9a8332ded4a556a0dc18f4ba92d8946605980e",
+    "success": true,
+    "tests": 253,
+    "passed": 253,
+    "failed": 0
+  },
+  "appTypecheckExitCode": 0,
+  "nativeStatus": {
+    "signedIosMessagesNoAbsentProfileLogBox": true,
+    "postersCategoryReachesPricing": true,
+    "priceAndNeighborhoodBackPersistenceObserved": true,
+    "serverDevDeployment": "IN_PROGRESS",
+    "newBuildsNotYetCreated": true,
+    "physicalIphoneSdk57Installed": false,
+    "replayableEndToEndPassed": false
+  },
+  "releaseReady": false,
+  "limitations": [
+    "Old38/19 held; superseding Expo builds required",
+    "Prod20-function catalogue deployment not yet performed",
+    "Physical iPhone connection unavailable; native retest currently simulator only"
+  ],
+  "boundaries": {
+    "exitCode": 0,
+    "sha256": "695508a90b5df29fabb719e1faa5757be253746c3ac71011dfc5c7edf7804105"
+  }
+}

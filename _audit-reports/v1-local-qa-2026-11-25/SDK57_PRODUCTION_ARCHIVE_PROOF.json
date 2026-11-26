@@ -1,0 +1,72 @@
+{
+  "protocol": "phase1_sdk57_production_archive_proof_v1",
+  "verifiedAt": "2026-11-26T14:34:05.146008+00:00",
+  "qaSourceSha256": "a3a0b38b19d3d75500cf8ef3d7cd2f5350b06f61c1512e3c14aadc6dba02bf3c",
+  "productionClientSourceSha256": "5439e2f5e35729cab72d8ff84d9b5cf54d1f52f07e5766080a34252da80bf492",
+  "source": {
+    "protocol": "phase1_production_eas_client_archive_v3_sdk57",
+    "gitCommit": "17d8b315f8c11d33d00f6855de396ddd91e8b5e5",
+    "qaSourceSha256": "a3a0b38b19d3d75500cf8ef3d7cd2f5350b06f61c1512e3c14aadc6dba02bf3c",
+    "archiveInventorySha256": "f4ab8ffed6a6f1263388beb32dd8f2941fa0b4257c2904dbf7fad6887513c589",
+    "archiveFiles": 2075,
+    "buildProfile": "production",
+    "environment": "production",
+    "distribution": "STORE",
+    "firebaseProject": "seconde-b47a6",
+    "bundleIdentifier": "com.seconde.app",
+    "appVersion": "1.0.2",
+    "paymentsEnabled": false,
+    "providerShippingEnabled": false,
+    "commerceTestMode": false,
+    "emulatorsEnabled": false,
+    "phase1QaFlag": false,
+    "nativeProductionFirebaseServicesMatch": true,
+    "nativeNewAnalyticsCollectionClosedByProductionCode": true,
+    "runtimeFileMatches": 1063,
+    "canonicalPackageManager": "npm",
+    "expoVersion": "57.0.34",
+    "reactNativeVersion": "0.86.3",
+    "expectedHermesNativeVersion": "250829098.0.17",
+    "prebuildTemplate": "expo-template-bare-minimum@57.0.36",
+    "iosSceneSupportEnabled": true
+  },
+  "easAcceptedBuilds": [
+    {
+      "id": "40d6e424-1d4a-4315-92d4-f21043bdc2d6",
+      "platform": "ANDROID",
+      "status": "NEW",
+      "appVersion": "1.0.2",
+      "appBuildVersion": "19",
+      "buildProfile": "production",
+      "distribution": "STORE",
+      "gitCommitHash": "17d8b315f8c11d33d00f6855de396ddd91e8b5e5",
+      "createdAt": "2026-11-26T14:27:43.980Z"
+    },
+    {
+      "id": "52a70df2-dfd2-422b-b394-e52da3a6a9ea",
+      "platform": "IOS",
+      "status": "NEW",
+      "appVersion": "1.0.2",
+      "appBuildVersion": "38",
+      "buildProfile": "production",
+      "distribution": "STORE",
+      "gitCommitHash": "17d8b315f8c11d33d00f6855de396ddd91e8b5e5",
+      "createdAt": "2026-11-26T14:27:53.202Z"
+    }
+  ],
+  "bothInspectedPlatformArchiveContentsIdentical": true,
+  "sourceArchiveStrongPatternFindings": 0,
+  "signingMaterialOrPrivateEnvironmentFilesInArchive": false,
+  "compiledArtifactQualificationCompleted": false,
+  "nativeDeviceAndMemoryValidationCompleted": false,
+  "historicalEvidenceNotRelabeled": {
+    "sdk56_37_18": "FINAL_PRODUCTION_ARCHIVE_PROOF.json",
+    "original_36_17": "PRODUCTION_ARCHIVE_PROOF.json",
+    "receipt3ebUnmodified": true
+  },
+  "limits": [
+    "Native57 compilation and exact Hermes engine version in actual artifacts remain to inspect.",
+    "Automated SDK57 verification is distinct from native device flow and memory tests.",
+    "Receipt3eb retains its historical client provenance; this is a separate production source record."
+  ]
+}

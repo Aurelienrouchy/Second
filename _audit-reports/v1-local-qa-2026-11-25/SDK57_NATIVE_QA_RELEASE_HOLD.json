@@ -1,0 +1,54 @@
+{
+  "protocol": "sdk57_native_qa_status_v1",
+  "verifiedAt": "2026-11-26T15:24:23.570304+00:00",
+  "candidateCommit": "17d8b315f8c11d33d00f6855de396ddd91e8b5e5",
+  "status": "HOLD_CONFIRMED_CATEGORY_BLOCKER",
+  "physicalIphoneSdk57Installed": false,
+  "device": "ios_simulator",
+  "nativeEngine": "250829098.0.17",
+  "priorUnsignedRun": {
+    "galleryPublicLogoReturnedExactlyOnePhoto": true,
+    "closeSingleConfirmationThenHome": true,
+    "resumeOnePhoto": true,
+    "manualDetailsEntered": true,
+    "pricingReached": false,
+    "keychainErrorFromUnsignedSimulatorBuild": true,
+    "replayableE2ePassed": false
+  },
+  "normalSignedRun": {
+    "launchAndCatalogueLoaded": true,
+    "startupKeychainErrors": 0,
+    "startupErrors": 0,
+    "messagesLoaded": true,
+    "profileAbsentDevConsoleErrorOpenedLogBox": true,
+    "allBusinessFlowsPassed": false
+  },
+  "confirmedProductBlocker": {
+    "categoryIds": [
+      "home",
+      "home_decor",
+      "home_decor_wall",
+      "home_decor_wall_posters"
+    ],
+    "message": "Choisissez une catégorie précise et complète avant de confirmer la règle d’hygiène.",
+    "appLeaves": 1263,
+    "missingServerLeaves": 298,
+    "rootCause": "Stale server catalogue used by shared hygiene and child-safety validation",
+    "fixInProgress": true
+  },
+  "boundedLog": {
+    "offset": 3551,
+    "bytes": 363,
+    "sha256": "94ff21b36d4da51d7f4f7e6a688ab79ed4d7e6c823637845e366adf421b41131"
+  },
+  "stores": {
+    "ios38": "UPLOADED_VALID_NOT_SUBMITTED_FOR_REVIEW",
+    "android19": "DRAFT_ONLY_HOLD",
+    "supersedingBuildsRequired": true
+  },
+  "limitations": [
+    "No successful uninterrupted E2E replay",
+    "Physical iPhone USB tunnel remains unavailable",
+    "No long-duration memory measurement"
+  ]
+}

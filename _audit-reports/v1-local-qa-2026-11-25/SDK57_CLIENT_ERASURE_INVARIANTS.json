@@ -1,0 +1,583 @@
+{
+  "protocol": "phase1_sdk57_client_erasure_invariants_v1",
+  "verifiedAt": "2026-11-26T15:12:15.967680+00:00",
+  "status": "STATIC_SOURCE_PROVIDER_AND_ARCHIVE_QUALIFIED_NATIVE_FLOW_VALIDATION_SEPARATE",
+  "gitCommit": "17d8b315f8c11d33d00f6855de396ddd91e8b5e5",
+  "qaSourceSha256": "a3a0b38b19d3d75500cf8ef3d7cd2f5350b06f61c1512e3c14aadc6dba02bf3c",
+  "productionClientSourceSha256": "5439e2f5e35729cab72d8ff84d9b5cf54d1f52f07e5766080a34252da80bf492",
+  "productionArchiveInventorySha256": "f4ab8ffed6a6f1263388beb32dd8f2941fa0b4257c2904dbf7fad6887513c589",
+  "baselineGitCommit": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+  "baselineQaSourceSha256": "95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b",
+  "runtimeDigestsIndependentlyVerified": 1063,
+  "unchangedRuntimeFileDigests": 1059,
+  "onlyChangedBuildInputsSinceBaseline": [
+    "app.config.js",
+    "eas.json",
+    "package-lock.json",
+    "package.json",
+    "yarn.lock (deleted)"
+  ],
+  "noDataOrBusinessSourceChangesInScopes": [
+    "functions",
+    "firestore.rules",
+    "storage.rules",
+    "firestore.indexes.json",
+    "services",
+    "store",
+    "hooks",
+    "features",
+    "config",
+    "app",
+    "types"
+  ],
+  "relevantSourceDigests": [
+    {
+      "path": "services/accountErasureService.ts",
+      "sha256": "5adf59b96f7afc7655bee4f3e7996542ecdb9f0b0385e879334006b3a6673a10",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "services/accountErasureJournal.ts",
+      "sha256": "61edb5f1c4aad031608f41a2734388689284afd91649d46e0ec9716f4af91e48",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "services/accountErasureAppleAuthorization.ts",
+      "sha256": "e6affa4d8fb3489d6d0f41f31b19526a2ea79db1f1e5dd456fb99c2a8a42db55",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "services/accountErasureAppleWebService.ts",
+      "sha256": "d976449c3608c58aafb4d78669f5ed28c75b65dea1f23868092b863e80c1f73a",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "services/nativeReauthentication.ts",
+      "sha256": "8b3462dc75820bd8df4f70e151394c3a6290e1d9d26e373b4d7fd98b7237eded",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "services/authService.ts",
+      "sha256": "562e4259e49568ea0c0618b99836c8a68d5979c7a67c2b14bad4044823bc4eb1",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "services/userAuthData.ts",
+      "sha256": "3ed060bc5e35a04487680d3c12ac7b7b51b830d06749b57f94cb2256cc8747b2",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "store/authStore.ts",
+      "sha256": "315db2fcd57d9cac2bf22d9b0b07f0c4e97487995186ea4f55ddbc5fd0502c24",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "hooks/useAccountErasureRecovery.ts",
+      "sha256": "587b8cc504a1f4333b4b370ecafc457d2e9a0aaebaf129939d7824f2a5fd74ea",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "config/firebaseConfig.ts",
+      "sha256": "4a530e36736e842a135ce3d27a9c0a2411893c1be430e226170aeb0caf49c765",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "config/firebaseEnvironment.ts",
+      "sha256": "e7edcc3f807baea896297eb83ac8e265e94f2b1adddc44f646328ed947a46497",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "config/firebaseProjects.json",
+      "sha256": "9c1dd0658620712a40330ff0b48a41a77b3bea067812b7ddc24808af9c068cc2",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "config/posthogConfig.ts",
+      "sha256": "04ecaf5113f26090af13989315b8fb28efca9e9fb2d50557d9c3d41533fc12a5",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "config/featureFlags.ts",
+      "sha256": "d2bfeebe83bc07a5f672fc51f7da31f09a14d987845bda82de7e55bc02a7b23e",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "types/accountErasure.ts",
+      "sha256": "25551f33ea5570d2fe41f3abfce535ea10d8be46f3bb3ff25670380129e71d39",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "app/settings/erase-account.tsx",
+      "sha256": "d18d7072927db104305341c6769e1395c1e1de2bd30d690c0a3b9ec04cdbe19e",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "app/account-deletion.tsx",
+      "sha256": "7b68be5199cf49ad0fcb46e8dea4415c292e013e25af22f76736a4146d7e48e4",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "functions/src/utils/accountErasureQualification.ts",
+      "sha256": "97b46089da9328d9c85b1b0ba5936ebd7c1ef7cedf592cebe212e421ff8cafc4",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "functions/src/utils/accountErasureContract.ts",
+      "sha256": "7fa754c061eb0ee11bf6e11a8d4accd266dcd789b6d7bd4adc6d214b579c273c",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "functions/src/utils/accountErasureRuntime.ts",
+      "sha256": "6cb1b702b040dcbd023eae1d8b3730d514398f7328fda169502650e30ace046e",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "functions/src/utils/accountErasureProviders.ts",
+      "sha256": "da8c7cf1539897900f44884f9b7afe5e940927372f8bd2af0eb7f20de854a61e",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "functions/src/config/featureFlags.ts",
+      "sha256": "fcfe2538d096c8e5156a327e1d7ecdb2439622b28a0cb8973579c6f292a649fa",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "functions/src/config/runtimeEnvironment.ts",
+      "sha256": "4b95cd08ddf5560ccd73cea774ec32074f6b9d21cf6be9a1d644858321de86ad",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "firestore.rules",
+      "sha256": "44062a0a04de06919c88c08c521f9ef9f0da20a004543b0c94736c389eb0cc34",
+      "byteIdenticalTo4d6": true
+    },
+    {
+      "path": "storage.rules",
+      "sha256": "c5e79ea41c2d23c3348a492b21579ff041ab118f1edc0665cdcea60a3c7f0407",
+      "byteIdenticalTo4d6": true
+    }
+  ],
+  "dataAndAnalyticsProviderLockEntries": [
+    {
+      "package": "@firebase/ai",
+      "version": "2.11.1",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/analytics",
+      "version": "0.10.21",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/analytics-compat",
+      "version": "0.2.27",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/analytics-types",
+      "version": "0.8.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/app",
+      "version": "0.14.11",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/app-check",
+      "version": "0.11.2",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/app-check-compat",
+      "version": "0.4.2",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/app-check-interop-types",
+      "version": "0.3.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/app-check-types",
+      "version": "0.5.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/app-compat",
+      "version": "0.5.11",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/app-types",
+      "version": "0.9.4",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/auth",
+      "version": "1.13.0",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/auth-compat",
+      "version": "0.6.5",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/auth-interop-types",
+      "version": "0.2.4",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/auth-types",
+      "version": "0.13.0",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/component",
+      "version": "0.7.2",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/data-connect",
+      "version": "0.6.0",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/database",
+      "version": "1.1.2",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/database-compat",
+      "version": "2.1.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/database-types",
+      "version": "1.0.19",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/firestore",
+      "version": "4.14.0",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/firestore-compat",
+      "version": "0.4.8",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/firestore-types",
+      "version": "3.0.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/functions",
+      "version": "0.13.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/functions-compat",
+      "version": "0.4.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/functions-types",
+      "version": "0.6.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/installations",
+      "version": "0.6.21",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/installations-compat",
+      "version": "0.2.21",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/installations-types",
+      "version": "0.5.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/logger",
+      "version": "0.5.0",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/messaging",
+      "version": "0.12.25",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/messaging-compat",
+      "version": "0.2.25",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/messaging-interop-types",
+      "version": "0.2.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/performance",
+      "version": "0.7.11",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/performance-compat",
+      "version": "0.2.24",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/performance-types",
+      "version": "0.2.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/remote-config",
+      "version": "0.8.2",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/remote-config-compat",
+      "version": "0.2.23",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/remote-config-types",
+      "version": "0.5.0",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/rules-unit-testing",
+      "version": "5.0.0",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/storage",
+      "version": "0.14.2",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/storage-compat",
+      "version": "0.4.2",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/storage-types",
+      "version": "0.8.3",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/util",
+      "version": "1.15.0",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@firebase/webchannel-wrapper",
+      "version": "1.0.5",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "@stripe/stripe-react-native",
+      "version": "0.66.0",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "firebase",
+      "version": "12.12.1",
+      "fullLockEntryUnchanged": true
+    },
+    {
+      "package": "posthog-react-native",
+      "version": "4.54.4",
+      "fullLockEntryUnchanged": true
+    }
+  ],
+  "runtimeChange": {
+    "expo": "57.0.34",
+    "reactNative": "0.86.3",
+    "expectedHermesNative": "250829098.0.17",
+    "canonicalPackageManager": "npm",
+    "nativeAppleAuthenticationPackage": "57.0.2",
+    "nativeSecureStorePackage": "57.0.4",
+    "nativeProviderPackagesChangedAndRequireIndependentNativeQualification": true
+  },
+  "sourceInvariants": {
+    "firebasePublicProjectTupleAndDefaultProductionAppNamePreserved": true,
+    "firebaseAuthFirestoreStorageFunctionsProviderImplementationUnchanged": true,
+    "firebasePersistenceConfigurationAndNamespacesUnchanged": true,
+    "authSingleSourceHydrationAndSessionAdmissionUnchanged": true,
+    "rpcContractsAndAdmissionAuthorityUnchanged": true,
+    "erasureJournalRecoveryAndOpaqueCapabilityContractUnchanged": true,
+    "clientDoesNotSupplyCodeHashOrBuildNumberToErasureRequest": true,
+    "serverChecksServerRulesInventoryAndControlPinsExactly": true,
+    "productionPosthogCaptureKeyClosedBySource": true,
+    "serverAndSecurityRulesSourcesUnchanged": true,
+    "productionFinanceShippingCommerceAndQaFlagsClosedInInspectedArchive": true
+  },
+  "historicalReceipt": {
+    "sha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+    "generation": "1795696554296081",
+    "historicalClientSourceSha256": "2112254e016b33049453c5168454ae48949a96a5c58c4ae778567c6c33988525",
+    "receiptAndWriterMatrixRemainImmutable": true,
+    "clientHashIsHistoricalProvenanceNotCallerBinaryWhitelist": true,
+    "qualificationDoesNotProveProductionNoCollection": true,
+    "subjectSpecificNativeProviderVerificationStillRequired": true,
+    "expiresAt": "2026-12-25T22:55:33.429113+00:00",
+    "expiryIsOperatorChoiceAndExpiredQualificationFailsClosed": true,
+    "writerMatrixSha256": "800c5b898f3ec1c27491f6858c94503539b64bf8de04572dbc2e13b9a7f0be36"
+  },
+  "compiledArtifactEvidenceAvailable": {
+    "ios": {
+      "proofSha256": "0bb8ac431f28bb0b90775e755506cabf233161f1f5883ae06692f384fecff043",
+      "easBuildId": "52a70df2-dfd2-422b-b394-e52da3a6a9ea",
+      "buildNumber": "38",
+      "artifactSha256": "5a27947b412f3fc3737bfb5e9e897824c9ec30a47e490d2f1eeae4a5b83fae71",
+      "staticQualification": "PASS",
+      "productionFirebaseAndClosedPosthogCaptureVerified": true,
+      "expectedNativeHermesReleaseVerified": true
+    },
+    "android": {
+      "easBuildId": "40d6e424-1d4a-4315-92d4-f21043bdc2d6",
+      "versionCode": "19",
+      "qualification": "PENDING_SEPARATE_COMPILED_ARTIFACT_REPORT"
+    }
+  },
+  "sourceProofs": [
+    {
+      "file": "SDK57_RUNTIME_VERIFICATION.json",
+      "sha256": "a3e3eb48ce0b48ff2e78dc9280cf2b119649bcd7a5df1cc8e5a165471f536a9a"
+    },
+    {
+      "file": "SDK57_INTEGRATION_VERIFICATION.json",
+      "sha256": "9d5a3a9885b2ef85b124e53a8886db0b44864cee426525cfc984db0e89ae9f8f"
+    },
+    {
+      "file": "SDK57_PRODUCTION_ARCHIVE_PROOF.json",
+      "sha256": "38e286f28dc669fb540686e9d4de749f6809250c613d27478e442c5a1de2416f"
+    },
+    {
+      "file": "FINAL_CLIENT_ERASURE_INVARIANTS.json",
+      "sha256": "90f65a31f894af2e70a2bbd47d15cc110c4901ab21344be1444700a34dd47abe"
+    },
+    {
+      "file": "ACCOUNT_ERASURE_CLIENT_HASH_SEMANTICS.md",
+      "sha256": "2d2e30828f208fa603065537c0b6842083448c89b2ef076d4c56cd8f1684d2b5"
+    },
+    {
+      "file": "PRODUCTION_ERASURE_PUBLICATION_COMPLETED.json",
+      "sha256": "593dbd326dbbf43246a1b77ee3b3c34f4d0874c278b621e679f089566c0b35ad"
+    }
+  ],
+  "newCloudMutationRequiredForBuildOnlyDelta": false,
+  "noProductionSecretsOrDataCopiedToDev": true,
+  "nativeSdk57BusinessFlowExecutionClaimed": false,
+  "physicalProductionBinaryExecutionClaimed": false,
+  "nativeAppleGoogleLoginOrRevocationClaimed": false,
+  "longDurationMemoryStabilityClaimed": false,
+  "actualProductionAccountDeletionInvoked": false,
+  "limits": [
+    "This supplement qualifies source, unchanged data-provider lock entries and archive provenance; it does not certify native SDK57 journeys.",
+    "Expo Apple Authentication and SecureStore changed with the SDK; static source equality is not proof of actual native provider reauthentication or Apple token revocation.",
+    "The separately owned SDK57 compiled-artifact report must qualify both exact38/19 store artifacts before overall release readiness.",
+    "Production receipt source211, oldSDK56 source95b and newSDK57 sourcea3a0/5439 remain distinct historical records.",
+    "No new account, cloud deploy, IAM change, receipt or account deletion is required or performed by this source supplement.",
+    "Fresh backend readiness and static SDK equality do not replace the separate SDK57 native UI and memory checks; the runtime release readiness remains the parent orchestrator responsibility."
+  ],
+  "freshProductionReadiness": {
+    "proofSha256": "34b830537919fa8fcb04f2075caf2cdd0daf45572fb0a6b74b145136b05b6272",
+    "verifiedAt": "2026-11-26T15:10:52.618470+00:00",
+    "project": "seconde-b47a6",
+    "all115SourcesAndProfilesVerified": true,
+    "sourceCohorts": {
+      "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde": 26,
+      "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a": 89
+    },
+    "fiveNativePinsMatchReceipt": true,
+    "functions": [
+      {
+        "name": "continueAccountErasure",
+        "revision": "continueaccounterasure-00006-put",
+        "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+        "updatedAt": "2026-11-26T12:39:15.506862577Z",
+        "active": true,
+        "pinsMatch": true
+      },
+      {
+        "name": "deleteUserAccountV2",
+        "revision": "deleteuseraccountv2-00006-qan",
+        "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+        "updatedAt": "2026-11-26T12:38:13.053308726Z",
+        "active": true,
+        "pinsMatch": true
+      },
+      {
+        "name": "eraseLateAccountStorage",
+        "revision": "eraselateaccountstorage-00005-wij",
+        "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+        "updatedAt": "2026-11-26T12:40:05.700042264Z",
+        "active": true,
+        "pinsMatch": true
+      },
+      {
+        "name": "manageAccountErasure",
+        "revision": "manageaccounterasure-00005-mih",
+        "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+        "updatedAt": "2026-11-26T12:38:05.566704008Z",
+        "active": true,
+        "pinsMatch": true
+      },
+      {
+        "name": "resumeAccountErasures",
+        "revision": "resumeaccounterasures-00006-biw",
+        "sourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+        "updatedAt": "2026-11-26T12:39:06.145338874Z",
+        "active": true,
+        "pinsMatch": true
+      }
+    ],
+    "fiveRevisionsMatchPreviouslyCompletedPublication": true,
+    "receipt": {
+      "sha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+      "generation": "1795696554296081",
+      "object": "installations/phase1_prod_20261125/manifests/account-erasure/3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4.json",
+      "privateCacheControl": "private, no-store",
+      "temporaryHold": true,
+      "expiresAt": "2026-12-25T22:55:33.429113+00:00",
+      "nativeBytesMatchFrozenApprovedReceipt": true
+    },
+    "exactSingleObjectGetBindingOnly": true,
+    "controlGeneration": "1795639824843632",
+    "controlNormalUnconfiguredUnchanged": true,
+    "background19Eventarc5CronRemainPrivate": true,
+    "rulesNativeHashesMatchApprovedReceiptAndRepository": true,
+    "searchHistoryTimestampCollectionDescReady": true,
+    "legacyServiceCount": 77,
+    "all77RemainWithoutPublicPrincipal": true,
+    "obsoleteJobCount": 17,
+    "all17RemainPaused": true,
+    "qualificationNotExpired": true,
+    "boundedLogs": {
+      "from": "2026-11-26T14:40:48.696603+00:00",
+      "to": "2026-11-26T15:10:48.696579+00:00",
+      "errorEntriesReturned": 0,
+      "severityCounts": {},
+      "truncated": false,
+      "noPayloadOrUserDataReadOut": true
+    },
+    "noMutationFromThisCheck": true,
+    "posthogExternalIngestionGuardBasis": "Historical independently qualified guard retained in exact receipt; no fresh external PostHog configuration read performed in this check."
+  },
+  "readbackSetupIncident": {
+    "firstSupplementaryRulesGetHttp403": true,
+    "resolvedByExplicitExistingProductionQuotaProjectHeader": true,
+    "newIdentityPermissionsOrCloudConfigurationRequired": false,
+    "failedAttemptNotTreatedAsQualification": true
+  }
+}

@@ -2,6 +2,8 @@
 
 # CODEBASE_INDEX.md — Second
 
+`functions/src/shared/categories.parity.test.ts` compare les 1 263 feuilles et leurs chemins au catalogue app, conserve la recherche historique des parents Hommes, et vérifie les déclarations d’hygiène des soins et les frontières de sécurité enfant. `listingPublication.test.ts` et `phase1LocalAgreements.test.ts` exercent Affiches/Baskets via publication, édition, remise en ligne, admission locale, SwapZone et troc.
+
 `functions/src/utils/admissionDecision.ts` qualifie les refus locaux acceptMeetupOffer/proposeMultiSwap/acceptSwap comme paire documentaire exacte quota+refus : tentative native opaque, propriétaire/session actuelle, sources/quota relus, valeurs clonées et contrôle normal avant commit. `financialSubjectTransaction.ts` refuse toute écriture ajoutée ou altérée ; aucun droit générique sur rate_limits, stock, accord ou notification. Les tests natifs couvrent injections, révocation, draining, rejeu après quota saturé et source changée.
 
 `functions/src/triggers/articles.ts` (`onArticleSold`) utilise la projection publique `inventory_article_availability_v1`, puis relit l'unité et le contrat natifs dans la transaction de retrait : une réservation conserve les favoris, une consommation vérifiée les retire, y compris lors de la transition `isSold:true` vers `true`. Sources inconnues/incohérentes, événements retardés et changements concurrents préservent les préférences ; aucun nettoyage fondé sur le seul ancien booléen `isSold`.

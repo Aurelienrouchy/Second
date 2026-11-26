@@ -1,0 +1,74 @@
+{
+  "protocol": "phase1_missing_public_profile_diagnostic_fix_v1",
+  "scope": "local_source_and_automated_checks_only",
+  "sourceRoot": "/tmp/seconde-v1-git-release-20261125",
+  "changedFiles": [
+    {
+      "path": "services/userService.ts",
+      "sha256": "67b50ba8c1758c079f8be8004b3bc69f512aa878e51d542744f766e01d9b8ed8"
+    },
+    {
+      "path": "services/userService.publicProfile.test.ts",
+      "sha256": "f3a408cce80cc6995d41e929b5d867d9bb7062e239710c349e4a6ca0497b88e0"
+    }
+  ],
+  "serverContract": {
+    "path": "functions/src/callable/reviews.ts",
+    "absentUserErrorCode": "functions/not-found",
+    "absentUserErrorMessage": "User not found",
+    "line": 364
+  },
+  "apiContractUnchanged": true,
+  "unexpectedErrorsStillDiagnosedInDevelopment": true,
+  "cloudOrDeviceMutation": false,
+  "checks": {
+    "red": {
+      "success": false,
+      "numTotalTests": 8,
+      "numPassedTests": 7,
+      "numFailedTests": 1,
+      "numPendingTests": 0,
+      "file": "/tmp/seconde-v1-public-profile-red-20261126.json",
+      "sha256": "676f75d0b56f365e2e9268672c16399ede37971ee7681856fcceb0ff37726f4c"
+    },
+    "greenWithAccountStanding": {
+      "success": true,
+      "numTotalTests": 23,
+      "numPassedTests": 23,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "file": "/tmp/seconde-v1-public-profile-green-20261126.json",
+      "sha256": "26815996e63f0d39c5470340c6549376cbbf2860fa10d908de38eab60b27c0a1"
+    },
+    "finalFocused": {
+      "success": true,
+      "numTotalTests": 8,
+      "numPassedTests": 8,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "file": "/tmp/seconde-v1-public-profile-final-20261126.json",
+      "sha256": "68733380e5dc16581e145f80965daf88418fcdfededf3fafdfbb7443316bd1b0"
+    },
+    "existingCallers": {
+      "success": true,
+      "numTotalTests": 10,
+      "numPassedTests": 10,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "file": "/tmp/seconde-v1-public-profile-callers-20261126.json",
+      "sha256": "c587270a392231d0ae7831400bb74f5782d18690b2544bc9f91adf624da6cae0",
+      "openHandles": [],
+      "fileCount": 2
+    },
+    "tsc": {
+      "exitCode": 0,
+      "file": "/tmp/seconde-v1-public-profile-tsc-20261126.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "boundaries": {
+      "exitCode": 0,
+      "file": "/tmp/seconde-v1-public-profile-boundaries-20261126.log",
+      "sha256": "695508a90b5df29fabb719e1faa5757be253746c3ac71011dfc5c7edf7804105"
+    }
+  }
+}

@@ -1,0 +1,1494 @@
+{
+  "protocol": "phase1_category_release_deployment_scope_v1",
+  "preparedAt": "2026-11-26T15:30:39.096Z",
+  "project": "seconde-b47a6",
+  "purpose": "Read-only determination of the active production exports affected by the category and hygiene data correction.",
+  "deploymentPerformed": false,
+  "productionReadyClaimed": false,
+  "rootReviewAndCorrectedTestsStillRequired": true,
+  "analysisExecution": {
+    "kind": "actual_new_execution_of_persisted_reproduction_of_prior_inline_analysis",
+    "firstRunArtifactStatus": "First analysis was inline and persisted no script/output. This report references a separate, actual reproducible execution.",
+    "script": {
+      "path": "/private/tmp/seconde-v1-category-deployment-scope-20261126/trace-category-runtime-dependencies.cjs",
+      "sha256": "a6b5c70e9bd094682e1eee67b56eb241075fb48c575d95f529e60ffa1f4e5193"
+    },
+    "output": {
+      "path": "/tmp/seconde-v1-category-deployment-scope-20261126/runtime-dependency-graph-actual.json",
+      "sha256": "3e4925d63280364c27d9fb31e6ab9089ab6027ce22d87688a2fb98174152d110"
+    },
+    "method": "TypeScript runtime identifier reference closure; type nodes excluded; aliases, destructured awaited imports and production source overrides resolved",
+    "limitations": [
+      "Static reference reachability, not an execution of every request branch.",
+      "Uses the saved production readback at savedCloudReadbackAt; this script makes no fresh cloud read.",
+      "The first graph was run inline and had no persisted script or output file; this is a separately timestamped real reproduction.",
+      "Program source digest is analysis provenance, not the source digest calculated by the release stager."
+    ]
+  },
+  "inputs": {
+    "preparedMatrix": {
+      "path": "/Users/aurelien/dev/Second/_audit-reports/v1-local-qa-2026-11-25/PRODUCTION_ERASURE_WRITER_MATRIX_PREPARED.json",
+      "sha256": "23dd97541aa4b2066f1bc083690bd09b52c8456454ac029c9935c48c938f9383",
+      "bytes": 63536
+    },
+    "qualifiedMatrix": {
+      "path": "/Users/aurelien/dev/Second/_audit-reports/v1-local-qa-2026-11-25/PRODUCTION_ERASURE_WRITER_MATRIX.json",
+      "sha256": "800c5b898f3ec1c27491f6858c94503539b64bf8de04572dbc2e13b9a7f0be36",
+      "bytes": 63872
+    },
+    "freshReadback": {
+      "path": "/tmp/seconde-v1-sdk57-erasure-readiness-20261126/FRESH_PRODUCTION_READBACK.json",
+      "sha256": "34b830537919fa8fcb04f2075caf2cdd0daf45572fb0a6b74b145136b05b6272",
+      "bytes": 4141
+    },
+    "phase1Manifest": {
+      "path": "/tmp/seconde-v1-git-release-20261125/functions/phase1-release.json",
+      "sha256": "69afd4df6eac48825899a7d16b031a3f5509d8154260782297a9cd63716cc052",
+      "bytes": 12408
+    },
+    "tsconfig": {
+      "path": "/tmp/seconde-v1-git-release-20261125/functions/tsconfig.json",
+      "sha256": "e1d7994daab3136106ec2032aca40b4a2ec6d7399c8cced512dd7469a143852d",
+      "bytes": 452
+    }
+  },
+  "sourceProvenance": {
+    "root": "/tmp/seconde-v1-git-release-20261125",
+    "baseGitCommit": "17d8b315f8c11d33d00f6855de396ddd91e8b5e5",
+    "workingTreeState": "Category/hygiene correction present as uncommitted working-tree changes when this graph was executed.",
+    "changedSharedFiles": [
+      {
+        "path": "functions/src/shared/articleHygiene.ts",
+        "sha256": "d9c1ed674764097af40fe371e990ec567b2eb7347a653b5345d8786a5a15b05f"
+      },
+      {
+        "path": "functions/src/shared/categories.ts",
+        "sha256": "19a99c85f2e70bc606f671ac02742b94703812845e69ed719df876794356d37d"
+      }
+    ],
+    "analysisSourceInventorySha256": "9e3e8e316efae1065ce81448f1b0484cde20b91a212f972661faee3239043569",
+    "analysisSourceInventoryIsReleaseServerSourceHash": false,
+    "sourceInventoryLocation": "/tmp/seconde-v1-category-deployment-scope-20261126/runtime-dependency-graph-actual.json"
+  },
+  "savedNativeReadbackAt": "2026-11-26T15:10:52.618470+00:00",
+  "activeFunctionsScanned": 115,
+  "selectedCount": 20,
+  "retainedCount": 95,
+  "selectedFunctions": [
+    "acceptMeetupOfferV2",
+    "acceptSwapV2",
+    "addItemToPartySecureV2",
+    "administerSupportRequest",
+    "analyzeProductImage",
+    "closeMeetupNoShowV2",
+    "commandSupportRequest",
+    "contestAutomatedDecision",
+    "createArticleV2",
+    "getMyEligibility",
+    "getPendingReportsV2",
+    "getWalletInfo",
+    "proposeMultiSwapV2",
+    "readSupportRequests",
+    "sellerCancelTransactionV2",
+    "sendMeetupProposalV2",
+    "submitReportV2",
+    "toggleArticleSoldV2",
+    "triageReportV2",
+    "updateArticleV2"
+  ],
+  "selectedKinds": {
+    "http": 20
+  },
+  "selectedPreviousSourceCohorts": {
+    "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde": 5,
+    "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a": 15
+  },
+  "expectedSourceCohortsAfterOnlyThisScope": {
+    "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde": 21,
+    "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a": 74,
+    "newActualStagedSourceSha256": 20
+  },
+  "productionSourceOverridesApplied": {
+    "getStripeAccountStatus": "getStripeAccountStatusPhase1",
+    "checkTrackingStatus": "checkTrackingStatusPhase1"
+  },
+  "selectedExportsAndReferencePaths": [
+    {
+      "name": "acceptMeetupOfferV2",
+      "kind": "http",
+      "previousRevision": "acceptmeetupofferv2-00002-vub",
+      "previousSourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "acceptMeetupOffer",
+          "file": "functions/src/callable/payments/meetup.ts",
+          "line": 113
+        },
+        {
+          "symbol": "assertNewMeetupAdmission",
+          "file": "functions/src/utils/tradeAdmission.ts",
+          "line": 74
+        },
+        {
+          "symbol": "assertArticleHygieneAdmitted",
+          "file": "functions/src/utils/articleHygiene.ts",
+          "line": 6
+        },
+        {
+          "symbol": "articleHygieneRequirement",
+          "file": "functions/src/shared/articleHygiene.ts",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "name": "acceptSwapV2",
+      "kind": "http",
+      "previousRevision": "acceptswapv2-00002-quv",
+      "previousSourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "acceptSwap",
+          "file": "functions/src/callable/swaps.ts",
+          "line": 676
+        },
+        {
+          "symbol": "validateArticlesAvailable",
+          "file": "functions/src/callable/swaps.ts",
+          "line": 124
+        },
+        {
+          "symbol": "articleHygieneRequirement",
+          "file": "functions/src/shared/articleHygiene.ts",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "name": "addItemToPartySecureV2",
+      "kind": "http",
+      "previousRevision": "additemtopartysecurev2-00002-mok",
+      "previousSourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "addItemToPartySecure",
+          "file": "functions/src/callable/swaps.ts",
+          "line": 1957
+        },
+        {
+          "symbol": "assertArticleHygieneAdmitted",
+          "file": "functions/src/utils/articleHygiene.ts",
+          "line": 6
+        },
+        {
+          "symbol": "articleHygieneRequirement",
+          "file": "functions/src/shared/articleHygiene.ts",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "name": "administerSupportRequest",
+      "kind": "http",
+      "previousRevision": "administersupportrequest-00001-hek",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "administerSupportRequest",
+          "file": "functions/src/callable/supportRequests.ts",
+          "line": 770
+        },
+        {
+          "symbol": "handleLateTransportRecovery",
+          "file": "functions/src/utils/lateTransportRecovery.ts",
+          "line": 230
+        },
+        {
+          "symbol": "current",
+          "file": "functions/src/utils/lateTransportRecovery.ts",
+          "line": 101
+        },
+        {
+          "symbol": "readProductReviewDocumentarySet",
+          "file": "functions/src/utils/productReviewWorkflow.ts",
+          "line": 203
+        },
+        {
+          "symbol": "readProductReviewSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 73
+        },
+        {
+          "symbol": "readListingSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 50
+        },
+        {
+          "symbol": "readArticleChildSafetySource",
+          "file": "functions/src/utils/articleChildSafety.ts",
+          "line": 33
+        },
+        {
+          "symbol": "childSafetyCategory",
+          "file": "functions/src/shared/articleChildSafety.ts",
+          "line": 20
+        },
+        {
+          "symbol": "findCategoryById",
+          "file": "functions/src/shared/categories.ts",
+          "line": 2669
+        }
+      ]
+    },
+    {
+      "name": "analyzeProductImage",
+      "kind": "http",
+      "previousRevision": "analyzeproductimage-00030-kas",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [
+        "GEMINI_API_KEY"
+      ],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "analyzeProductImage",
+          "file": "functions/src/callable/ai.ts",
+          "line": 173
+        },
+        {
+          "symbol": "generateSingleStepAnalysisPrompt",
+          "file": "functions/src/services/ai.ts",
+          "line": 94
+        },
+        {
+          "symbol": "generateCompactCategoryPrompt",
+          "file": "functions/src/shared/categories.ts",
+          "line": 2886
+        }
+      ]
+    },
+    {
+      "name": "closeMeetupNoShowV2",
+      "kind": "http",
+      "previousRevision": "closemeetupnoshowv2-00001-qan",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "closeMeetupNoShow",
+          "file": "functions/src/callable/payments/disputes.ts",
+          "line": 317
+        },
+        {
+          "symbol": "readCommercialDecisionSource",
+          "file": "functions/src/utils/refundDecision.ts",
+          "line": 160
+        },
+        {
+          "symbol": "readProductFinancialSource",
+          "file": "functions/src/utils/productReviewFinancial.ts",
+          "line": 41
+        },
+        {
+          "symbol": "readProductReviewDocumentarySet",
+          "file": "functions/src/utils/productReviewWorkflow.ts",
+          "line": 203
+        },
+        {
+          "symbol": "readProductReviewSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 73
+        },
+        {
+          "symbol": "readListingSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 50
+        },
+        {
+          "symbol": "readArticleChildSafetySource",
+          "file": "functions/src/utils/articleChildSafety.ts",
+          "line": 33
+        },
+        {
+          "symbol": "childSafetyCategory",
+          "file": "functions/src/shared/articleChildSafety.ts",
+          "line": 20
+        },
+        {
+          "symbol": "findCategoryById",
+          "file": "functions/src/shared/categories.ts",
+          "line": 2669
+        }
+      ]
+    },
+    {
+      "name": "commandSupportRequest",
+      "kind": "http",
+      "previousRevision": "commandsupportrequest-00001-ruv",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "commandSupportRequest",
+          "file": "functions/src/callable/supportRequests.ts",
+          "line": 768
+        },
+        {
+          "symbol": "executeSupportOwnerCommand",
+          "file": "functions/src/callable/supportRequests.ts",
+          "line": 561
+        },
+        {
+          "symbol": "prepareLateCommercialSupportLink",
+          "file": "functions/src/utils/lateCommercialRecourse.ts",
+          "line": 82
+        },
+        {
+          "symbol": "linkSource",
+          "file": "functions/src/utils/lateCommercialRecourse.ts",
+          "line": 69
+        },
+        {
+          "symbol": "readProductReviewSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 73
+        },
+        {
+          "symbol": "readListingSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 50
+        },
+        {
+          "symbol": "readArticleChildSafetySource",
+          "file": "functions/src/utils/articleChildSafety.ts",
+          "line": 33
+        },
+        {
+          "symbol": "childSafetyCategory",
+          "file": "functions/src/shared/articleChildSafety.ts",
+          "line": 20
+        },
+        {
+          "symbol": "findCategoryById",
+          "file": "functions/src/shared/categories.ts",
+          "line": 2669
+        }
+      ]
+    },
+    {
+      "name": "contestAutomatedDecision",
+      "kind": "http",
+      "previousRevision": "contestautomateddecision-00008-jev",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "contestAutomatedDecision",
+          "file": "functions/src/callable/automatedDecisions.ts",
+          "line": 199
+        },
+        {
+          "symbol": "executeSupportOwnerCommand",
+          "file": "functions/src/callable/supportRequests.ts",
+          "line": 561
+        },
+        {
+          "symbol": "prepareLateCommercialSupportLink",
+          "file": "functions/src/utils/lateCommercialRecourse.ts",
+          "line": 82
+        },
+        {
+          "symbol": "linkSource",
+          "file": "functions/src/utils/lateCommercialRecourse.ts",
+          "line": 69
+        },
+        {
+          "symbol": "readProductReviewSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 73
+        },
+        {
+          "symbol": "readListingSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 50
+        },
+        {
+          "symbol": "readArticleChildSafetySource",
+          "file": "functions/src/utils/articleChildSafety.ts",
+          "line": 33
+        },
+        {
+          "symbol": "childSafetyCategory",
+          "file": "functions/src/shared/articleChildSafety.ts",
+          "line": 20
+        },
+        {
+          "symbol": "findCategoryById",
+          "file": "functions/src/shared/categories.ts",
+          "line": 2669
+        }
+      ]
+    },
+    {
+      "name": "createArticleV2",
+      "kind": "http",
+      "previousRevision": "createarticlev2-00001-zux",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "createArticle",
+          "file": "functions/src/callable/products.ts",
+          "line": 425
+        },
+        {
+          "symbol": "declaredArticleHygiene",
+          "file": "functions/src/utils/articleHygiene.ts",
+          "line": 28
+        },
+        {
+          "symbol": "evaluateArticleHygieneInput",
+          "file": "functions/src/shared/articleHygiene.ts",
+          "line": 72
+        }
+      ]
+    },
+    {
+      "name": "getMyEligibility",
+      "kind": "http",
+      "previousRevision": "getmyeligibility-00002-dov",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "getMyEligibility",
+          "file": "functions/src/callable/eligibility.ts",
+          "line": 90
+        },
+        {
+          "symbol": "readSwapAgreementPreview",
+          "file": "functions/src/callable/eligibility.ts",
+          "line": 109
+        },
+        {
+          "symbol": "readSwapAgreementPreview",
+          "file": "functions/src/callable/swaps.ts",
+          "line": 413
+        },
+        {
+          "symbol": "readNewSwapSource",
+          "file": "functions/src/callable/swaps.ts",
+          "line": 353
+        },
+        {
+          "symbol": "validateArticlesAvailable",
+          "file": "functions/src/callable/swaps.ts",
+          "line": 124
+        },
+        {
+          "symbol": "articleHygieneRequirement",
+          "file": "functions/src/shared/articleHygiene.ts",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "name": "getPendingReportsV2",
+      "kind": "http",
+      "previousRevision": "getpendingreportsv2-00001-dub",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "getPendingReports",
+          "file": "functions/src/callable/shopModeration.ts",
+          "line": 1129
+        },
+        {
+          "symbol": "previewOrderModerationContinuation",
+          "file": "functions/src/callable/shopModeration.ts",
+          "line": 646
+        },
+        {
+          "symbol": "readOrderContinuationSource",
+          "file": "functions/src/utils/orderModeration.ts",
+          "line": 31
+        },
+        {
+          "symbol": "readProductReviewDocumentarySet",
+          "file": "functions/src/utils/orderModeration.ts",
+          "line": 32
+        },
+        {
+          "symbol": "readProductReviewDocumentarySet",
+          "file": "functions/src/utils/productReviewWorkflow.ts",
+          "line": 203
+        },
+        {
+          "symbol": "readProductReviewSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 73
+        },
+        {
+          "symbol": "readListingSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 50
+        },
+        {
+          "symbol": "readArticleChildSafetySource",
+          "file": "functions/src/utils/articleChildSafety.ts",
+          "line": 33
+        },
+        {
+          "symbol": "childSafetyCategory",
+          "file": "functions/src/shared/articleChildSafety.ts",
+          "line": 20
+        },
+        {
+          "symbol": "findCategoryById",
+          "file": "functions/src/shared/categories.ts",
+          "line": 2669
+        }
+      ]
+    },
+    {
+      "name": "getWalletInfo",
+      "kind": "http",
+      "previousRevision": "getwalletinfo-00013-hil",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "getWalletInfo",
+          "file": "functions/src/callable/wallet.ts",
+          "line": 353
+        },
+        {
+          "symbol": "readPurchaseRefundReleaseContext",
+          "file": "functions/src/utils/refundAllocation.ts",
+          "line": 165
+        },
+        {
+          "symbol": "readProductFinancialSource",
+          "file": "functions/src/utils/refundAllocation.ts",
+          "line": 204
+        },
+        {
+          "symbol": "readProductFinancialSource",
+          "file": "functions/src/utils/productReviewFinancial.ts",
+          "line": 41
+        },
+        {
+          "symbol": "readProductReviewDocumentarySet",
+          "file": "functions/src/utils/productReviewWorkflow.ts",
+          "line": 203
+        },
+        {
+          "symbol": "readProductReviewSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 73
+        },
+        {
+          "symbol": "readListingSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 50
+        },
+        {
+          "symbol": "readArticleChildSafetySource",
+          "file": "functions/src/utils/articleChildSafety.ts",
+          "line": 33
+        },
+        {
+          "symbol": "childSafetyCategory",
+          "file": "functions/src/shared/articleChildSafety.ts",
+          "line": 20
+        },
+        {
+          "symbol": "findCategoryById",
+          "file": "functions/src/shared/categories.ts",
+          "line": 2669
+        }
+      ]
+    },
+    {
+      "name": "proposeMultiSwapV2",
+      "kind": "http",
+      "previousRevision": "proposemultiswapv2-00002-lat",
+      "previousSourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "proposeMultiSwap",
+          "file": "functions/src/callable/swaps.ts",
+          "line": 448
+        },
+        {
+          "symbol": "readNewSwapSource",
+          "file": "functions/src/callable/swaps.ts",
+          "line": 353
+        },
+        {
+          "symbol": "validateArticlesAvailable",
+          "file": "functions/src/callable/swaps.ts",
+          "line": 124
+        },
+        {
+          "symbol": "articleHygieneRequirement",
+          "file": "functions/src/shared/articleHygiene.ts",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "name": "readSupportRequests",
+      "kind": "http",
+      "previousRevision": "readsupportrequests-00001-yif",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "readSupportRequests",
+          "file": "functions/src/callable/supportRequests.ts",
+          "line": 968
+        },
+        {
+          "symbol": "handleLateTransportRecovery",
+          "file": "functions/src/utils/lateTransportRecovery.ts",
+          "line": 230
+        },
+        {
+          "symbol": "current",
+          "file": "functions/src/utils/lateTransportRecovery.ts",
+          "line": 101
+        },
+        {
+          "symbol": "readProductReviewDocumentarySet",
+          "file": "functions/src/utils/productReviewWorkflow.ts",
+          "line": 203
+        },
+        {
+          "symbol": "readProductReviewSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 73
+        },
+        {
+          "symbol": "readListingSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 50
+        },
+        {
+          "symbol": "readArticleChildSafetySource",
+          "file": "functions/src/utils/articleChildSafety.ts",
+          "line": 33
+        },
+        {
+          "symbol": "childSafetyCategory",
+          "file": "functions/src/shared/articleChildSafety.ts",
+          "line": 20
+        },
+        {
+          "symbol": "findCategoryById",
+          "file": "functions/src/shared/categories.ts",
+          "line": 2669
+        }
+      ]
+    },
+    {
+      "name": "sellerCancelTransactionV2",
+      "kind": "http",
+      "previousRevision": "sellercanceltransactionv2-00001-xif",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "sellerCancelTransaction",
+          "file": "functions/src/callable/payments/disputes.ts",
+          "line": 1247
+        },
+        {
+          "symbol": "issueTransactionRefund",
+          "file": "functions/src/utils/refund.ts",
+          "line": 1051
+        },
+        {
+          "symbol": "applyEvidence",
+          "file": "functions/src/utils/refund.ts",
+          "line": 623
+        },
+        {
+          "symbol": "readProductFinancialSource",
+          "file": "functions/src/utils/productReviewFinancial.ts",
+          "line": 41
+        },
+        {
+          "symbol": "readProductReviewDocumentarySet",
+          "file": "functions/src/utils/productReviewWorkflow.ts",
+          "line": 203
+        },
+        {
+          "symbol": "readProductReviewSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 73
+        },
+        {
+          "symbol": "readListingSource",
+          "file": "functions/src/utils/productReviewSource.ts",
+          "line": 50
+        },
+        {
+          "symbol": "readArticleChildSafetySource",
+          "file": "functions/src/utils/articleChildSafety.ts",
+          "line": 33
+        },
+        {
+          "symbol": "childSafetyCategory",
+          "file": "functions/src/shared/articleChildSafety.ts",
+          "line": 20
+        },
+        {
+          "symbol": "findCategoryById",
+          "file": "functions/src/shared/categories.ts",
+          "line": 2669
+        }
+      ]
+    },
+    {
+      "name": "sendMeetupProposalV2",
+      "kind": "http",
+      "previousRevision": "sendmeetupproposalv2-00002-qep",
+      "previousSourceSha256": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "sendMeetupProposal",
+          "file": "functions/src/callable/offers.ts",
+          "line": 46
+        },
+        {
+          "symbol": "assertNewMeetupAdmission",
+          "file": "functions/src/utils/tradeAdmission.ts",
+          "line": 74
+        },
+        {
+          "symbol": "assertArticleHygieneAdmitted",
+          "file": "functions/src/utils/articleHygiene.ts",
+          "line": 6
+        },
+        {
+          "symbol": "articleHygieneRequirement",
+          "file": "functions/src/shared/articleHygiene.ts",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "name": "submitReportV2",
+      "kind": "http",
+      "previousRevision": "submitreportv2-00001-yig",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "submitReport",
+          "file": "functions/src/callable/shopModeration.ts",
+          "line": 1493
+        },
+        {
+          "symbol": "dispatchProductReview",
+          "file": "functions/src/callable/shopModeration.ts",
+          "line": 80
+        },
+        {
+          "symbol": "previewProductReviewAdmission",
+          "file": "functions/src/utils/productReviewAdmission.ts",
+          "line": 206
+        },
+        {
+          "symbol": "readArticleChildSafetySource",
+          "file": "functions/src/utils/articleChildSafety.ts",
+          "line": 33
+        },
+        {
+          "symbol": "childSafetyCategory",
+          "file": "functions/src/shared/articleChildSafety.ts",
+          "line": 20
+        },
+        {
+          "symbol": "findCategoryById",
+          "file": "functions/src/shared/categories.ts",
+          "line": 2669
+        }
+      ]
+    },
+    {
+      "name": "toggleArticleSoldV2",
+      "kind": "http",
+      "previousRevision": "togglearticlesoldv2-00001-sav",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "toggleArticleSold",
+          "file": "functions/src/callable/products.ts",
+          "line": 886
+        },
+        {
+          "symbol": "assertArticleHygieneAdmitted",
+          "file": "functions/src/utils/articleHygiene.ts",
+          "line": 6
+        },
+        {
+          "symbol": "articleHygieneRequirement",
+          "file": "functions/src/shared/articleHygiene.ts",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "name": "triageReportV2",
+      "kind": "http",
+      "previousRevision": "triagereportv2-00001-nid",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "triageReport",
+          "file": "functions/src/callable/shopModeration.ts",
+          "line": 1250
+        },
+        {
+          "symbol": "favorableArticleReview",
+          "file": "functions/src/callable/shopModeration.ts",
+          "line": 309
+        },
+        {
+          "symbol": "assertArticleHygieneAdmitted",
+          "file": "functions/src/utils/articleHygiene.ts",
+          "line": 6
+        },
+        {
+          "symbol": "articleHygieneRequirement",
+          "file": "functions/src/shared/articleHygiene.ts",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "name": "updateArticleV2",
+      "kind": "http",
+      "previousRevision": "updatearticlev2-00001-vil",
+      "previousSourceSha256": "819f2f650866c3929683bc20e3b778627587a7521103e6c4ec404ebd527f304a",
+      "sourceOverride": null,
+      "secretNames": [],
+      "posthogErasureEnabled": false,
+      "chain": [
+        {
+          "symbol": "updateArticle",
+          "file": "functions/src/callable/products.ts",
+          "line": 1022
+        },
+        {
+          "symbol": "articleHygieneEdit",
+          "file": "functions/src/callable/products.ts",
+          "line": 55
+        },
+        {
+          "symbol": "articleHygieneRequirement",
+          "file": "functions/src/shared/articleHygiene.ts",
+          "line": 27
+        }
+      ]
+    }
+  ],
+  "retainedExports": [
+    {
+      "name": "accountAccessIntake",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "accountErasureAppleWebCallback",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "addEligibilityReviewDetails",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "approveShop",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "assignUsername",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "cancelPendingTransactionV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "cancelSwapV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "checkExpoPushReceipts",
+      "kind": "cron",
+      "sourceOverride": null
+    },
+    {
+      "name": "checkTrackingStatus",
+      "kind": "http",
+      "sourceOverride": "checkTrackingStatusPhase1"
+    },
+    {
+      "name": "checkUsernameAvailability",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "completeAccountErasureAppleWeb",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "completeMeetupTransactionV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "confirmMeetupTransactionV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "confirmSwapReceptionV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "confirmSwapShippingV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "continueAccountErasure",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "createReviewV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "decideEligibilityReview",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "declareSellerActivityV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "declineSwapV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "deleteUserAccountV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "deliverOperationalNotices",
+      "kind": "cron",
+      "sourceOverride": null
+    },
+    {
+      "name": "dispatchOperationalNoticeOnCreate",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "ensureGeneralistZoneV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "eraseLateAccountStorage",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "escalatePrivacyIncidentToCAI",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "expirePhase1LocalOffers",
+      "kind": "cron",
+      "sourceOverride": null
+    },
+    {
+      "name": "expirePhase1LocalProposals",
+      "kind": "cron",
+      "sourceOverride": null
+    },
+    {
+      "name": "flagEligibilityForReview",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "generateEmbeddingOnCreate",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "generateEmbeddingOnUpdate",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "generateStyleProfile",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getActiveSwapPartyInfoV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getAdminEligibilityReview",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getAutomatedDecisionLog",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getEligibilityReview",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getFeaturedSellers",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getHomeFeed",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getLikedSellers",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getNewArrivals",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getPriceDrops",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getPrivacyIncidentsLog",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getSimilarProducts",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getStripeAccountStatus",
+      "kind": "http",
+      "sourceOverride": "getStripeAccountStatusPhase1"
+    },
+    {
+      "name": "getTrendingBrands",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getUserPublicProfile",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "getUserReviews",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "incrementProductViewV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "listAdminEligibilityReviews",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "listMyEligibilityReviews",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "manageAccountErasure",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "markSavedSearchViewedV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "notifyAffectedUsers",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "onArticleFavorited",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "onArticleInfoUpdated",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "onArticlePriceDropped",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "onArticleSoftDeleted",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "onArticleSold",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "onSwapCreated",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "onSwapStatusUpdated",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "onUserProfileUpdated",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "openSwapDispute",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "postChatSystemMessage",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "prepareAccountErasureAppleWeb",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "rateSwapV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "readPrivateArticleEvidence",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "readPrivateArticleMedia",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "readPrivateProfileMedia",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "recordPriceDrop",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "recordSignupConsentV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "rejectMeetupProposalV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "rejectShop",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "removeItemFromPartySecureV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "reportMeetupNoShowV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "reportPrivacyIncident",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "requestEligibilityReview",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "resolveSwapDispute",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "resumeAccountErasures",
+      "kind": "cron",
+      "sourceOverride": null
+    },
+    {
+      "name": "saveOnboardingPreferences",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "secureMyAccount",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "sendMessageNotification",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "sendOfferStatusNotification",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "setMarketingConsentV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "setSwapExchangeModeV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "startAccountErasureAppleWeb",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "suspendShop",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "toggleProductLikeV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "toggleSellerLike",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "updateSearchIndex",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "updateSellerArticlesCount",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "updateShopArticlesCount",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "updateUserStats",
+      "kind": "event",
+      "sourceOverride": null
+    },
+    {
+      "name": "uploadSwapPhotosV2",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "visualSearch",
+      "kind": "http",
+      "sourceOverride": null
+    },
+    {
+      "name": "withdrawArticlePrivacy",
+      "kind": "http",
+      "sourceOverride": null
+    }
+  ],
+  "explicitExclusions": {
+    "checkTrackingStatus": "Its active production target is checkTrackingStatusPhase1, not the provider implementation found by a graph that omits productionSourceOverrides.",
+    "getStripeAccountStatus": "Its active production target is getStripeAccountStatusPhase1.",
+    "generateStyleProfile": "No executable symbol-reference path to either changed source was found.",
+    "erasureFive": [
+      "deleteUserAccountV2",
+      "manageAccountErasure",
+      "continueAccountErasure",
+      "resumeAccountErasures",
+      "eraseLateAccountStorage"
+    ],
+    "backgroundFunctions": "No selected export is an Eventarc trigger or scheduler handler.",
+    "legacyServices77": "No legacy canonical service is added or reopened by this scope.",
+    "obsoleteSchedulerJobs17": "No scheduler mutation is part of this scope."
+  },
+  "configurationPreservation": {
+    "onlySelectedSecretBinding": {
+      "analyzeProductImage": [
+        "GEMINI_API_KEY"
+      ]
+    },
+    "selectedPosthogErasureEnabled": false,
+    "allOtherNativeEnvironmentParametersIamSecretVersionsIngressAndResourcesMustRemainExact": true,
+    "fiveErasurePinsSourceAndRevisionsMustRemainUnchanged": true
+  },
+  "erasureQualificationImplications": {
+    "historicalReceiptSha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+    "historicalQualifiedMatrixSha256": "800c5b898f3ec1c27491f6858c94503539b64bf8de04572dbc2e13b9a7f0be36",
+    "historicalFilesAndReceiptAreImmutable": true,
+    "runtimeComparison": "accountErasureQualification.ts:53 compares the receipt serverSourceSha256 with the erasure process environment, not with a caller client build or the source environment of the twenty other functions.",
+    "keepFiveEngineSources": "3e30943772c19cf2314b42e716450437906b98ef8be13614afdbf590c5d7ddde",
+    "catalogueAndHygieneChangeDoesNotEditErasureInventoryDefinition": true,
+    "engineRepublishOrRepinAutomaticallyRequiredByThisScope": false,
+    "requiredNewEvidence": "Separate immutable supplement: actual new source/revisions of20, unchanged95, preserved configuration and rules/control, exact source diff and unchanged write collections/contracts, and observed bound for previous invocations.",
+    "oldFreshReadbackCannotBeRelabeledCurrentAfterDeployment": true,
+    "doNotReuseOldServerSourceHashForNewPackages": true,
+    "optionalAttestationRenewal": "If an independently reviewed release policy requires a renewed attestation, create a new receipt/matrix separately; do not overwrite the historical receipt or extend its expiry silently."
+  },
+  "preparationMechanism": {
+    "helpers": [
+      {
+        "path": "/tmp/seconde-v1-git-release-20261125/scripts/prepare-phase1-functions.cjs",
+        "sha256": "d995eb5e148a899372e815aea1e4ae003fcfc54a937b203bfc0b0daaafc243dd"
+      },
+      {
+        "path": "/tmp/seconde-v1-git-release-20261125/scripts/check-phase1-stage.cjs",
+        "sha256": "168dc8eb13d2b7d0b1ca763eb5597ea5b29e07684782871348558cc7507e75b9"
+      },
+      {
+        "path": "/tmp/seconde-v1-git-release-20261125/scripts/deploy-phase1-stage.cjs",
+        "sha256": "200764c8a6e8b44f6c60de05c45bca2b7946ca0593a1cd563ffcc23561421e4d"
+      }
+    ],
+    "historicalNativeProfileAdaptationExample": "/tmp/seconde-v1-prod-alignment-deployment-20261126/prepare-profiles.py",
+    "historicalScopedDeploymentExample": "/tmp/seconde-v1-prod-alignment-deployment-20261126/deploy.cjs",
+    "reuseHistoricalScriptsUnmodified": false,
+    "steps": [
+      "Build functions from the corrected candidate, not the stale root checkout.",
+      "Prepare a new isolated complete stage using prepare-phase1-functions.cjs prod complete with a new allowed private path.",
+      "Derive new scoped profiles/wrappers from current native metadata; select only these20 and preserve production overrides and exact native parameters.",
+      "Freeze src/lib/wrapper after applying the reviewed scoped wrapper; check SDK metadata and source digests.",
+      "Deploy only the exact selected20 with explicit --project prod; never --force.",
+      "Read back native source archives/revisions/configuration/IAM/100percent traffic,95 unchanged, and observe the previous-invocation timeout bound."
+    ],
+    "serverSourceHashDefinition": "SHA256(JSON.stringify(sorted staged src path/sha256 inventory)), calculated by scripts/prepare-phase1-functions.cjs:78-83 AFTER source-copy filtering.",
+    "testFilteringCorrection": "The preparation copy at lines36-40 excludes files whose names end in .test.ts or .spec.ts. Adding such files alone does not change the staged server hash. Other helper/fixture files under src without those suffixes remain part of the inventory.",
+    "avoidStaleLib": "The compiled lib copied to staging must come from the corrected candidate build.",
+    "oldProfileScriptsHaveHardcodedOldDigestAndTargets": "Historical prepare-profiles.py/deploy.cjs pin old3e and26 targets; prepare new scoped copies instead of executing them unmodified."
+  },
+  "noCloudCallsByThisAnalysis": true,
+  "noBusinessInvocation": true,
+  "noProductSourceMutation": true,
+  "noGitMutation": true
+}

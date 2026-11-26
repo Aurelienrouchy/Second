@@ -1,0 +1,128 @@
+{
+  "protocol": "phase1_category_server_alignment_verification_v1",
+  "verifiedAt": "2026-11-26T15:32:07.076107+00:00",
+  "candidateRoot": "/tmp/seconde-v1-git-release-20261125",
+  "codeFrozen": true,
+  "runtimeFiles": [
+    {
+      "path": "functions/src/shared/categories.ts",
+      "sha256": "19a99c85f2e70bc606f671ac02742b94703812845e69ed719df876794356d37d"
+    },
+    {
+      "path": "functions/src/shared/articleHygiene.ts",
+      "sha256": "d9c1ed674764097af40fe371e990ec567b2eb7347a653b5345d8786a5a15b05f"
+    }
+  ],
+  "editedTestAndDocumentationFiles": [
+    {
+      "path": "functions/src/shared/categories.parity.test.ts",
+      "sha256": "b199624ca38384559d5756f948c8119f30177e48290b8150864dcbe77fdd94b2"
+    },
+    {
+      "path": "functions/src/callable/listingPublication.test.ts",
+      "sha256": "2c03d7505a6973b0ae2cee0ea6e3ea3f1becb7e72dc35c35c160a08d29eb9a3b"
+    },
+    {
+      "path": "functions/src/callable/phase1LocalAgreements.test.ts",
+      "sha256": "d9b34a86463d5224b82eafdac6f21f799b95e99554bac4741431d89efb819105"
+    },
+    {
+      "path": "CODEBASE_INDEX.md",
+      "sha256": "a6c30e7237c1a737912cc7a8c1e7e07a67e1c227ea141c4385736b9af54c31c3"
+    }
+  ],
+  "contract": {
+    "verifiedAt": "2026-11-26T15:29:19.837Z",
+    "oldLeaves": 968,
+    "newLeaves": 1263,
+    "commonLeafDataPathsHygieneChildSafetyUnchanged": 965,
+    "formerLeavesRetainedAsNavigationParents": [
+      "men_shoes",
+      "men_accessories",
+      "men_grooming"
+    ],
+    "newLeavesByRoot": {
+      "men": 39,
+      "home": 259
+    },
+    "oldAiHelperExportsPreserved": true,
+    "runtimeFiles": [
+      {
+        "path": "functions/src/shared/categories.ts",
+        "sha256": "19a99c85f2e70bc606f671ac02742b94703812845e69ed719df876794356d37d"
+      },
+      {
+        "path": "functions/src/shared/articleHygiene.ts",
+        "sha256": "d9c1ed674764097af40fe371e990ec567b2eb7347a653b5345d8786a5a15b05f"
+      }
+    ]
+  },
+  "redBeforeGreen": {
+    "total": 44,
+    "passed": 27,
+    "failed": 17,
+    "sha256": "e9edbfa8cff9ce096c8d972427908133cc16729005d1987c482aebe214c47a44",
+    "actualMissingPostersAndMensShoesPublicationRefusalsReproduced": true
+  },
+  "finalTests": {
+    "files": 5,
+    "total": 253,
+    "passed": 253,
+    "failed": 0,
+    "skipped": 0,
+    "normalExitCode": 0,
+    "sha256": "78550c947e4e91a16af242633e9a8332ded4a556a0dc18f4ba92d8946605980e",
+    "suites": [
+      {
+        "file": "listingPublication.test.ts",
+        "tests": 30,
+        "status": "passed"
+      },
+      {
+        "file": "phase1LocalAgreements.test.ts",
+        "tests": 194,
+        "status": "passed"
+      },
+      {
+        "file": "ai.category.test.ts",
+        "tests": 6,
+        "status": "passed"
+      },
+      {
+        "file": "categories.parity.test.ts",
+        "tests": 14,
+        "status": "passed"
+      },
+      {
+        "file": "categories.test.ts",
+        "tests": 9,
+        "status": "passed"
+      }
+    ]
+  },
+  "functionsTypecheckExitCode": 0,
+  "functionsBuildExitCode": 0,
+  "financialWriterRegistryUnchanged": "2d8f851d1d9d1ddda8a1df7b9ad9fbe7ae22dbdedbf70031efbb3cdb6d820918",
+  "oldAiHelperApisRetained": true,
+  "newCosmeticLeavesRequireNewAndSealedDeclaration": true,
+  "mixedCareRequiresExplicitNature": true,
+  "noArticleChildSafetyRuntimeChangeRequired": true,
+  "unrelatedLegacySuiteNotRepaired": {
+    "file": "swaps.addItem.test.ts",
+    "beforeEachRefusesOldPersonalItemV2MissingCurrentCounterfeitDeclaration": true,
+    "inheritedCases": 58,
+    "ownTwoTemporaryCasesRemovedOnly": true,
+    "noSuiteGreenClaim": true
+  },
+  "fixtureOnlyClockCorrection": "listingPublication catalogue group uses stable fake server time because the in-memory adapter creates updateTime from Timestamp.now at every read; no product runtime changed for this fixture issue.",
+  "noGitMutationOrDeploy": true,
+  "noCloudOrBusinessDataMutation": true,
+  "priorSdk57ErasureSourceProofUnmodified": true,
+  "releaseLimits": [
+    "Cloud Dev/Prod still require explicitly scoped deployment by Root before native/server qualification.",
+    "The changed catalogue and hygiene module are consumed by the app: regenerate actual source/archive and build39/20 provenance; do not relabel38/19.",
+    "Root must review actual changed active exports and qualification/matrix consequences; existing immutable matrix800c and receipt3eb must not be rewritten.",
+    "253 focused checks are not a claim that the historical globally red Functions suite is green.",
+    "No device/Metro/store actions were performed by this agent."
+  ]
+}
