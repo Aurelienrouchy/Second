@@ -1,0 +1,38 @@
+{
+  "protocol": "phase1_sdk56_runtime_release_hold_v1",
+  "verifiedAt": "2026-11-26T14:07:45.691247+00:00",
+  "affectedCommit": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+  "affectedQaSourceSha256": "95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b",
+  "affectedStoreBuilds": {
+    "ios": "1.0.2(37)",
+    "android": "1.0.2(18)"
+  },
+  "bothEasBuildsFinished": true,
+  "ios37UploadedAndValid": true,
+  "ios37AppReviewSubmitted": false,
+  "android18UploadedToPlay": false,
+  "releaseHeld": true,
+  "reason": "Confirmed applicable Hermes V1 memory regression in ExpoSDK56 with Worklets/Reanimated; static artifact PASS does not qualify runtime memory.",
+  "installed": {
+    "expo": "56.0.23",
+    "reactNative": "0.85.3",
+    "hermesCompilerAndIosEngine": "250829098.0.10",
+    "worklets": "0.8.3",
+    "reanimated": "4.3.1"
+  },
+  "vendorAffectedHermesUpperBound": "250829098.0.15",
+  "vendorSupportedCorrection": "Coordinated SDK57 migration; no SDK56 or RN0.85.x backport.",
+  "primarySources": [
+    "https://expo.dev/changelog/sdk-56#known-regressions",
+    "https://expo.dev/changelog/sdk-57",
+    "https://github.com/expo/expo/issues/46519"
+  ],
+  "observedAppMemoryCrashClaimed": false,
+  "minimumRecommendedSdk57WithXcode27": "57.0.23 and SceneSupport",
+  "isolatedUpgradeWorktree": "/tmp/seconde-v1-sdk57-20261126",
+  "isolatedUpgradeBranch": "codex/v1-sdk57-runtime-20261126",
+  "upgradeAgent": "sdk57_runtime_fix",
+  "noProductionServerMutationRequiredForThisDependencyFix": true,
+  "oldReceipt3ebAndWriterMatrixUnmodified": true,
+  "newNativeAndStoreBuildsRequiredAfterUpgrade": true
+}

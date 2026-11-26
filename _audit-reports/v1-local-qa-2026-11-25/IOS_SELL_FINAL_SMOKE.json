@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "kind": "ios-final-sell-smoke",
+  "qualification": "PARTIAL",
+  "createdAt": "2026-11-26T13:31:14.953006+00:00",
+  "source": {
+    "runtimeSha256": "95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b",
+    "runtimeFileCount": 1064,
+    "metroProjectRoot": "/Users/aurelien/dev/Second",
+    "metroPort": 8091,
+    "environment": "Seconde Dev / Phase1 QA / no production data"
+  },
+  "device": {
+    "udid": "AD295C32-F04E-4E31-8B95-8C60C81E0E06",
+    "model": "iPhone 17 Pro Max",
+    "os": "iOS 26.5",
+    "bundleId": "com.seconde.app.dev",
+    "logicalDeviceId": "caa2e7684d8727b109e413c09ae995c724ac28cd",
+    "physicalIPhoneUntouched": true
+  },
+  "steps": [
+    {
+      "name": "freshRuntimeConnection",
+      "status": "PASS",
+      "evidence": "Normal app restart and debugger_status report projectRoot, iPhone17ProMax and dev bundle; loadedScripts22, sourceMapReadytrue; fresh Metro iOS bundle."
+    },
+    {
+      "name": "homeToSell",
+      "status": "PASS",
+      "timestampMs": 1795699765234,
+      "evidence": "UIKit label Vendre frame x176 y874 w88 h48 on440x956; documented native hit-test plus actual screenshot used. Native describe had zero x/y. Result: camera permission denied UI, explicit Gallery option."
+    },
+    {
+      "name": "openNativeGallery",
+      "status": "PASS",
+      "timestampMs": 1795699806075,
+      "evidence": "Native label Selectionner depuis la galerie frame x141.33 y591.67 w185.33 h17.67. Picker actual screenshot y4c-100/AX2wb-72; Select up to5photos, public Seconde logo visible. No selection made."
+    },
+    {
+      "name": "photoPersistsAfterForeground",
+      "status": "NOT_EXECUTED",
+      "reason": "Native system picker has no usable AX elements/frames in this session."
+    },
+    {
+      "name": "singleExitConfirmationAndResumeDraft",
+      "status": "NOT_EXECUTED",
+      "reason": "Blocked before known public photo selection."
+    },
+    {
+      "name": "pricingBackPersistence",
+      "status": "NOT_EXECUTED",
+      "reason": "Blocked before known public photo selection."
+    }
+  ],
+  "toolingObservations": [
+    {
+      "status": "BLOCKED",
+      "tool": "Argent describe",
+      "detail": "AXRuntime empty; native-devtools fallback exposes app static text at zero x/y, not native picker. Omitting bundle hint same result. Native UICollectionViewCell search returned0matches."
+    },
+    {
+      "status": "AUTO_REVIEW_REJECTED",
+      "tool": "stop_all_simulator_servers scoped only to assigned simulator",
+      "detail": "Rejected before execution because service stop could affect other sessions without explicit cleanup request. No stop, no alternative kill, no retry."
+    },
+    {
+      "status": "UNAVAILABLE",
+      "tool": "Expo automation_find_view",
+      "detail": "Read-only attempt returned needs device target. Tool schema exposes no projectRoot; no connected local tunnel identified. No billed cloud session started."
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "_audit-reports/v1-local-qa-2026-11-25/screens/ios-final95b-camera-denied-gallery-available.png",
+      "sha256": "d3a34e3abf964974d0fbecfbe81ea21126e56aaca75b2092fd8f4145f12c80da",
+      "description": "No photo displayed, camera denied; explicit Gallery option visible."
+    }
+  ],
+  "logs": {
+    "path": "/tmp/seconde-v1-local-app-20261125/metro-8091.log",
+    "startByte": 92678,
+    "endByte": 93180,
+    "windowSha256": "61e2ee1c4de6f4f3ed73817753b8ec7e9eb9475b3a538f6eb8140222f2f45a33",
+    "newErrorLines": 0,
+    "newQueryCacheLines": 0,
+    "warnLines": 0,
+    "scope": "Shared Metro8091; not exclusively attributed to iOS."
+  },
+  "limitations": [
+    "This is a partial iOS simulator smoke, not proof of photo persistence, exit/resume or Pricing Back on95b.",
+    "Android final95b report independently covers those invariants and dedicated publish/edit/sold/relist/remove flows; no cross-platform pass inferred.",
+    "No known public logo selected in iOS picker; picker left open. No private photos read or selected. Picker screenshot is not copied durably.",
+    "No source, auth, production or store mutation; no simulator or Metro service stopped."
+  ]
+}

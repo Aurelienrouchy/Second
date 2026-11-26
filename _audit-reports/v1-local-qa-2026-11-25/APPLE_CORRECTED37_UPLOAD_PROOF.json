@@ -1,0 +1,34 @@
+{
+  "protocol": "phase1_corrected_ios37_upload_v1",
+  "verifiedAt": "2026-11-26T13:55:23.909350+00:00",
+  "gitCommit": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+  "qaSourceSha256": "95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b",
+  "easBuildId": "0f8f2cee-7114-4ae9-b7bf-6d4f78a4241b",
+  "expoSubmitId": "96191df0-8429-4f15-8c42-39b8e6d03a0e",
+  "expoSubmitState": "FINISHED",
+  "uploadCompletedAt": "2026-11-26T13:45:07.292Z",
+  "appId": "6757828492",
+  "versionId": "ed2f8189-8646-4d9a-b3f8-34e5f0a00497",
+  "version": "1.0.2",
+  "releaseType": "AFTER_APPROVAL",
+  "appleTargetBuild": {
+    "id": "20269e75-22d6-470f-8c4f-9c7b0c1def32",
+    "buildNum": "37",
+    "processingState": "VALID",
+    "expired": false,
+    "usesNonExemptEncryption": false,
+    "preReleaseVersionId": "51eabd97-c524-4b64-8885-ced3c9657e69",
+    "preReleaseVersion": "1.0.2"
+  },
+  "attachedBuildNumber": "35",
+  "appStoreState": "DEVELOPER_REJECTED",
+  "new37Attached": false,
+  "new37SentForAppReview": false,
+  "published": false,
+  "noNewCredentialsOrTestflightGroupsCreated": true,
+  "readbackSha256": "7e22bf16fe31a3ca68d85269a2a7e91e144e3d0fd4512e97d1190422d280f8bb",
+  "limits": [
+    "Successful upload and VALID processing are not App Review submission or App Store publication.",
+    "Latest iOS95b smoke remains PARTIAL pending Mac unlock."
+  ]
+}

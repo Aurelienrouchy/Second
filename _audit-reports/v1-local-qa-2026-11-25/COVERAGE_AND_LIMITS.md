@@ -4,6 +4,14 @@ Point de lecture app : **23 h 25 Toronto**, clients Dev locaux contre **Seconde 
 
 Les plages de [JOURNEY_MATRIX.md](JOURNEY_MATRIX.md) contiennent **117 IDs distincts**, et non113 : E5+A12+D10+L10+C8+M8+S12+R4+P14+N5+H6+Z7+F7+T9. Aucun ID n’est retiré. La matrice partagée reste inchangée dans cette consolidation ; les observations et limites sont détaillées ci-dessous, sans transformer une suite unitaire en preuve de geste natif.
 
+## Complément du 26 novembre — dernier gel95b
+
+Source QA finale `95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b` (1064fichiers), commit poussé `4d6ff92a6596a6ddd5147e3df97dfff19d2683a7`. Les écritures historiques ci-dessous restent attribuées à leurs sources d'origine. Root a confirmé tous les digests et seulement cinq changements runtime de vente. Sur95b :224suitesJest/2208tests et329Vitest passent, TypeScriptapp/frontières0, sortie normale sans forceExit ; voir APP_FINAL_SELL_VERIFICATION.json.
+
+ANDROID_SELL_FINAL_RETEST.json documente huit cas natifs : photo galerie publiclogo persistante (L02/T06), sortie unique/sauvegarde/reprise (L05), vraie requêteIA explicitement sur ce logo (L03, sans certification de reconnaissance vêtement), Pricing retour matériel avec12CAD/MileEnd préservés, publicationL06, éditionprix13CAD L07, vendu/remis envente L08, retraitde cette seule annoncejetable et ancienlien indisponible L09. Deux anciennesfixtures préservées ; pas d'ordre/paiement/livraison. Logs bornés88242–92678 :0ERROR/query et9WARNReanimated. Les anciens échecs0454galerie et2c324sortie restent séparés, sans réécriture.
+
+ANDROID_EXTENDED_FLOWS.json complète D03 (filtres conservés/reset ; résultat vide donc composition non certifiée), D08 (profilpublic/suivre/retirer) et A05 (saisieinvalide refusée puis demande neutre, sans livraisonmail certifiée). Dernier smoke communiOS95b en cours ; iPhone momentanément sans liaisonUSB. Apple/Google réels et les autres limites natives des lignes ci-dessous restent non certifiés. Pas de prétention117PASS.
+
 ## Ce qui a réellement été exécuté
 
 | Niveau | Résultat / source | Portée et limite |

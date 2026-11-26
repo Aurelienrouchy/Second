@@ -1,0 +1,63 @@
+{
+  "protocol": "phase1_final_production_archive_supplement_v1",
+  "verifiedAt": "2026-11-26T13:27:47.627270+00:00",
+  "qaSourceSha256": "95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b",
+  "productionClientSourceSha256": "3a901113723e86baf4fbaf433850f47c3fbe6dc5d14f491aee0d4162a567463b",
+  "source": {
+    "protocol": "phase1_production_eas_client_archive_v2",
+    "gitCommit": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+    "archiveInventorySha256": "3d453cb928d9a3582f689906cbaf165eb8d48acc16836d83614b86d600add461",
+    "archiveFiles": 2075,
+    "buildProfile": "production",
+    "environment": "production",
+    "distribution": "STORE",
+    "firebaseProject": "seconde-b47a6",
+    "bundleIdentifier": "com.seconde.app",
+    "appVersion": "1.0.2",
+    "paymentsEnabled": false,
+    "providerShippingEnabled": false,
+    "commerceTestMode": false,
+    "emulatorsEnabled": false,
+    "phase1QaFlag": false,
+    "nativeProductionFirebaseServicesMatch": true,
+    "nativeNewAnalyticsCollectionClosedByProductionCode": true,
+    "runtimeFileMatches": 1063,
+    "canonicalPackageManager": "npm",
+    "intentionallyExcludedSourceProofPath": "yarn.lock"
+  },
+  "easAcceptedBuilds": [
+    {
+      "id": "a06abdda-db55-4496-9e67-b6fbea1a6ad4",
+      "platform": "ANDROID",
+      "status": "NEW",
+      "appVersion": "1.0.2",
+      "appBuildVersion": "18",
+      "buildProfile": "production",
+      "distribution": "STORE",
+      "gitCommitHash": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+      "createdAt": "2026-11-26T13:27:02.276Z"
+    },
+    {
+      "id": "0f8f2cee-7114-4ae9-b7bf-6d4f78a4241b",
+      "platform": "IOS",
+      "status": "NEW",
+      "appVersion": "1.0.2",
+      "appBuildVersion": "37",
+      "buildProfile": "production",
+      "distribution": "STORE",
+      "gitCommitHash": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+      "createdAt": "2026-11-26T13:27:11.502Z"
+    }
+  ],
+  "bothInspectedPlatformArchiveContentsIdentical": true,
+  "configurationInActualBuildContext": true,
+  "sourceArchiveStrongPatternFindings": 0,
+  "signingMaterialOrPrivateEnvironmentFilesInArchive": false,
+  "artifactCompilationCompleteVerified": false,
+  "historicalSource211AndReceipt3ebUnmodified": true,
+  "limits": [
+    "Accepted jobs and inspected source archives are verified; compiled37/18artifacts require separate inspection.",
+    "QA95b source fingerprint is a component-match input, not relabeled as Production.",
+    "Real provider login remains unverified."
+  ]
+}

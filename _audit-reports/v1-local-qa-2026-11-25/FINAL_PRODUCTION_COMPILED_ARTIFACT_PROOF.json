@@ -1,0 +1,469 @@
+{
+  "scope": "Static compiled identity, production configuration and feature flags only; not overall release qualification.",
+  "releaseRuntimeQualification": "NOT_ASSESSED",
+  "schemaVersion": 1,
+  "kind": "final-production-compiled-artifact-proof",
+  "qualification": "PASS",
+  "verifiedAt": "2026-11-26T13:59:00.953771+00:00",
+  "provenance": {
+    "qaRuntimeSha256": "95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b",
+    "productionRuntimeSha256": "3a901113723e86baf4fbaf433850f47c3fbe6dc5d14f491aee0d4162a567463b",
+    "gitCommit": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+    "archiveInventorySha256": "3d453cb928d9a3582f689906cbaf165eb8d48acc16836d83614b86d600add461"
+  },
+  "artifacts": {
+    "ios": {
+      "easBuildId": "0f8f2cee-7114-4ae9-b7bf-6d4f78a4241b",
+      "buildNumber": "37",
+      "version": "1.0.2",
+      "path": "/tmp/seconde-v1-final-release-20261126/production-0f8f2cee-7114-4ae9-b7bf-6d4f78a4241b.ipa",
+      "sha256": "5a99722e4f1fecb88e9b89e847d78470dc8827b3301742762b22796808a67c78",
+      "sizeBytes": 49934842,
+      "checks": [
+        {
+          "name": "identity",
+          "passed": true,
+          "evidence": {
+            "CFBundleIdentifier": "com.seconde.app",
+            "CFBundleShortVersionString": "1.0.2",
+            "CFBundleVersion": "37",
+            "MinimumOSVersion": "16.4",
+            "UIDeviceFamily": [
+              1
+            ]
+          }
+        },
+        {
+          "name": "version",
+          "passed": true,
+          "evidence": {
+            "version": "1.0.2",
+            "build": "37"
+          }
+        },
+        {
+          "name": "nativeFirebaseProduction",
+          "passed": true,
+          "evidence": {
+            "projectId": "seconde-b47a6",
+            "bundleId": "com.seconde.app",
+            "senderId": "628214013296",
+            "analyticsEnabled": false,
+            "adsEnabled": false
+          }
+        },
+        {
+          "name": "expoEmbeddedConfigProduction",
+          "passed": true,
+          "evidence": {
+            "appEnvironment": "production",
+            "firebaseProjectId": "seconde-b47a6",
+            "scheme": "seconde",
+            "bundleIdentifier": "com.seconde.app",
+            "version": "1.0.2",
+            "buildNumber": "1",
+            "sha256": "73c32ffcac42dba70a6a091ed3e26a67faf906fad55c86f6d65a2691d8fa861b"
+          }
+        },
+        {
+          "name": "compiledRuntimeFlags",
+          "passed": true,
+          "evidence": {
+            "qualified": true,
+            "format": "Hermes bytecode",
+            "bytecodeVersion": 98,
+            "officialHermesDisassemblyExitCode": 0,
+            "executed": false,
+            "staticObservations": {
+              "phase1QaEnabled": false,
+              "newPaymentsEnabled": false,
+              "providerShippingEnabled": false,
+              "commerceTestModeEnabled": false,
+              "posthogCaptureKeyEmpty": true
+            },
+            "observationBasis": "Fresh iOS37 Hermes98 disassembly. Feature module initialization writes constant false to QA slot0, folds shipping and payments environment gates to false and commerce-test gate to false; PostHog API-key slot0 is the empty string. Expo Constants and native Firebase configuration independently target Production. This does not execute application code.",
+            "evidence": {
+              "featureFlagModule": {
+                "lineStart": 359904,
+                "lineEnd": 360159,
+                "sha256": "d004cdf0545fe2ea0e77f05ed0c01292468629221b88701693815dcec038580d"
+              },
+              "posthogModule": {
+                "lineStart": 360160,
+                "lineEnd": 360204,
+                "sha256": "0d8b638da3c9aa520b096a81f18be7ccd842994d1e8681d386bb1e1e8a16fc8c"
+              }
+            },
+            "limitations": [
+              "Runtime resolver object constant buffers not independently decoded; embedded Expo and native Firebase config directly prove production target.",
+              "This is static inspection, not an on-device production flow test."
+            ]
+          }
+        },
+        {
+          "name": "artifactSha256",
+          "passed": true,
+          "evidence": {
+            "sha256": "5a99722e4f1fecb88e9b89e847d78470dc8827b3301742762b22796808a67c78",
+            "sizeBytes": 49934842
+          }
+        }
+      ],
+      "nativeFirebase": {
+        "projectId": "seconde-b47a6",
+        "bundleId": "com.seconde.app",
+        "senderId": "628214013296",
+        "analyticsEnabled": false,
+        "adsEnabled": false
+      },
+      "expoConfig": {
+        "appEnvironment": "production",
+        "firebaseProjectId": "seconde-b47a6",
+        "scheme": "seconde",
+        "bundleIdentifier": "com.seconde.app",
+        "version": "1.0.2",
+        "buildNumber": "1",
+        "sha256": "73c32ffcac42dba70a6a091ed3e26a67faf906fad55c86f6d65a2691d8fa861b"
+      },
+      "compiledJavascript": {
+        "bytes": 17868789,
+        "sha256": "aa89a335c5224fb07f59b1083c4631fac711dd0398c753a8491eb3e5108f14eb",
+        "magic": "c61fbc03c103191f",
+        "bytecodeVersion": 98,
+        "executed": false,
+        "qualified": true,
+        "format": "Hermes bytecode",
+        "officialHermesDisassemblyExitCode": 0,
+        "staticObservations": {
+          "phase1QaEnabled": false,
+          "newPaymentsEnabled": false,
+          "providerShippingEnabled": false,
+          "commerceTestModeEnabled": false,
+          "posthogCaptureKeyEmpty": true
+        },
+        "observationBasis": "Fresh iOS37 Hermes98 disassembly. Feature module initialization writes constant false to QA slot0, folds shipping and payments environment gates to false and commerce-test gate to false; PostHog API-key slot0 is the empty string. Expo Constants and native Firebase configuration independently target Production. This does not execute application code.",
+        "evidence": {
+          "featureFlagModule": {
+            "lineStart": 359904,
+            "lineEnd": 360159,
+            "sha256": "d004cdf0545fe2ea0e77f05ed0c01292468629221b88701693815dcec038580d"
+          },
+          "posthogModule": {
+            "lineStart": 360160,
+            "lineEnd": 360204,
+            "sha256": "0d8b638da3c9aa520b096a81f18be7ccd842994d1e8681d386bb1e1e8a16fc8c"
+          }
+        },
+        "limitations": [
+          "Runtime resolver object constant buffers not independently decoded; embedded Expo and native Firebase config directly prove production target.",
+          "This is static inspection, not an on-device production flow test."
+        ]
+      },
+      "easSource": {
+        "status": "FINISHED",
+        "gitCommitHash": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+        "buildProfile": "production",
+        "distribution": "STORE",
+        "createdAt": "2026-11-26T13:27:11.502Z",
+        "completedAt": "2026-11-26T13:37:32.382Z"
+      },
+      "bundleIdentifier": "com.seconde.app",
+      "embeddedOta": {
+        "platform": "IOS",
+        "artifactSha256": "5a99722e4f1fecb88e9b89e847d78470dc8827b3301742762b22796808a67c78",
+        "expoPlists": [
+          {
+            "path": "Payload/Seconde.app/Expo.plist",
+            "sha256": "05ba13f24655445d029d47b626ac23ce8003e2e0722b7f8926b82b89c94ec51b",
+            "values": {
+              "EXUpdatesEnabled": false,
+              "EXUpdatesCheckOnLaunch": "ALWAYS",
+              "EXUpdatesLaunchWaitMs": 0
+            },
+            "presentKeys": [
+              "EXUpdatesCheckOnLaunch",
+              "EXUpdatesEnableBsdiffPatchSupport",
+              "EXUpdatesEnabled",
+              "EXUpdatesLaunchWaitMs"
+            ]
+          }
+        ],
+        "updatesNativeFrameworkPresent": false
+      }
+    },
+    "android": {
+      "easBuildId": "a06abdda-db55-4496-9e67-b6fbea1a6ad4",
+      "buildNumber": "18",
+      "version": "1.0.2",
+      "path": "/tmp/seconde-v1-final-release-20261126/production-a06abdda-db55-4496-9e67-b6fbea1a6ad4.aab",
+      "sha256": "dc55528be61807fc9fb99ac86720828849b5461e01155a3e05065112f5137ec1",
+      "sizeBytes": 142225014,
+      "checks": [
+        {
+          "name": "identity",
+          "passed": true,
+          "evidence": {
+            "package": "com.seconde.app",
+            "versionName": "1.0.2",
+            "versionCode": 18
+          }
+        },
+        {
+          "name": "version",
+          "passed": true,
+          "evidence": {
+            "package": "com.seconde.app",
+            "versionName": "1.0.2",
+            "versionCode": 18
+          }
+        },
+        {
+          "name": "nativeFirebaseProduction",
+          "passed": true,
+          "evidence": {
+            "gcm_defaultSenderId": [
+              "628214013296"
+            ],
+            "google_app_id": [
+              "1:628214013296:android:af3e0444ea4b73a7dd83b5"
+            ],
+            "google_storage_bucket": [
+              "seconde-b47a6.firebasestorage.app"
+            ],
+            "project_id": [
+              "seconde-b47a6"
+            ]
+          }
+        },
+        {
+          "name": "expoEmbeddedConfigProduction",
+          "passed": true,
+          "evidence": {
+            "appEnvironment": "production",
+            "firebaseProjectId": "seconde-b47a6",
+            "scheme": "seconde",
+            "package": "com.seconde.app",
+            "version": "1.0.2",
+            "sha256": "73c32ffcac42dba70a6a091ed3e26a67faf906fad55c86f6d65a2691d8fa861b"
+          }
+        },
+        {
+          "name": "compiledRuntimeFlags",
+          "passed": true,
+          "evidence": {
+            "qualified": true,
+            "format": "Hermes bytecode",
+            "bytecodeVersion": 98,
+            "officialHermesDisassemblyExitCode": 0,
+            "executed": false,
+            "staticObservations": {
+              "phase1QaEnabled": false,
+              "newPaymentsEnabled": false,
+              "providerShippingEnabled": false,
+              "commerceTestModeEnabled": false,
+              "posthogCaptureKeyEmpty": true
+            },
+            "observationBasis": "Fresh Android18 Hermes98 disassembly. Feature module initialization writes constant false to QA slot0, folds shipping and payments gates to false and commerce-test gate to false; PostHog API-key slot0 is the empty string. Native Firebase resources and embedded Expo Constants independently target Production. This inspection does not execute application code.",
+            "evidence": {
+              "featureFlagModule": {
+                "lineStart": 366529,
+                "lineEnd": 366783,
+                "sha256": "42fcbd617a5ae5ad9496bd25f5255b227fa8d4836fd18d304971b3212aa3781a"
+              },
+              "posthogModule": {
+                "lineStart": 366784,
+                "lineEnd": 366827,
+                "sha256": "c964ac6f9479e6b2d54467659ba0cc79ee9f59030450e79df5d1757d41cf55af"
+              }
+            },
+            "limitations": [
+              "Hermes bytecode version98 and successful disassembly are not a verdict on Expo Doctor Hermes V1 regression warnings or release runtime correctness.",
+              "This is static inspection, not an on-device production flow test."
+            ]
+          }
+        },
+        {
+          "name": "artifactSha256",
+          "passed": true,
+          "evidence": {
+            "sha256": "dc55528be61807fc9fb99ac86720828849b5461e01155a3e05065112f5137ec1",
+            "sizeBytes": 142225014
+          }
+        }
+      ],
+      "nativeFirebase": {
+        "gcm_defaultSenderId": [
+          "628214013296"
+        ],
+        "google_app_id": [
+          "1:628214013296:android:af3e0444ea4b73a7dd83b5"
+        ],
+        "google_storage_bucket": [
+          "seconde-b47a6.firebasestorage.app"
+        ],
+        "project_id": [
+          "seconde-b47a6"
+        ]
+      },
+      "expoConfig": {
+        "appEnvironment": "production",
+        "firebaseProjectId": "seconde-b47a6",
+        "scheme": "seconde",
+        "package": "com.seconde.app",
+        "version": "1.0.2",
+        "sha256": "73c32ffcac42dba70a6a091ed3e26a67faf906fad55c86f6d65a2691d8fa861b"
+      },
+      "compiledJavascript": {
+        "bytes": 14977988,
+        "sha256": "c32fc1141f935d00666102bd286eb106f6bae56b0698bf63f7dcd9cf41b97a44",
+        "magic": "c61fbc03c103191f",
+        "qualified": true,
+        "format": "Hermes bytecode",
+        "bytecodeVersion": 98,
+        "officialHermesDisassemblyExitCode": 0,
+        "executed": false,
+        "staticObservations": {
+          "phase1QaEnabled": false,
+          "newPaymentsEnabled": false,
+          "providerShippingEnabled": false,
+          "commerceTestModeEnabled": false,
+          "posthogCaptureKeyEmpty": true
+        },
+        "observationBasis": "Fresh Android18 Hermes98 disassembly. Feature module initialization writes constant false to QA slot0, folds shipping and payments gates to false and commerce-test gate to false; PostHog API-key slot0 is the empty string. Native Firebase resources and embedded Expo Constants independently target Production. This inspection does not execute application code.",
+        "evidence": {
+          "featureFlagModule": {
+            "lineStart": 366529,
+            "lineEnd": 366783,
+            "sha256": "42fcbd617a5ae5ad9496bd25f5255b227fa8d4836fd18d304971b3212aa3781a"
+          },
+          "posthogModule": {
+            "lineStart": 366784,
+            "lineEnd": 366827,
+            "sha256": "c964ac6f9479e6b2d54467659ba0cc79ee9f59030450e79df5d1757d41cf55af"
+          }
+        },
+        "limitations": [
+          "Hermes bytecode version98 and successful disassembly are not a verdict on Expo Doctor Hermes V1 regression warnings or release runtime correctness.",
+          "This is static inspection, not an on-device production flow test."
+        ]
+      },
+      "easSource": {
+        "status": "FINISHED",
+        "gitCommitHash": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+        "buildProfile": "production",
+        "distribution": "STORE",
+        "createdAt": "2026-11-26T13:27:02.276Z",
+        "completedAt": "2026-11-26T13:56:58.150Z"
+      },
+      "packageIdentifier": "com.seconde.app",
+      "elf16KiB": {
+        "libraryCount": 116,
+        "byAbi": {
+          "arm64-v8a": {
+            "libraries": 29,
+            "exceptions": [],
+            "allLoadAlignedAndCongruent": true
+          },
+          "armeabi-v7a": {
+            "libraries": 29,
+            "exceptions": [
+              "base/lib/armeabi-v7a/libanimation-decoder-gif.so",
+              "base/lib/armeabi-v7a/libappmodules.so",
+              "base/lib/armeabi-v7a/libavif_android.so",
+              "base/lib/armeabi-v7a/libbarhopper_v3.so",
+              "base/lib/armeabi-v7a/libc++_shared.so",
+              "base/lib/armeabi-v7a/libexpo-modules-core.so",
+              "base/lib/armeabi-v7a/libfbjni.so",
+              "base/lib/armeabi-v7a/libgesturehandler.so",
+              "base/lib/armeabi-v7a/libhermestooling.so",
+              "base/lib/armeabi-v7a/libhermesvm.so",
+              "base/lib/armeabi-v7a/libjsi.so",
+              "base/lib/armeabi-v7a/libreact_codegen_rnscreens.so",
+              "base/lib/armeabi-v7a/libreact_codegen_safeareacontext.so",
+              "base/lib/armeabi-v7a/libreactnative.so",
+              "base/lib/armeabi-v7a/libreanimated.so",
+              "base/lib/armeabi-v7a/librnscreens.so",
+              "base/lib/armeabi-v7a/libworklets.so"
+            ],
+            "allLoadAlignedAndCongruent": false
+          },
+          "x86": {
+            "libraries": 29,
+            "exceptions": [
+              "base/lib/x86/libanimation-decoder-gif.so",
+              "base/lib/x86/libappmodules.so",
+              "base/lib/x86/libavif_android.so",
+              "base/lib/x86/libbarhopper_v3.so",
+              "base/lib/x86/libc++_shared.so",
+              "base/lib/x86/libexpo-modules-core.so",
+              "base/lib/x86/libfbjni.so",
+              "base/lib/x86/libgesturehandler.so",
+              "base/lib/x86/libhermestooling.so",
+              "base/lib/x86/libhermesvm.so",
+              "base/lib/x86/libjsi.so",
+              "base/lib/x86/libreact_codegen_rnscreens.so",
+              "base/lib/x86/libreact_codegen_safeareacontext.so",
+              "base/lib/x86/libreactnative.so",
+              "base/lib/x86/libreanimated.so",
+              "base/lib/x86/librnscreens.so",
+              "base/lib/x86/libworklets.so"
+            ],
+            "allLoadAlignedAndCongruent": false
+          },
+          "x86_64": {
+            "libraries": 29,
+            "exceptions": [],
+            "allLoadAlignedAndCongruent": true
+          }
+        },
+        "all64BitLibrariesLoadAlignedAndCongruent": true,
+        "allBundledLibrariesLoadAlignedAndCongruent": false,
+        "finalPlayGeneratedApkZipAlignmentVerified": false,
+        "privateDetailedInspectionSha256": "5d193aff8a2efd51a62bf6d2551ba2c0101c2540184c187e17b5cc47d4dc39ec"
+      },
+      "embeddedOta": {
+        "androidManifestUpdatesMetadata": [
+          {
+            "name": "expo.modules.updates.ENABLED",
+            "value": "false"
+          },
+          {
+            "name": "expo.modules.updates.ENABLE_BSDIFF_PATCH_SUPPORT",
+            "value": "true"
+          },
+          {
+            "name": "expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH",
+            "value": "ALWAYS"
+          },
+          {
+            "name": "expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS",
+            "value": "0"
+          }
+        ],
+        "expoConfigHasUpdates": false,
+        "expoConfigUpdates": null,
+        "expoConfigHasRuntimeVersion": false,
+        "expoConfigRuntimeVersion": null
+      }
+    }
+  },
+  "limitations": [
+    "Static artifact inspection does not certify an on-device production runtime journey.",
+    "No application code or native library is executed by this verification.",
+    "Unused Dev configuration may remain in bundled code; active target is verified from embedded native and Expo configuration.",
+    "ELF LOAD segment analysis does not certify final Google Play generated APK ZIP alignment.",
+    "Android18 Expo Doctor reports a Hermes V1 regression warning and package-version mismatch warning; static artifact PASS does not resolve these release runtime risks.",
+    "All58 bundled64bit libraries have >=16KiB aligned/congruent PT_LOAD segments;34 libraries across the32bit ABIs do not, reported explicitly in elf16KiB.byAbi."
+  ],
+  "knownBuildWarnings": {
+    "android18ExpoDoctor": {
+      "checksPassed": "20/22",
+      "phaseResult": "warning",
+      "failedCheckNames": [
+        "Check for Expo SDK versions affected by Hermes V1 regressions",
+        "Check that packages match versions required by installed Expo SDK"
+      ],
+      "notResolvedByStaticInspection": true
+    }
+  }
+}

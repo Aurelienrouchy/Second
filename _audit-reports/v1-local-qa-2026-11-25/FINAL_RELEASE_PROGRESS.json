@@ -1,0 +1,62 @@
+{
+  "protocol": "phase1_corrected_release_progress_v1",
+  "updatedAt": "2026-11-26T14:11:20.858983+00:00",
+  "sourceCommit": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+  "branch": "codex/v1-local-qa-20261125",
+  "remoteHeadReadbackConfirmed": true,
+  "qaSourceSha256": "95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b",
+  "productionClientSourceSha256": "3a901113723e86baf4fbaf433850f47c3fbe6dc5d14f491aee0d4162a567463b",
+  "builds": [
+    {
+      "id": "0f8f2cee-7114-4ae9-b7bf-6d4f78a4241b",
+      "platform": "IOS",
+      "status": "FINISHED",
+      "appVersion": "1.0.2",
+      "appBuildVersion": "37",
+      "gitCommitHash": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+      "completedAt": "2026-11-26T13:37:32.382Z"
+    },
+    {
+      "id": "a06abdda-db55-4496-9e67-b6fbea1a6ad4",
+      "platform": "ANDROID",
+      "status": "FINISHED",
+      "appVersion": "1.0.2",
+      "appBuildVersion": "18",
+      "gitCommitHash": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+      "completedAt": "2026-11-26T13:56:58.150Z"
+    }
+  ],
+  "iosExpoSubmissionId": "96191df0-8429-4f15-8c42-39b8e6d03a0e",
+  "iosExpoSubmissionState": "FINISHED",
+  "appleAppReviewStateForNew37": "not_submitted",
+  "google18DraftSaved": true,
+  "google18AabUploaded": false,
+  "google17SubmittedForReview": false,
+  "manualTakeover": {
+    "macUnlockUserConfirmed": true,
+    "osConsoleActuallyUnlocked": true,
+    "cuaStillReportsIncorrectLockedState": true,
+    "cuaActivityClosed": true,
+    "targetedSimulatorServiceRestartApprovalPending": true
+  },
+  "ios95bSmoke": "partial_before_public_photo_selection",
+  "prodReceipt3ebFivePinsActive": true,
+  "obsoleteApple35CancellationNativeComplete": true,
+  "published37Or18": false,
+  "proofs": {
+    "APP_FINAL_SELL_VERIFICATION.json": "574ea88c1c800b28dbb7f59f44884c53e5c09d5e22e11066c0c3fae9dce41c68",
+    "ANDROID_SELL_FINAL_RETEST.json": "351fddc30fa3bedff67ec8aded0920d226952c547667b7a0b55e74230b73e7d0",
+    "IOS_SELL_FINAL_SMOKE.json": "874df623aac81b78815270c7acf5d4d34dadec3259d2b4efc1cc99f1538fe528",
+    "FINAL_PRODUCTION_ARCHIVE_PROOF.json": "91ca2ef78a9534ff3d6c3c6931634a41d38a6f8c24128c90514a3e95a583f24f",
+    "FINAL_CLIENT_ERASURE_INVARIANTS.json": "90f65a31f894af2e70a2bbd47d15cc110c4901ab21344be1444700a34dd47abe",
+    "PRODUCTION_ERASURE_PUBLICATION_COMPLETED.json": "593dbd326dbbf43246a1b77ee3b3c34f4d0874c278b621e679f089566c0b35ad",
+    "APPLE_OBSOLETE35_CANCELLATION_COMPLETED.json": "d2703a59e51a0662e75c42517497f60eee531227d6e665a42937ccd9343c37a9",
+    "APPLE_CORRECTED37_UPLOAD_PROOF.json": "06319b0aa11ccdb14f799dac6bfc83b8a5c38bc2626757841fb69a8ae69cae71",
+    "FINAL_PRODUCTION_COMPILED_ARTIFACT_PROOF.json": "41230898b5362f8d11854525a35379a02709b00b89ade5cd68df9b7ab41900ea",
+    "SDK56_HERMES_RELEASE_HOLD.json": "289c788b8389be8266f6b25dd47270d243cbbd2e051a9db7eb12bb3c14c45a0d"
+  },
+  "ios37AppleProcessingState": "VALID",
+  "ios37AppleBuildId": "20269e75-22d6-470f-8c4f-9c7b0c1def32",
+  "releaseHeldForConfirmedHermesRegression": true,
+  "activeCorrection": "CoordinatedSDK57isolatedmigration, newtests/native/storebuildsrequired"
+}

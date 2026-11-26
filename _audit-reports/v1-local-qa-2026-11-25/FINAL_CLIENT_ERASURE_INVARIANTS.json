@@ -1,0 +1,55 @@
+{
+  "protocol": "phase1_final_client_erasure_invariants_v1",
+  "verifiedAt": "2026-11-26T13:27:31.281503+00:00",
+  "gitCommit": "4d6ff92a6596a6ddd5147e3df97dfff19d2683a7",
+  "qaSourceSha256": "95b0942d120da4e6f596fd14cabbde12b07d376b19738482dacea0574b336a6b",
+  "baselineGitCommit": "f7cde9825e0b29a55808b3d7a4b0da2863c18041",
+  "baselineQaSourceSha256": "0454cb10074e5808188981da699e4cde3884ee726a9ef21eba970e8a01602a55",
+  "onlyChangedRuntimeFiles": [
+    "app/sell/_layout.tsx",
+    "app/sell/capture.tsx",
+    "app/sell/pricing.tsx",
+    "features/sell/hooks/useSellActorSource.ts",
+    "features/sell/hooks/useSellExitGuard.ts"
+  ],
+  "allOtherRuntimeSourcesByteIdentical": true,
+  "runtimeDigestsVerified": 1064,
+  "productionArchiveInventorySha256": "3d453cb928d9a3582f689906cbaf165eb8d48acc16836d83614b86d600add461",
+  "archiveRuntimeDigestMatches": 1063,
+  "intentionallyExcludedRuntimeInventoryPath": "yarn.lock",
+  "sourceReview": {
+    "authStoreListenerAndSdkSourceUnchanged": true,
+    "firestoreStorageNamespacesAndSdkServicesUnchanged": true,
+    "rpcContractsAndAdmissionAuthorityUnchanged": true,
+    "posthogProductionCollectionConfigurationUnchanged": true,
+    "featureFlagsAndServerSourcesUnchanged": true,
+    "newCodeOwnsLocalDraftAndNavigationOnly": true,
+    "sameActorStackRetainedOnlyUnderOpaqueNonInteractiveAdmissionGate": true,
+    "uidSdkObjectAndOccurrenceChangesInvalidateContinuity": true,
+    "draftWritesUseExistingOwnerChecksAndNavigationRequiresCapturedTradeSession": true,
+    "staleGenerationSourceFocusRevisionOrSaveFailureDoesNotAuthorizeDeparture": true
+  },
+  "historicalReceipt": {
+    "sha256": "3eb0e7fd3ed7d8c73a699f086e43a21fc62b96a3a2f66db3d339ad1a8c933fa4",
+    "generation": "1795696554296081",
+    "historicalClientSourceSha256": "2112254e016b33049453c5168454ae48949a96a5c58c4ae778567c6c33988525",
+    "receiptAndWriterMatrixRemainImmutable": true,
+    "clientHashIsHistoricalProvenanceNotCallerBinaryWhitelist": true,
+    "serverRulesInventoryPinsRemainExact": true
+  },
+  "status": "STATIC_SOURCE_AND_PRODUCTION_ARCHIVE_QUALIFIED_COMPILED_ARTIFACTS_PENDING",
+  "compiledProductionBinariesVerified": false,
+  "physicalProductionBinaryTestClaimed": false,
+  "newCloudMutationRequiredForUiOnlyDelta": false,
+  "basis": [
+    "Root reviewed exact five runtime-file changes and independently compared all1064runtime digests.",
+    "APP_FINAL_SELL_VERIFICATION.json automated results and ANDROID_SELL_FINAL_RETEST.json scoped native results.",
+    "ACCOUNT_ERASURE_CLIENT_HASH_SEMANTICS.md defines unchanged receipt meaning.",
+    "Fresh production private receipt/fivepins/profile readback retained in PRODUCTION_ERASURE_PUBLICATION_COMPLETED.json."
+  ],
+  "limits": [
+    "Real Apple/Google provider login not newly certified.",
+    "This static supplement does not assert final store build configuration before compiled artifact inspection.",
+    "Historical source211 is not renamed or attributed to new37/18 binaries."
+  ]
+}
